@@ -1,13 +1,13 @@
 // ======= НАСТРОЙКИ FIREBASE =======
 // !!! Вставь сюда СВОИ данные из консоли Firebase !!!
 const firebaseConfig = {
- apiKey: "AIzaSyDaqDEFnRgoOoQRpoQoZ5_OZq4FywdbByM",
- authDomain: "checkers-roulette.firebaseapp.com",
- databaseURL: "https://checkers-roulette-default-rtdb.europe-west1.firebasedatabase.app",
- projectId: "checkers-roulette",
- storageBucket: "checkers-roulette.firebasestorage.app",
- messagingSenderId: "856460439104",
- appId: "1:856460439104:web:0e386cc2afca3b655af9a5"
+  apiKey: "AIzaSyDaqDEFnRgoOoQRpoQoZ5_OZq4FywdbByM",
+  authDomain: "checkers-roulette.firebaseapp.com",
+  databaseURL: "https://checkers-roulette-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "checkers-roulette",
+  storageBucket: "checkers-roulette.firebasestorage.app",
+  messagingSenderId: "856460439104",
+  appId: "1:856460439104:web:0e386cc2afca3b655af9a5"
 };
 
 // Инициализируем Firebase
@@ -31,11 +31,13 @@ if (!myPlayerId) {
     localStorage.setItem('roulette_player_id', myPlayerId);
 }
 
-let players = {}; // Локальная копия всех игроков из БД
-let gameState = {}; // Состояние игры из БД
+let players = {};         // Локальная копия игроков из БД
+let gameState = {};       // Состояние игры из БД
+let onlinePlayers = [];   // Список ID игроков, которые сейчас ОНЛАЙН
 
 let timerInterval = null;
 let animationFrameId = null;
+let serverOffset = 0;     // Разница во времени между клиентом и сервером Google
 
 // Виртуальные координаты шарика
 let ballX = 200, ballY = 200, ballVx = 0, ballVy = 0;
@@ -49,10 +51,15 @@ function getRandomColor() {
     return `hsl(${hue}, 70%, 60%)`;
 }
 
-// Проверка: является ли текущий игрок Хостом комнаты (самым старым по ID)
+// Получение точного серверного времени (убирает рассинхронизацию часов на девайсах)
+function getServerTime() {
+    return Date.now() + serverOffset;
+}
+
+// Проверка: является ли текущий игрок Хостом среди тех, кто сейчас РЕАЛЬНО в сети
 function isHost() {
-    const ids = Object.keys(players).sort();
-    return ids[0] === myPlayerId;
+    if (onlinePlayers.length === 0) return false;
+    return onlinePlayers[0] === myPlayerId;
 }
 
 // ======= Инициализация при загрузке страницы =======
@@ -74,13 +81,35 @@ document.addEventListener('DOMContentLoaded', () => {
         playerNameInput.value = savedName;
     }
 
-    // Слушатели событий интерфейса
     if (placeBetButton) placeBetButton.addEventListener('click', placeBet);
     if (betAmountInput) betAmountInput.addEventListener('keypress', e => { if (e.key === 'Enter') placeBet(); });
 
-    // СВЯЗЬ С БАЗОЙ ДАННЫХ В РЕАЛЬНОМ ВРЕМЕНИ
-    
-    // 1. Слушаем изменения игроков
+    // 1. Получаем разницу во времени с сервером Firebase
+    db.ref('.info/serverTimeOffset').on('value', (snap) => {
+        serverOffset = snap.val() || 0;
+    });
+
+    // 2. Система мониторинга присутствия (Online/Offline)
+    db.ref('.info/connected').on('value', (snap) => {
+        if (snap.val() === true) {
+            // Записываем себя в онлайн
+            const presenceRef = db.ref(`presence/${myPlayerId}`);
+            presenceRef.set(true);
+            // Если закроем вкладку — Firebase автоматически удалит нас из сети
+            presenceRef.onDisconnect().remove();
+        }
+    });
+
+
+
+//3. Отслеживаем список тех, кто сейчас онлайн
+    db.ref('presence').on('value', (snap) => {
+        onlinePlayers = Object.keys(snap.val() || {}).sort();
+        console.log("Игроки в сети:", onlinePlayers, "Я хост?", isHost());
+        checkHostTimerLogic();
+    });
+
+    // 4. Слушаем изменения игроков (ставок)
     db.ref('players').on('value', (snapshot) => {
         players = snapshot.val() || {};
         renderBets();
@@ -88,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         checkHostTimerLogic();
     });
 
-    // 2. Слушаем состояние игры
+    // 5. Слушаем состояние игры
     db.ref('gameState').on('value', (snapshot) => {
         gameState = snapshot.val() || { status: 'betting' };
         syncGameWithDatabase();
@@ -111,15 +140,12 @@ function placeBet() {
         return;
     }
     if (isNaN(amount) || amount <= 0) {
-
-
-alert('Введите корректную сумму!');
+        alert('Введите корректную сумму!');
         return;
     }
 
     localStorage.setItem('roulette_player_name', name);
 
-    // Записываем / обновляем ставку игрока в БД
     const currentBet = (players[myPlayerId] ? players[myPlayerId].totalBet : 0) || 0;
     const playerColor = (players[myPlayerId] && players[myPlayerId].color) ? players[myPlayerId].color : getRandomColor();
 
@@ -137,7 +163,6 @@ function syncGameWithDatabase() {
     const status = gameState.status || 'betting';
     const totalBank = calculateTotalBank();
 
-    // Блокировка инпутов
     if (placeBetButton) placeBetButton.disabled = (status !== 'betting');
     if (betAmountInput) betAmountInput.disabled = (status !== 'betting');
     if (playerNameInput) playerNameInput.disabled = (status !== 'betting');
@@ -150,7 +175,6 @@ function syncGameWithDatabase() {
         }
         if (ball) ball.style.display = 'none';
 
-        // Логика таймера
         if (gameState.timerEnd && gameState.timerEnd > 0) {
             if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'block';
             if (gameMessage) {
@@ -177,7 +201,6 @@ function syncGameWithDatabase() {
             gameMessage.style.color = '#61dafb';
             gameMessage.style.backgroundColor = 'transparent';
         }
-        // Запуск локального рендеринга шарика по общему углу
         if (!animationFrameId) {
             startLocalRound(gameState.launchAngle);
         }
@@ -186,26 +209,27 @@ function syncGameWithDatabase() {
         stopLocalTimer();
         if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'none';
         
-        // Показываем победителя
         if (gameMessage) {
             gameMessage.style.display = 'block';
             gameMessage.style.color = 'black';
             gameMessage.style.backgroundColor = gameState.winnerColor || '#61dafb';
-            gameMessage.textContent = `Победил: ${gameState.winnerName} 🎉 (+${gameState.winnerPrize} ₽)`;
+            gameMessage.textContent = `Победил: $
+
+
+{gameState.winnerName} 🎉 (+${gameState.winnerPrize} ₽)`;
         }
     }
 }
 
-// ======= Таймер (клиентский) =======
+// ======= Синхронный таймер =======
 function startLocalTimer(timerEnd) {
     stopLocalTimer();
     timerInterval = setInterval(() => {
-        const timeLeft = Math.max(0, Math.ceil((timerEnd - Date.now()) / 1000));
+        const timeLeft = Math.max(0, Math.ceil((timerEnd - getServerTime()) / 1000));
         if (bettingTimerDisplay) bettingTimerDisplay.textContent = timeLeft + 'с';
 
         if (timeLeft <= 0) {
             stopLocalTimer();
-            // Если мы хост — переводим игру в статус RUNNING
             if (isHost() && gameState.status === 'betting') {
                 triggerRoundStart();
             }
@@ -220,22 +244,21 @@ function stopLocalTimer() {
     }
 }
 
-// ======= Логика Хоста (управляет базой) =======
+// ======= Управление таймером со стороны Хоста =======
 function checkHostTimerLogic() {
     if (!isHost()) return;
 
-    const activePlayers = Object.values(players).filter(p =>
-p.totalBet > 0);
+    const activePlayers = Object.values(players).filter(p => p.totalBet > 0);
     const status = gameState.status || 'betting';
 
-    // Запускаем таймер, если игроков >= 2 и он еще не запущен
+    // Запуск таймера при наличии 2 и более игроков
     if (status === 'betting' && activePlayers.length >= 2 && (!gameState.timerEnd || gameState.timerEnd === 0)) {
         db.ref('gameState').update({
-            timerEnd: Date.now() + (BETTING_TIME * 1000)
+            timerEnd: getServerTime() + (BETTING_TIME * 1000)
         });
     }
 
-    // Сбрасываем таймер, если активных игроков стало меньше 2
+    // Сброс таймера, если кто-то убрал ставки и игроков < 2
     if (status === 'betting' && activePlayers.length < 2 && (gameState.timerEnd && gameState.timerEnd > 0)) {
         db.ref('gameState').update({
             timerEnd: 0
@@ -244,7 +267,6 @@ p.totalBet > 0);
 }
 
 function triggerRoundStart() {
-    // Генерируем угол старта
     const launchAngle = Math.random() * Math.PI * 2;
     db.ref('gameState').set({
         status: 'running',
@@ -253,24 +275,21 @@ function triggerRoundStart() {
     });
 }
 
-// ======= Синхронная визуализация раунда =======
+// ======= Физика шарика =======
 function startLocalRound(launchAngle) {
     if (ball) {
         ball.style.display = 'block';
     }
 
-    // Сбрасываем виртуальную физику
     ballX = VIRTUAL_WIDTH / 2;
     ballY = VIRTUAL_HEIGHT / 2;
     ballVx = Math.cos(launchAngle) * BALL_MAX_SPEED;
     ballVy = Math.sin(launchAngle) * BALL_MAX_SPEED;
 
-    // Запускаем анимацию
     animationFrameId = requestAnimationFrame(animateLocalBall);
 }
 
 function animateLocalBall() {
-    // Шаг физики в виртуальных координатах
     ballX += ballVx;
     ballY += ballVy;
 
@@ -293,28 +312,21 @@ function animateLocalBall() {
     ballVx *= BALL_DECELERATION;
     ballVy *= BALL_DECELERATION;
 
-    // РЕНДЕРИНГ: переводим виртуальные координаты в реальные пиксели экрана
     if (ball && gameAreaWrapper) {
         const actualW = gameAreaWrapper.offsetWidth;
-        const actualH = gameAreaWrapper.offsetHeight;
-        
         const scaleX = actualW / VIRTUAL_WIDTH;
-        const scaleY = actualH / VIRTUAL_HEIGHT;
 
-        // Позиция на реальном экране
         const screenX = ballX * scaleX;
-        const screenY = ballY * scaleY;
-        const screenRadius = (actualW / VIRTUAL_WIDTH) * VIRTUAL_RADIUS;
+        const screenY = ballY * scaleX;
+        const screenRadius = scaleX * VIRTUAL_RADIUS;
 
         ball.style.left = `${screenX - screenRadius}px`;
         ball.style.top = `${screenY - screenRadius}px`;
     }
 
-    // Если шарик еще движется
     if (Math.abs(ballVx) > 0.1 || Math.abs(ballVy) > 0.1) {
         animationFrameId = requestAnimationFrame(animateLocalBall);
     } else {
-        // Остановка шарика
         animationFrameId = null;
         if (isHost()) {
             determineAndPublishWinner();
@@ -335,12 +347,14 @@ function determineAndPublishWinner() {
     let winner = null;
 
     if (activePlayers.length > 0) {
-        // Рендерим виртуальные сектора для расчета
         activePlayers.sort((a, b) => a.name.localeCompare(b.name));
         const totalB = calculateTotalBank();
         let currentAngle = 0;
 
-        for (const p of activePlayers) {
+        for (const p of
+
+
+activePlayers) {
             const size = (p.totalBet / totalB) * 360;
             const startAngle = currentAngle;
             const endAngle = currentAngle + size;
@@ -349,10 +363,7 @@ function determineAndPublishWinner() {
             if (startAngle <= endAngle) {
                 if (finalAngle >= startAngle && finalAngle < endAngle) {
                     winner = p;
-                    br
-
-
-eak;
+                    break;
                 }
             } else {
                 if (finalAngle >= startAngle || finalAngle < endAngle) {
@@ -364,7 +375,6 @@ eak;
         if (!winner) winner = activePlayers[0];
     }
 
-    // Публикуем победу в БД
     if (winner) {
         db.ref('gameState').set({
             status: 'finished',
@@ -381,7 +391,6 @@ eak;
         });
     }
 
-    // Через 6 секунд Хост перезапускает игру на фазу ставок и перевыбирает цвета игроков
     setTimeout(() => {
         if (isHost()) {
             resetRoomForNextRound();
@@ -390,14 +399,16 @@ eak;
 }
 
 function resetRoomForNextRound() {
-    // Пересобираем игроков: обнуляем ставки и рандомим цвета
     const updatedPlayers = {};
+    // Сохраняем и сбрасываем ставки только тех игроков, кто реально находится на сайте (онлайн)
     for (const id in players) {
-        updatedPlayers[id] = {
-            name: players[id].name,
-            color: getRandomColor(), // Новый цвет на раунд!
-            totalBet: 0
-        };
+        if (onlinePlayers.includes(id)) {
+            updatedPlayers[id] = {
+                name: players[id].name,
+                color: getRandomColor(), // Рандомный цвет на новый раунд!
+                totalBet: 0
+            };
+        }
     }
 
     db.ref('players').set(updatedPlayers);
@@ -407,7 +418,7 @@ function resetRoomForNextRound() {
     });
 }
 
-// ======= Функции Отрисовки UI =======
+// ======= Вспомогательные отрисовки UI =======
 function calculateTotalBank() {
     return Object.values(players).reduce((acc, p) => acc + (p.totalBet || 0), 0);
 }
@@ -437,7 +448,6 @@ function renderWheelSections() {
     const active = Object.values(players).filter(p => p.totalBet > 0);
     const totalB = calculateTotalBank();
 
-    // Если нет ставок — включаем шахматное поле (класс empty-field)
     if (active.length === 0 || totalB === 0) {
         wheelInner.style.background = '#333';
         if (gameAreaWrapper) {
@@ -450,7 +460,6 @@ function renderWheelSections() {
         }
     }
 
-    // Порядок секторов
     active.sort((a, b) => a.name.localeCompare(b.name));
 
     let currentAngle = 0;
