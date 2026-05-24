@@ -9,7 +9,6 @@ const firebaseConfig = {
   messagingSenderId: "856460439104",
   appId: "1:856460439104:web:0e386cc2afca3b655af9a5"
 };
-
 // Инициализируем Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -39,8 +38,10 @@ let timerInterval = null;
 let animationFrameId = null;
 let serverOffset = 0;     // Разница во времени между клиентом и сервером Google
 
-// Виртуальные координаты шарика
-let ballX = 200, ballY = 200, ballVx = 0, ballVy = 0;
+// Физика и воспроизведение пути
+let currentPath = [];     // Сюда запишется рассчитанный путь шарика
+let animStartTime = 0;    // Точное время запуска анимации на устройстве
+let ballX = 200, ballY = 200;
 
 // DOM Элементы
 let bettingTimerDisplay, totalBankDisplay, wheelInner, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, gameMessage;
@@ -92,20 +93,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Система мониторинга присутствия (Online/Offline)
     db.ref('.info/connected').on('value', (snap) => {
         if (snap.val() === true) {
-            // Записываем себя в онлайн
             const presenceRef = db.ref(`presence/${myPlayerId}`);
             presenceRef.set(true);
-            // Если закроем вкладку — Firebase автоматически удалит нас из сети
             presenceRef.onDisconnect().remove();
         }
     });
 
+  
 
-
-//3. Отслеживаем список тех, кто сейчас онлайн
+//Отслеживаем список тех, кто сейчас онлайн
     db.ref('presence').on('value', (snap) => {
         onlinePlayers = Object.keys(snap.val() || {}).sort();
-        console.log("Игроки в сети:", onlinePlayers, "Я хост?", isHost());
         checkHostTimerLogic();
     });
 
@@ -218,6 +216,7 @@ function syncGameWithDatabase() {
     }
 }
 
+
 // ======= Синхронный таймер =======
 function startLocalTimer(timerEnd) {
     stopLocalTimer();
@@ -249,21 +248,17 @@ function checkHostTimerLogic() {
     const status = gameState.status || 'betting';
     const now = getServerTime();
 
-    // Если время вышло, а мы все еще в ставках — принудительно запускаем
     if (status === 'betting' && gameState.timerEnd > 0 && now >= gameState.timerEnd) {
-        console.log("Время вышло, запускаю раунд принудительно...");
         triggerRoundStart();
         return;
     }
 
-    // Запуск таймера при наличии 2 и более игроков
     if (status === 'betting' && activePlayers.length >= 2 && (!gameState.timerEnd || gameState.timerEnd === 0)) {
         db.ref('gameState').update({
             timerEnd: now + (BETTING_TIME * 1000)
         });
     }
 
-    // Сброс таймера, если игроков стало мало
     if (status === 'betting' && activePlayers.length < 2 && (gameState.timerEnd && gameState.timerEnd > 0)) {
         db.ref('gameState').update({
             timerEnd: 0
@@ -280,66 +275,94 @@ function triggerRoundStart() {
     });
 }
 
-// ======= Физика шарика =======
-function startLocalRound(launchAngle) {
-    if (ball) {
-        ball.style.display = 'block';
+// ======= Генерация пути шарика (100% одинаковая математика на всех устройствах) =======
+function generateDeterministicPath(angle) {
+    let x = VIRTUAL_WIDTH / 2;
+    let y = VIRTUAL_HEIGHT / 2;
+    let vx = Math.cos(angle) * BALL_MAX_SPEED;
+    let vy = Math.sin(angle) * BALL_MAX_SPEED;
+    
+    const path = [];
+    let iterations = 0;
+
+    // Считаем точки до остановки (или предел 2000 шагов для безопасности)
+    while ((Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) && iterations < 2000) {
+        x += vx;
+        y += vy;
+
+        // Отскоки
+        if (x - VIRTUAL_RADIUS < 0) {
+            vx = Math.abs(vx);
+            x = VIRTUAL_RADIUS;
+        } else if (x + VIRTUAL_RADIUS > VIRTUAL_WIDTH) {
+            vx = -Math.abs(vx);
+            x = VIRTUAL_WIDTH - VIRTUAL_RADIUS;
+        }
+
+        if (y - VIRTUAL_RADIUS < 0) {
+            vy = Math.abs(vy);
+            y = VIRTUAL_RADIUS;
+        } else if (y + VIRTUAL_RADIUS > VIRTUAL_HEIGHT) {
+            vy = -Math.abs(vy);
+            y = VIRTUAL_HEIGHT - VIRTUAL_RADIUS;
+        }
+
+        vx *= BALL_DECELERATION;
+        vy *= BALL_DECELERATION;
+
+        path.push({ x: x, y: y });
+        iterations++;
     }
-
-    ballX = VIRTUAL_WIDTH / 2;
-    ballY = VIRTUAL_HEIGHT / 2;
-    ballVx = Math.cos(launchAngle) * BALL_MAX_SPEED;
-    ballVy = Math.sin(launchAngle) * BALL_MAX_SPEED;
-
-    animationFrameId = requestAnimationFrame(animateLocalBall);
+    return path;
 }
 
-function animateLocalBall() {
-    ballX += ballVx;
-    ballY += ballVy;
+// ======= Запуск синхронного рендеринга =======
+function startLocalRound(launchAngle) {
+    if (ball) ball.style.display = 'block';
 
-    // Отскоки в виртуальном пространстве 400x400
-    if (ballX - VIRTUAL_RADIUS < 0) {
-        ballVx = Math.abs(ballVx);
-        ballX = VIRTUAL_RADIUS;
-    } else if (ballX + VIRTUAL_RADIUS > VIRTUAL_WIDTH) {
-        ballVx = -Math.abs(ballVx);
-        ballX = VIRTUAL_WIDTH - VIRTUAL_RADIUS;
-    }
+    // 1. Мгновенно рассчитываем одинаковую траекторию
+    currentPath = generateDeterministicPath(launchAngle);
+    animStartTime = Date.now();
 
-    if (ballY - VIRTUAL_RADIUS < 0) {
-        ballVy = Math.abs(ballVy);
-        ballY = VIRTUAL_RADIUS;
-    } else if (ballY + VIRTUAL_RADIUS > VIRTUAL_HEIGHT) {
-        ballVy = -Math.abs(ballVy);
-        ballY = VIRTUAL_HEIGHT - VIRTUAL_RADIUS;
-    }
+    // 2. Начинаем воспроизведение кадров
+    animationFrameId = requestAnimationFrame(animateDeterministicBall);
+}
 
-    ballVx *= BALL_DECELERATION;
-    ballVy *= BALL_DECELERATION;
+function animateDeterministicBall() {
+    const elapsed = Date.now() - animStartTime;
+    const targetFps = 60; // Ограничиваем скорость показа под 60 FPS
+    const frameIndex = Math.floor((elapsed / 1000) * targetFps);
 
-    if (ball && gameAreaWrapper) {
-        // Получаем РЕАЛЬНЫЙ размер квадрата на экране (без учета рамок)
-        const rect = gameAreaWrapper.getBoundingClientRect();
-        const borderSize = 5; // Размер рамки в CSS
-        const actualSize = rect.width - (borderSize * 2);
+    // Если "видео" еще идет
+    if (frameIndex < currentPath.length) {
+        const coord = currentPath[frameIndex];
+        ballX = coord.x;
+        ballY = coord.y;
 
-        // Масштабируем виртуальные 400 в реальные пиксели
-        const scale = actualSize / VIRTUAL_WIDTH;
+        // Рендерим на экране текущие координаты
+        if (ball && gameAreaWrapper) {
+            const rect = gameAreaWrapper.getBoundingClientRect();
+            const borderSize = 5;
+            const actualSize = rect.width - (borderSize * 2);
+            const scale = actualSize / VIRTUAL_WIDTH;
 
-        const screenX = ballX * scale;
-        const screenY = ballY * scale;
-        const screenRadius = VIRTUAL_RADIUS * scale;
+            const screenX = ballX * scale;
+            const screenY = ballY * scale;
+            const screenRadius = VIRTUAL_RADIUS * scale;
 
-        ball.style.width = `${screenRadius * 2}px`;
-        ball.style.height = `${screenRadius * 2}px`;
-        ball.style.left = `${screenX - screenRadius}px`;
-        ball.style.top = `${screenY - screenRadius}px`;
-    }
+            ball.style.width = `${screenRadius * 2}px`;
+            ball.style.height = `${screenRadius * 2}px`;
+            ball.style.left = `${screenX - screenRadius}px`;
+            ball.style.top = `${screenY - screenRadius}px`;
+        }
 
-    if (Math.abs(ballVx) > 0.1 || Math.abs(ballVy) > 0.1) {
-        animationFrameId = requestAnimationFrame(animateLocalBall);
+        animationFrameId = requestAnimationFrame(animateDeterministicBall);
     } else {
+        // Конец пути - ставим в финальную точку
+        const finalCoord = currentPath[currentPath.length - 1];
+        ballX = finalCoord.x;
+        ballY = finalCoord.y;
+
         animationFrameId = null;
         if (isHost()) {
             determineAndPublishWinner();
@@ -410,12 +433,11 @@ function determineAndPublishWinner() {
 
 function resetRoomForNextRound() {
     const updatedPlayers = {};
-    // Сохраняем и сбрасываем ставки только тех игроков, кто реально находится на сайте (онлайн)
     for (const id in players) {
         if (onlinePlayers.includes(id)) {
             updatedPlayers[id] = {
                 name: players[id].name,
-                color: getRandomColor(), // Рандомный цвет на новый раунд!
+                color: getRandomColor(),
                 totalBet: 0
             };
         }
