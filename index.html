@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Не лудка!</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="ui">
+        <input type="text" id="playerNameInput" placeholder="Имя игрока">
+        <input type="number" id="betAmountInput" placeholder="Ставка" min="5">
+        <button id="placeBetButton">Сделать ставку</button>
+
+
+        
+        
+        <div id="statusInfo">
+            
+            
+            <p> Общий Банк: <span id="totalBank">0</span> ₽</p>
+        </div>
+        <div id="gameMessage">Ждем ставки...</div>
+    </div>
+
+    <div id="gameAreaWrapper">
+        <div id="wheelInner"></div>
+<span id="bettingTimer">15с</span>
+
+        <div id="ball">
+
+        </div>
+    </div>
+
+    <div id="betList">
+        <div class="bet-placeholder">Пока нет ставок...</div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
