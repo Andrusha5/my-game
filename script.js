@@ -250,15 +250,23 @@ function checkHostTimerLogic() {
 
     const activePlayers = Object.values(players).filter(p => p.totalBet > 0);
     const status = gameState.status || 'betting';
+    const now = getServerTime();
+
+    // Если время вышло, а мы все еще в ставках — принудительно запускаем
+    if (status === 'betting' && gameState.timerEnd > 0 && now >= gameState.timerEnd) {
+        console.log("Время вышло, запускаю раунд принудительно...");
+        triggerRoundStart();
+        return;
+    }
 
     // Запуск таймера при наличии 2 и более игроков
     if (status === 'betting' && activePlayers.length >= 2 && (!gameState.timerEnd || gameState.timerEnd === 0)) {
         db.ref('gameState').update({
-            timerEnd: getServerTime() + (BETTING_TIME * 1000)
+            timerEnd: now + (BETTING_TIME * 1000)
         });
     }
 
-    // Сброс таймера, если кто-то убрал ставки и игроков < 2
+    // Сброс таймера, если игроков стало мало
     if (status === 'betting' && activePlayers.length < 2 && (gameState.timerEnd && gameState.timerEnd > 0)) {
         db.ref('gameState').update({
             timerEnd: 0
