@@ -351,10 +351,7 @@ function determineAndPublishWinner() {
         const totalB = calculateTotalBank();
         let currentAngle = 0;
 
-        for (const p of
-
-
-activePlayers) {
+        for (const p of activePlayers) {
             const size = (p.totalBet / totalB) * 360;
             const startAngle = currentAngle;
             const endAngle = currentAngle + size;
