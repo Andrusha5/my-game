@@ -213,10 +213,7 @@ function syncGameWithDatabase() {
             gameMessage.style.display = 'block';
             gameMessage.style.color = 'black';
             gameMessage.style.backgroundColor = gameState.winnerColor || '#61dafb';
-            gameMessage.textContent = `Победил: $
-
-
-{gameState.winnerName} 🎉 (+${gameState.winnerPrize} ₽)`;
+            gameMessage.textContent = `Победил: ${gameState.winnerName} 🎉 (+${gameState.winnerPrize} ₽)`;
         }
     }
 }
