@@ -1,35 +1,47 @@
-// ======= Настройки =======
-const BETTING_TIME = 15;         // время на ставки (сек)
-const BALL_MAX_SPEED = 150;       // начальная скорость шарика
-const BALL_DECELERATION = 0.985; // коэффициент замедления
+// ======= НАСТРОЙКИ FIREBASE =======
+// !!! Вставь сюда СВОИ данные из консоли Firebase !!!
+const firebaseConfig = {
+    apiKey: "ТВОЙ_API_KEY",
+    authDomain: "ТВОЙ_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://ТВОЙ_PROJECT_ID-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "ТВОЙ_PROJECT_ID",
+    storageBucket: "ТВОЙ_PROJECT_ID.appspot.com",
+    messagingSenderId: "ТВОЙ_ОТПРАВИТЕЛЬ",
+    appId: "ТВОЙ_APP_ID"
+};
+
+// Инициализируем Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ======= Игровые Константы =======
+const BETTING_TIME = 15;         // Время ставок (сек)
+const BALL_MAX_SPEED = 150;       // Виртуальная скорость
+const BALL_DECELERATION = 0.985; // Коэффициент замедления
+
+// Виртуальные размеры поля для 100% одинаковой физики на телефонах и ПК
+const VIRTUAL_WIDTH = 400;
+const VIRTUAL_HEIGHT = 400;
+const VIRTUAL_RADIUS = 12; // половина диаметра шарика (24px)
 
 // ======= Глобальные переменные состояния =======
-let bettingTimeLeft = BETTING_TIME;
-let bettingTimerInterval = null;
+let myPlayerId = localStorage.getItem('roulette_player_id');
+if (!myPlayerId) {
+    myPlayerId = `player_${Math.random().toString(36).slice(2, 11)}`;
+    localStorage.setItem('roulette_player_id', myPlayerId);
+}
 
-let isBettingOpen = true;
-let gameIsRunning = false;
-let roundStarting = false; // блокировка повторного запуска
+let players = {}; // Локальная копия всех игроков из БД
+let gameState = {}; // Состояние игры из БД
 
-let players = {};   // { id: { name, color, totalBet, startAngle, endAngle } }
-let totalBank = 0;
+let timerInterval = null;
+let animationFrameId = null;
 
-// Шарик
-let ballX = 0, ballY = 0, ballVx = 0, ballVy = 0;
-let ballAnimationFrameId = null;
+// Виртуальные координаты шарика
+let ballX = 200, ballY = 200, ballVx = 0, ballVy = 0;
 
-// DOM элементы (будут инициализированы в DOMContentLoaded)
-let bettingTimerDisplay = null;
-let totalBankDisplay = null;
-let wheelInner = null;
-let gameAreaWrapper = null;
-let ball = null;
-let playerNameInput = null;
-let betAmountInput = null;
-let placeBetButton = null;
-let betList = null;
-let gameMessage = null;
-let startRoundButton = null;
+// DOM Элементы
+let bettingTimerDisplay, totalBankDisplay, wheelInner, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, gameMessage;
 
 // ======= Вспомогательные функции =======
 function getRandomColor() {
@@ -37,77 +49,60 @@ function getRandomColor() {
     return `hsl(${hue}, 70%, 60%)`;
 }
 
-function safeText(el, text) {
-    if (el) el.textContent = text;
+// Проверка: является ли текущий игрок Хостом комнаты (самым старым по ID)
+function isHost() {
+    const ids = Object.keys(players).sort();
+    return ids[0] === myPlayerId;
 }
 
-function updateUIState() {
-    if (placeBetButton) placeBetButton.disabled = !isBettingOpen || gameIsRunning;
-    if (betAmountInput) betAmountInput.disabled = !isBettingOpen || gameIsRunning;
-    if (playerNameInput) playerNameInput.disabled = gameIsRunning;
-    if (startRoundButton) startRoundButton.disabled = isBettingOpen || totalBank === 0;
-    if (totalBankDisplay) totalBankDisplay.textContent = totalBank;
-}
+// ======= Инициализация при загрузке страницы =======
+document.addEventListener('DOMContentLoaded', () => {
+    bettingTimerDisplay = document.getElementById('bettingTimer');
+    totalBankDisplay = document.getElementById('totalBank');
+    wheelInner = document.getElementById('wheelInner');
+    gameAreaWrapper = document.getElementById('gameAreaWrapper');
+    ball = document.getElementById('ball');
+    playerNameInput = document.getElementById('playerNameInput');
+    betAmountInput = document.getElementById('betAmountInput');
+    placeBetButton = document.getElementById('placeBetButton');
+    betList = document.getElementById('betList');
+    gameMessage = document.getElementById('gameMessage');
 
-// ======= Инициализация =======
-function initGame() {
-    console.log('initGame: инициализация игры');
-    startBettingPhase();
-    updateUIState();
-    renderBets();
-    renderWheelSections();
-}
-
-// ======= Фаза ставок =======
-function startBettingPhase() {
-    console.log('startBettingPhase: начало фазы ставок');
-    isBettingOpen = true;
-    gameIsRunning = false;
-    bettingTimeLeft = BETTING_TIME;
-    totalBank = 0;
-
-    // Сбрасываем ставки и ГЕНЕРИРУЕМ НОВЫЙ РАНДОМНЫЙ ЦВЕТ каждому игроку на новый раунд
-    for (const id in players) {
-        players[id].totalBet = 0;
-        players[id].startAngle = 0;
-        players[id].endAngle = 0;
-        players[id].color = getRandomColor(); // Перевыбор цвета для нового раунда
+    // Предзаполнение сохраненного имени
+    const savedName = localStorage.getItem('roulette_player_name');
+    if (savedName && playerNameInput) {
+        playerNameInput.value = savedName;
     }
 
-    // UI
-    if (bettingTimerDisplay) {
-        bettingTimerDisplay.style.display = 'none';
-        bettingTimerDisplay.textContent = BETTING_TIME + 'с';
-    }
-    safeText(totalBankDisplay, totalBank);
-    if (betList) betList.innerHTML = '<div class="bet-placeholder">Пока нет ставок...</div>';
-    if (gameMessage) {
-        gameMessage.style.display = 'block';
-        gameMessage.style.backgroundColor = 'transparent';
-        gameMessage.style.color = 'white';
-        gameMessage.textContent = 'Ждем ставки...';
-    }
-    if (ball) {
-        ball.style.display = 'none';
-        ball.style.visibility = 'hidden';
-    }
+    // Слушатели событий интерфейса
+    if (placeBetButton) placeBetButton.addEventListener('click', placeBet);
+    if (betAmountInput) betAmountInput.addEventListener('keypress', e => { if (e.key === 'Enter') placeBet(); });
 
-    // Очистка таймера
-    if (bettingTimerInterval) {
-        clearInterval(bettingTimerInterval);
-        bettingTimerInterval = null;
-    }
+    // СВЯЗЬ С БАЗОЙ ДАННЫХ В РЕАЛЬНОМ ВРЕМЕНИ
+    
+    // 1. Слушаем изменения игроков
+    db.ref('players').on('value', (snapshot) => {
+        players = snapshot.val() || {};
+        renderBets();
+        renderWheelSections();
+        checkHostTimerLogic();
+    });
 
-    updateUIState();
-    renderWheelSections();
-}
+    // 2. Слушаем состояние игры
+    db.ref('gameState').on('value', (snapshot) => {
+        gameState = snapshot.val() || { status: 'betting' };
+        syncGameWithDatabase();
+    });
+});
 
-// ======= Добавление ставки =======
+// ======= Логика ставок =======
 function placeBet() {
-    if (!isBettingOpen) {
-        alert('Время ставок закончено!');
+    const status = gameState.status || 'betting';
+    if (status !== 'betting') {
+        alert('Ставки закрыты!');
         return;
     }
+
     const name = playerNameInput ? playerNameInput.value.trim() : '';
     const amount = betAmountInput ? parseInt(betAmountInput.value) : NaN;
 
@@ -116,295 +111,307 @@ function placeBet() {
         return;
     }
     if (isNaN(amount) || amount <= 0) {
-        alert('Введите корректную сумму!');
+
+
+alert('Введите корректную сумму!');
         return;
     }
 
-    // Ищем игрока по имени
-    let id = Object.keys(players).find(k => players[k].name === name);
-    if (!id) {
-        id = `player_${Math.random().toString(36).slice(2, 11)}`;
-        players[id] = {
-            name,
-            color: getRandomColor(),
-            totalBet: 0,
-            startAngle: 0,
-            endAngle: 0
-            };
-    }
-    players[id].totalBet += amount;
-    totalBank += amount;
+    localStorage.setItem('roulette_player_name', name);
 
-    if (betAmountInput) betAmountInput.value = '';
+    // Записываем / обновляем ставку игрока в БД
+    const currentBet = (players[myPlayerId] ? players[myPlayerId].totalBet : 0) || 0;
+    const playerColor = (players[myPlayerId] && players[myPlayerId].color) ? players[myPlayerId].color : getRandomColor();
 
-    renderBets();
-    renderWheelSections();
-    updateUIState();
-
-    checkAndStartTimer();
-}
-
-// ======= Таймер: запуск только при >=2 ставок =======
-function checkAndStartTimer() {
-    const activeCount = Object.values(players).filter(p => p.totalBet > 0).length;
-    console.log('checkAndStartTimer: activeCount=', activeCount, ' bettingTimerInterval=', bettingTimerInterval);
-
-    // Если игроков >=2 и таймер не запущен — запускаем
-    if (activeCount >= 2 && bettingTimerInterval === null) {
-        console.log('checkAndStartTimer: запускаем таймер');
-        bettingTimeLeft = BETTING_TIME;
-        if (bettingTimerDisplay) {
-            bettingTimerDisplay.style.display = 'block';
-            bettingTimerDisplay.textContent = bettingTimeLeft + 'с';
-        }
-        if (gameMessage) {
-            gameMessage.textContent = 'Ставки приняты! Время пошло';
-            gameMessage.style.color = '#61dafb';
-        }
-
-        bettingTimerInterval = setInterval(() => {
-            bettingTimeLeft--;
-            if (bettingTimerDisplay) bettingTimerDisplay.textContent = bettingTimeLeft + 'с';
-            console.log('Timer tick:', bettingTimeLeft);
-            if (bettingTimeLeft <= 0) {
-                clearInterval(bettingTimerInterval);
-                bettingTimerInterval = null;
-                endBettingPhase();
-            }
-        }, 1000);
-        return;
-    }
-
-    // Если игроков стало <2 и таймер работал — останавливаем
-    if (activeCount < 2 && bettingTimerInterval !== null) {
-        console.log('checkAndStartTimer: мало игроков, останавливаем таймер');
-        clearInterval(bettingTimerInterval);
-        bettingTimerInterval = null;
-        bettingTimeLeft = BETTING_TIME;
-        if (bettingTimerDisplay) {
-            bettingTimerDisplay.style.display = 'none';
-            bettingTimerDisplay.textContent = bettingTimeLeft + 'с';
-        }
-        if (gameMessage) {
-            gameMessage.textContent = 'Ждем ставки...';
-            gameMessage.style.color = 'white';
-        }
-    }
-}
-
-// ======= Конец фазы ставок =======
-function endBettingPhase() {
-    console.log('endBettingPhase: вызвано');
-    // Защита: если раунд уже запускается/запущен — не делаем ничего
-    if (roundStarting || gameIsRunning) {
-        console.log('endBettingPhase: раунд уже запускается/запущен, выходим');
-        return;
-    }
-
-    isBettingOpen = false;
-    updateUIState();
-    console.log('endBettingPhase: Total bank =', totalBank);
-
-    if (totalBank === 0) {
-        if (gameMessage) {
-            gameMessage.textContent = 'Нет ставок, раунд отменен.';
-            gameMessage.style.color = '#e57373';
-        }
-        setTimeout(startBettingPhase, 3000);
-        return;
-    }
-
-    if (gameMessage) {
-        gameMessage.textContent = 'Запускаем раунд...';
-        gameMessage.style.color = '#61dafb';
-    }
-
-    // Вызов startRound через маленькую задержку (даёт время UI обновиться)
-    setTimeout(() => {
-        if (!roundStarting && !gameIsRunning) {
-            startRound();
-        } else {
-            console.log('endBettingPhase -> startRound: уже запускается/запущено');
-        }
-    }, 600);
-}
-
-// ======= Запуск раунда и анимация шарика =======
-function startRound() {
-    console.log('startRound: вызван. gameIsRunning=', gameIsRunning, 'roundStarting=', roundStarting);
-
-    if (gameIsRunning || roundStarting) {
-        console.log('startRound: уже запущено или запускается, выход.');
-        return;
-    }
-
-    roundStarting = true; // блокируем повторные входы
-    isBettingOpen = false;
-    gameIsRunning = true;
-    updateUIState();
-
-    if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'none';
-    if (gameMessage) gameMessage.style.display = 'none';
-
-    // Отменяем предыдущую анимацию, если она была активна
-    if (ballAnimationFrameId) {
-        cancelAnimationFrame(ballAnimationFrameId);
-        ballAnimationFrameId = null;
-    }
-
-    // Проверки перед запуском
-    const activePlayers = Object.values(players).filter(p => p.totalBet > 0);
-    if (!ball || !gameAreaWrapper || totalBank === 0 || activePlayers.length === 0) {
-        console.log('startRound: условия не выполнены.');
-        roundStarting = false;
-        gameIsRunning = false;
-        setTimeout(startBettingPhase, 1000);
-        return;
-    }
-
-    // Показываем шарик и центрируем
-    ball.style.display = 'block';
-    ball.style.visibility = 'visible';
-    const radius = Math.max(8, Math.floor(ball.offsetWidth / 2)); // безопасный радиус
-
-    ballX = gameAreaWrapper.offsetWidth / 2;
-    ballY = gameAreaWrapper.offsetHeight / 2;
-    ball.style.left = `${ballX - radius}px`;
-    ball.style.top = `${ballY - radius}px`;
-
-    // Инициализируем скорость
-    const ang = Math.random() * Math.PI * 2;
-    ballVx = Math.cos(ang) * BALL_MAX_SPEED;
-    ballVy = Math.sin(ang) * BALL_MAX_SPEED;
-
-    // Запускаем анимацию
-    ballAnimationFrameId = requestAnimationFrame(function firstFrame() {
-        roundStarting = false;
-        animateBall(radius);
+    db.ref(`players/${myPlayerId}`).set({
+        name: name,
+        color: playerColor,
+        totalBet: currentBet + amount
     });
 
-    console.log('startRound: шарик запущен.');
+    if (betAmountInput) betAmountInput.value = '';
 }
 
-// ======= Анимация шарика (отскоки в квадрате) =======
-function animateBall(radius) {
+// ======= Синхронизация интерфейса с Firebase =======
+function syncGameWithDatabase() {
+    const status = gameState.status || 'betting';
+    const totalBank = calculateTotalBank();
+
+    // Блокировка инпутов
+    if (placeBetButton) placeBetButton.disabled = (status !== 'betting');
+    if (betAmountInput) betAmountInput.disabled = (status !== 'betting');
+    if (playerNameInput) playerNameInput.disabled = (status !== 'betting');
+    if (totalBankDisplay) totalBankDisplay.textContent = totalBank;
+
+    if (status === 'betting') {
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+        if (ball) ball.style.display = 'none';
+
+        // Логика таймера
+        if (gameState.timerEnd && gameState.timerEnd > 0) {
+            if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'block';
+            if (gameMessage) {
+                gameMessage.textContent = 'Ставки приняты! Время пошло';
+                gameMessage.style.color = '#61dafb';
+                gameMessage.style.backgroundColor = 'transparent';
+            }
+            startLocalTimer(gameState.timerEnd);
+        } else {
+            if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'none';
+            if (gameMessage) {
+                gameMessage.textContent = 'Ждем ставки...';
+                gameMessage.style.color = 'white';
+                gameMessage.style.backgroundColor = 'transparent';
+            }
+            stopLocalTimer();
+        }
+    } 
+    else if (status === 'running') {
+        stopLocalTimer();
+        if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'none';
+        if (gameMessage) {
+            gameMessage.textContent = 'Шарик запущен!';
+            gameMessage.style.color = '#61dafb';
+            gameMessage.style.backgroundColor = 'transparent';
+        }
+        // Запуск локального рендеринга шарика по общему углу
+        if (!animationFrameId) {
+            startLocalRound(gameState.launchAngle);
+        }
+    } 
+    else if (status === 'finished') {
+        stopLocalTimer();
+        if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'none';
+        
+        // Показываем победителя
+        if (gameMessage) {
+            gameMessage.style.display = 'block';
+            gameMessage.style.color = 'black';
+            gameMessage.style.backgroundColor = gameState.winnerColor || '#61dafb';
+            gameMessage.textContent = `Победил: ${gameState.winnerName} 🎉 (+${gameState.winnerPrize} ₽)`;
+        }
+    }
+}
+
+// ======= Таймер (клиентский) =======
+function startLocalTimer(timerEnd) {
+    stopLocalTimer();
+    timerInterval = setInterval(() => {
+        const timeLeft = Math.max(0, Math.ceil((timerEnd - Date.now()) / 1000));
+        if (bettingTimerDisplay) bettingTimerDisplay.textContent = timeLeft + 'с';
+
+        if (timeLeft <= 0) {
+            stopLocalTimer();
+            // Если мы хост — переводим игру в статус RUNNING
+            if (isHost() && gameState.status === 'betting') {
+                triggerRoundStart();
+            }
+        }
+    }, 200);
+}
+
+function stopLocalTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
+// ======= Логика Хоста (управляет базой) =======
+function checkHostTimerLogic() {
+    if (!isHost()) return;
+
+    const activePlayers = Object.values(players).filter(p =>
+p.totalBet > 0);
+    const status = gameState.status || 'betting';
+
+    // Запускаем таймер, если игроков >= 2 и он еще не запущен
+    if (status === 'betting' && activePlayers.length >= 2 && (!gameState.timerEnd || gameState.timerEnd === 0)) {
+        db.ref('gameState').update({
+            timerEnd: Date.now() + (BETTING_TIME * 1000)
+        });
+    }
+
+    // Сбрасываем таймер, если активных игроков стало меньше 2
+    if (status === 'betting' && activePlayers.length < 2 && (gameState.timerEnd && gameState.timerEnd > 0)) {
+        db.ref('gameState').update({
+            timerEnd: 0
+        });
+    }
+}
+
+function triggerRoundStart() {
+    // Генерируем угол старта
+    const launchAngle = Math.random() * Math.PI * 2;
+    db.ref('gameState').set({
+        status: 'running',
+        launchAngle: launchAngle,
+        timerEnd: 0
+    });
+}
+
+// ======= Синхронная визуализация раунда =======
+function startLocalRound(launchAngle) {
+    if (ball) {
+        ball.style.display = 'block';
+    }
+
+    // Сбрасываем виртуальную физику
+    ballX = VIRTUAL_WIDTH / 2;
+    ballY = VIRTUAL_HEIGHT / 2;
+    ballVx = Math.cos(launchAngle) * BALL_MAX_SPEED;
+    ballVy = Math.sin(launchAngle) * BALL_MAX_SPEED;
+
+    // Запускаем анимацию
+    animationFrameId = requestAnimationFrame(animateLocalBall);
+}
+
+function animateLocalBall() {
+    // Шаг физики в виртуальных координатах
     ballX += ballVx;
     ballY += ballVy;
 
-    const W = gameAreaWrapper.offsetWidth;
-    const H = gameAreaWrapper.offsetHeight;
-
-    // Отскоки от стен квадрата и коррекция позиции
-    if (ballX - radius < 0) {
+    if (ballX - VIRTUAL_RADIUS < 0) {
         ballVx = Math.abs(ballVx);
-        ballX = radius;
-    } else if (ballX + radius > W) {
+        ballX = VIRTUAL_RADIUS;
+    } else if (ballX + VIRTUAL_RADIUS > VIRTUAL_WIDTH) {
         ballVx = -Math.abs(ballVx);
-        ballX = W - radius;
+        ballX = VIRTUAL_WIDTH - VIRTUAL_RADIUS;
     }
 
-    if (ballY - radius < 0) {
+    if (ballY - VIRTUAL_RADIUS < 0) {
         ballVy = Math.abs(ballVy);
-        ballY = radius;
-    } else if (ballY + radius > H) {
+        ballY = VIRTUAL_RADIUS;
+    } else if (ballY + VIRTUAL_RADIUS > VIRTUAL_HEIGHT) {
         ballVy = -Math.abs(ballVy);
-        ballY = H - radius;
+        ballY = VIRTUAL_HEIGHT - VIRTUAL_RADIUS;
     }
 
-    // Замедление
     ballVx *= BALL_DECELERATION;
     ballVy *= BALL_DECELERATION;
 
-    // Отрисовка
-    if (ball) {
-        ball.style.left = `${ballX - radius}px`;
-        ball.style.top = `${ballY - radius}px`;
+    // РЕНДЕРИНГ: переводим виртуальные координаты в реальные пиксели экрана
+    if (ball && gameAreaWrapper) {
+        const actualW = gameAreaWrapper.offsetWidth;
+        const actualH = gameAreaWrapper.offsetHeight;
+        
+        const scaleX = actualW / VIRTUAL_WIDTH;
+        const scaleY = actualH / VIRTUAL_HEIGHT;
+
+        // Позиция на реальном экране
+        const screenX = ballX * scaleX;
+        const screenY = ballY * scaleY;
+        const screenRadius = (actualW / VIRTUAL_WIDTH) * VIRTUAL_RADIUS;
+
+        ball.style.left = `${screenX - screenRadius}px`;
+        ball.style.top = `${screenY - screenRadius}px`;
     }
 
-    // Продолжаем или завершаем
+    // Если шарик еще движется
     if (Math.abs(ballVx) > 0.1 || Math.abs(ballVy) > 0.1) {
-        ballAnimationFrameId = requestAnimationFrame(() => animateBall(radius));
+        animationFrameId = requestAnimationFrame(animateLocalBall);
     } else {
-        if (ballAnimationFrameId) cancelAnimationFrame(ballAnimationFrameId);
-        ballAnimationFrameId = null;
-        finishRound();
+        // Остановка шарика
+        animationFrameId = null;
+        if (isHost()) {
+            determineAndPublishWinner();
+        }
     }
 }
 
-// ======= Завершение раунда: определение победителя =======
-function finishRound() {
-    console.log('finishRound: определение победителя');
-
-    const centerX = gameAreaWrapper.offsetWidth / 2;
-    const centerY = gameAreaWrapper.offsetHeight / 2;
-
-    const dx = ballX - centerX;
-    const dy = ballY - centerY;
+// ======= Определение победителя =======
+function determineAndPublishWinner() {
+    const dx = ballX - (VIRTUAL_WIDTH / 2);
+    const dy = ballY - (VIRTUAL_HEIGHT / 2);
 
     let finalAngle = (Math.atan2(dy, dx) * 180 / Math.PI) + 90;
     if (finalAngle < 0) finalAngle += 360;
     if (finalAngle >= 360) finalAngle -= 360;
-    console.log('finishRound: угол шарика =', finalAngle.toFixed(2));
 
     const activePlayers = Object.values(players).filter(p => p.totalBet > 0);
     let winner = null;
 
     if (activePlayers.length > 0) {
+        // Рендерим виртуальные сектора для расчета
+        activePlayers.sort((a, b) => a.name.localeCompare(b.name));
+        const totalB = calculateTotalBank();
+        let currentAngle = 0;
+
         for (const p of activePlayers) {
-            if (typeof p.startAngle === 'number' && typeof p.endAngle === 'number') {
-                if (p.startAngle <= p.endAngle) {
-                    if (finalAngle >= p.startAngle && finalAngle < p.endAngle) {
-                        winner = p;
-                        break;
-                    }
-                } else {
-                    if (finalAngle >= p.startAngle || finalAngle < p.endAngle) {
-                        winner = p;
-                        break;
-                    }
+            const size = (p.totalBet / totalB) * 360;
+            const startAngle = currentAngle;
+            const endAngle = currentAngle + size;
+            currentAngle += size;
+
+            if (startAngle <= endAngle) {
+                if (finalAngle >= startAngle && finalAngle < endAngle) {
+                    winner = p;
+                    br
+
+
+eak;
+                }
+            } else {
+                if (finalAngle >= startAngle || finalAngle < endAngle) {
+                    winner = p;
+                    break;
                 }
             }
         }
         if (!winner) winner = activePlayers[0];
     }
 
+    // Публикуем победу в БД
     if (winner) {
-        if (gameMessage) {
-            gameMessage.style.display = 'block';
-            gameMessage.style.color = 'black';
-            gameMessage.style.backgroundColor = winner.color;
-            gameMessage.textContent = `Победил: ${winner.name} 🎉 (+${totalBank} ₽)`;
-        }
-        console.log('finishRound: Победитель =', winner.name);
+        db.ref('gameState').set({
+            status: 'finished',
+            winnerName: winner.name,
+            winnerColor: winner.color,
+            winnerPrize: calculateTotalBank()
+        });
     } else {
-        if (gameMessage) {
-            gameMessage.style.display = 'block';
-            gameMessage.style.color = '#e57373';
-            gameMessage.style.backgroundColor = 'transparent';
-            gameMessage.textContent = 'Шарик не попал ни в чей сектор. Банк переносится.';
-        }
-        console.log('finishRound: Победитель не найден');
+        db.ref('gameState').set({
+            status: 'finished',
+            winnerName: 'Никто',
+            winnerColor: '#e57373',
+            winnerPrize: 0
+        });
     }
 
-    // Через 5 секунд запускаем новый раунд (не удаляем профили игроков)
+    // Через 6 секунд Хост перезапускает игру на фазу ставок и перевыбирает цвета игроков
     setTimeout(() => {
-        totalBank = 0;
-        if (totalBankDisplay) totalBankDisplay.textContent = totalBank;
-        if (ball) {
-            ball.style.display = 'none';
-            ball.style.visibility = 'hidden';
+        if (isHost()) {
+            resetRoomForNextRound();
         }
-        if (gameMessage) {
-            gameMessage.style.backgroundColor = 'transparent';
-            gameMessage.style.color = 'white';
-        }
-        renderBets();
-        renderWheelSections();
-        startBettingPhase();
-    }, 5000);
+    }, 6000);
 }
 
-// ======= Отрисовки =======
+function resetRoomForNextRound() {
+    // Пересобираем игроков: обнуляем ставки и рандомим цвета
+    const updatedPlayers = {};
+    for (const id in players) {
+        updatedPlayers[id] = {
+            name: players[id].name,
+            color: getRandomColor(), // Новый цвет на раунд!
+            totalBet: 0
+        };
+    }
+
+    db.ref('players').set(updatedPlayers);
+    db.ref('gameState').set({
+        status: 'betting',
+        timerEnd: 0
+    });
+}
+
+// ======= Функции Отрисовки UI =======
+function calculateTotalBank() {
+    return Object.values(players).reduce((acc, p) => acc + (p.totalBet || 0), 0);
+}
+
 function renderBets() {
     if (!betList) return;
     const active = Object.values(players).filter(p => p.totalBet > 0).sort((a, b) => b.totalBet - a.totalBet);
@@ -428,71 +435,33 @@ function renderBets() {
 function renderWheelSections() {
     if (!wheelInner) return;
     const active = Object.values(players).filter(p => p.totalBet > 0);
+    const totalB = calculateTotalBank();
 
-    // Если ставок нет, то переключаем поле в шахматный режим
-    if (active.length === 0 || totalBank === 0) {
+    // Если нет ставок — включаем шахматное поле (класс empty-field)
+    if (active.length === 0 || totalB === 0) {
         wheelInner.style.background = '#333';
         if (gameAreaWrapper) {
             gameAreaWrapper.classList.add('empty-field');
         }
         return;
     } else {
-        // Если ставки появились — убираем шахматный фон
         if (gameAreaWrapper) {
             gameAreaWrapper.classList.remove('empty-field');
         }
     }
 
-    // Сортируем по имени
+    // Порядок секторов
     active.sort((a, b) => a.name.localeCompare(b.name));
 
     let currentAngle = 0;
     const segments = active.map(p => {
-        const size = (p.totalBet / totalBank) * 360;
-        p.startAngle = currentAngle;
-        p.endAngle = currentAngle + size;
-        const seg = `${p.color} ${p.startAngle}deg ${p.endAngle}deg`;
+        const size = (p.totalBet / totalB) * 360;
+        const start = currentAngle;
+        const end = currentAngle + size;
+        const seg = `${p.color} ${start}deg ${end}deg`;
         currentAngle += size;
         return seg;
     });
 
     wheelInner.style.background = `conic-gradient(${segments.join(', ')})`;
 }
-
-// ======= Привязка событий и старт =======
-document.addEventListener('DOMContentLoaded', () => {
-    bettingTimerDisplay = document.getElementById('bettingTimer');
-    totalBankDisplay = document.getElementById('totalBank');
-    wheelInner = document.getElementById('wheelInner');
-    gameAreaWrapper = document.getElementById('gameAreaWrapper');
-    ball = document.getElementById('ball');
-    playerNameInput = document.getElementById('playerNameInput');
-    betAmountInput = document.getElementById('betAmountInput');
-    placeBetButton = document.getElementById('placeBetButton');
-    betList = document.getElementById('betList');
-    gameMessage = document.getElementById('gameMessage');
-    startRoundButton = document.getElementById('startRoundButton'); // опционально
-
-    console.log('DOM loaded. Elements:', {
-        bettingTimerDisplay: !!bettingTimerDisplay,
-        totalBankDisplay: !!totalBankDisplay,
-        wheelInner: !!wheelInner,
-        gameAreaWrapper: !!gameAreaWrapper,
-        ball: !!ball,
-        playerNameInput: !!playerNameInput,
-        betAmountInput: !!betAmountInput,
-        placeBetButton:!!placeBetButton,
-        betList: !!betList,
-        gameMessage: !!gameMessage,
-        startRoundButton: !!startRoundButton,
-    });
-
-    if (placeBetButton) placeBetButton.addEventListener('click', placeBet);
-    if (betAmountInput) betAmountInput.addEventListener('keypress', e => { if (e.key === 'Enter') placeBet(); });
-    if (startRoundButton) startRoundButton.addEventListener('click', () => {
-        if (!gameIsRunning) startRound();
-    });
-
-    // Инициализация игры
-    initGame();
-});

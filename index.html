@@ -2,34 +2,31 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <!-- Метатег для идеального отображения на телефонах -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Не лудка!</title>
+    <title>Не лудка! (Мультиплеер)</title>
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Подключаем официальные библиотеки Firebase (Compat-версия для простой интеграции) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
     <div id="ui">
         <input type="text" id="playerNameInput" placeholder="Имя игрока">
         <input type="number" id="betAmountInput" placeholder="Ставка" min="5">
         <button id="placeBetButton">Сделать ставку</button>
-
-
-        
         
         <div id="statusInfo">
-            
-            
-            <p> Общий Банк: <span id="totalBank">0</span> ₽</p>
+            <p>Общий Банк: <span id="totalBank">0</span> ₽</p>
         </div>
         <div id="gameMessage">Ждем ставки...</div>
     </div>
 
     <div id="gameAreaWrapper">
         <div id="wheelInner"></div>
-<span id="bettingTimer">15с</span>
-
-        <div id="ball">
-
-        </div>
+        <span id="bettingTimer">15с</span>
+        <div id="ball"></div>
     </div>
 
     <div id="betList">

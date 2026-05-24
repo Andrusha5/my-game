@@ -6,21 +6,25 @@ body {
     color: white;
     font-family: Arial, sans-serif;
     margin: 0;
-    padding: 20px;
+    padding: 15px;
     box-sizing: border-box;
 }
 
 #ui {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     text-align: center;
+    width: 100%;
+    max-width: 400px;
 }
 
 input, button {
-    padding: 10px 15px;
-    margin: 5px;
+    padding: 12px 15px;
+    margin: 5px 0;
     border: none;
     border-radius: 5px;
     font-size: 1em;
+    width: 100%; /* На мобильных элементы во всю ширину */
+    box-sizing: border-box;
 }
 
 input[type="text"], input[type="number"] {
@@ -33,6 +37,7 @@ button {
     color: black;
     cursor: pointer;
     font-weight: bold;
+    transition: background 0.2s;
 }
 button:disabled {
     background: #555;
@@ -41,7 +46,7 @@ button:disabled {
 }
 
 #statusInfo {
-    margin-top: 15px;
+    margin-top: 10px;
     font-size: 1.1em;
     font-weight: bold;
 }
@@ -51,28 +56,29 @@ button:disabled {
 }
 
 #gameMessage {
-    margin-top: 15px;
+    margin-top: 10px;
     padding: 10px;
     border-radius: 5px;
     font-size: 1.2em;
     font-weight: bold;
-    min-height: 30px; /* Чтобы не скакало при пустом тексте */
+    min-height: 30px;
+    text-align: center;
 }
 
-/* Квадратное поле */
+/* Квадратное адаптивное поле под любые экраны */
 #gameAreaWrapper {
-    width: 90vw; /* Фиксированный квадратный размер */
-    height: 90vw;
-    max-width: 400px;
+    width: 90vw; /* 90% от ширины экрана телефона */
+    height: 90vw; /* Высота равна ширине для идеального квадрата */
+    max-width: 400px; /* На ПК поле не превысит 400px */
     max-height: 400px;
     position: relative;
     border: 5px solid #444;
-    overflow: hidden; /* Важно: скрывает всё, что выходит за квадрат */
-    background: #222; /* Дефолтный цвет фона */
-    margin: 20px auto;
+    overflow: hidden;
+    background: #222;
+    margin: 15px auto;
 }
 
-/* Эффект шахматного поля (4 кубика: 2 светлее, 2 темнее) */
+/* Эффект шахматного поля (когда нет ставок) */
 #gameAreaWrapper.empty-field {
     background: conic-gradient(
         #2b2b2b 0deg 90deg, 
@@ -83,24 +89,24 @@ button:disabled {
     background-size: 100% 100%;
 }
 
-/* Колесо, заполняющее квадрат */
+/* Колесо */
 #wheelInner {
     position: absolute;
     top: -50%; 
     left: -50%;
     width: 200%; 
     height: 200%;
-    border-radius: 0; /* Делаем его квадратным, чтобы сектора заполняли углы */
+    border-radius: 0;
     z-index: 1;
 }
 
-/* Полностью скрываем колесо при пустом поле, чтобы видеть шахматную сетку */
+/* Скрываем колесо при шахматном фоне */
 #gameAreaWrapper.empty-field #wheelInner {
     display: none;
 }
 
 #bettingTimer {
-    font-size: 100px;
+    font-size: 70px;
     color: white;
     top: 50%;
     left: 50%;
@@ -111,32 +117,34 @@ button:disabled {
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 5;
-    color: rgba(255, 255, 255, 0.5);
-    text-shadow: 0px 4px 15px rgba(0, 0, 0, 0.6);
+    color: rgba(255, 255, 255, 0.4);
+    text-shadow: 0px 4px 10px rgba(0, 0, 0, 0.6);
     display: none;
 }
 
 /* Шарик */
 #ball {
-    width: 24px; /* Немного больше, чтобы плюс был виден */
+    width: 24px; 
     height: 24px;
-    background: rgba(255, 255, 255, 0.6); /* Полупрозрачный белый */
+    background: rgba(255, 255, 255, 0.85); 
     border-radius: 50%;
     position: absolute;
     z-index: 10;
-    box-shadow: 0 0 8px rgba(0,0,0,0.4);
+    box-shadow: 0 0 8px rgba(0,0,0,0.5);
     display: none;
 }
 
 /* Список ставок */
 #betList {
-    width: 500px;
-    margin-top: 20px;
+    width: 100%;
+    max-width: 400px;
+    margin-top: 15px;
     background: #333;
     padding: 10px;
     border-radius: 8px;
-    max-height: 250px;
+    max-height: 200px;
     overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .bet-item {
@@ -144,8 +152,7 @@ button:disabled {
     align-items: center;
     padding: 8px 0;
     border-bottom: 1px solid #444;
-    border-left: 4px solid transparent; /* Для цвета игрока */
-    margin-bottom: 5px;
+    border-left: 4px solid transparent;
 }
 .bet-item:last-child {
     border-bottom: none;
@@ -163,23 +170,18 @@ button:disabled {
     font-weight: bold;
     font-size: 0.9em;
     margin-right: 10px;
-    color: black; /* Цвет буквы в аватаре */
+    color: black;
 }
 .bet-placeholder {
     color: #888;
     text-align: center;
-    padding: 20px;
+    padding: 15px;
 }
-input, button {
-        padding: 12px 20px; /* Увеличиваем область нажатия */
-        font-size: 1.1em;
-        width: 100%; /* На телефонах инпуты будут друг под другом на всю ширину */
-        box-sizing: border-box;
+
+/* Стили для десктопов (чтобы кнопки не были огромными) */
+@media (min-width: 600px) {
+    input, button {
+        width: auto;
+        display: inline-block;
     }
-    #ui {
-        width: 90%;
-        margin: 0 auto;
-    }
-    #betList {
-        width: 90%;
-    }
+}
