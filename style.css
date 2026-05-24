@@ -196,3 +196,22 @@ button:disabled {
         display: inline-block;
     }
 }
+
+.bet-info {
+    flex-grow: 1; /* Занимает всё свободное место, выталкивая проценты вправо */
+    display: flex;
+    flex-direction: column;
+}
+
+.bet-info span {
+    font-size: 0.9em;
+    color: #bbb;
+}
+
+.bet-chance {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #61dafb; /* Цвет процентов */
+    margin-left: 10px;
+    padding-right: 5px;
+}

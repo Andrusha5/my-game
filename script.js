@@ -458,6 +458,7 @@ function calculateTotalBank() {
 function renderBets() {
     if (!betList) return;
     const active = Object.values(players).filter(p => p.totalBet > 0).sort((a, b) => b.totalBet - a.totalBet);
+    const totalB = calculateTotalBank();
 
     betList.innerHTML = '';
     if (active.length === 0) {
@@ -466,11 +467,20 @@ function renderBets() {
     }
 
     active.forEach(p => {
+        // Рассчитываем процент (шанс на победу)
+        const percentage = ((p.totalBet / totalB) * 100).toFixed(1);
+
         const item = document.createElement('div');
         item.className = 'bet-item';
         item.style.borderLeft = `4px solid ${p.color}`;
-        item.innerHTML = `<div class="avatar" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
-                          <div class="bet-info"><strong>${p.name}</strong> Ставка: ${p.totalBet} ₽</div>`;
+        item.innerHTML = `
+            <div class="avatar" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
+            <div class="bet-info">
+                <strong>${p.name}</strong> 
+                <span>${p.totalBet} ₽</span>
+            </div>
+            <div class="bet-chance">${percentage}%</div>
+        `;
         betList.appendChild(item);
     });
 }
