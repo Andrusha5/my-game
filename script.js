@@ -298,6 +298,7 @@ function animateLocalBall() {
     ballX += ballVx;
     ballY += ballVy;
 
+    // Отскоки в виртуальном пространстве 400x400
     if (ballX - VIRTUAL_RADIUS < 0) {
         ballVx = Math.abs(ballVx);
         ballX = VIRTUAL_RADIUS;
@@ -318,13 +319,20 @@ function animateLocalBall() {
     ballVy *= BALL_DECELERATION;
 
     if (ball && gameAreaWrapper) {
-        const actualW = gameAreaWrapper.offsetWidth;
-        const scaleX = actualW / VIRTUAL_WIDTH;
+        // Получаем РЕАЛЬНЫЙ размер квадрата на экране (без учета рамок)
+        const rect = gameAreaWrapper.getBoundingClientRect();
+        const borderSize = 5; // Размер рамки в CSS
+        const actualSize = rect.width - (borderSize * 2);
 
-        const screenX = ballX * scaleX;
-        const screenY = ballY * scaleX;
-        const screenRadius = scaleX * VIRTUAL_RADIUS;
+        // Масштабируем виртуальные 400 в реальные пиксели
+        const scale = actualSize / VIRTUAL_WIDTH;
 
+        const screenX = ballX * scale;
+        const screenY = ballY * scale;
+        const screenRadius = VIRTUAL_RADIUS * scale;
+
+        ball.style.width = `${screenRadius * 2}px`;
+        ball.style.height = `${screenRadius * 2}px`;
         ball.style.left = `${screenX - screenRadius}px`;
         ball.style.top = `${screenY - screenRadius}px`;
     }
