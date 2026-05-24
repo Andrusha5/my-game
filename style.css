@@ -61,8 +61,10 @@ button:disabled {
 
 /* Квадратное поле */
 #gameAreaWrapper {
-    width: 400px; /* Фиксированный квадратный размер */
-    height: 400px;
+    width: 90vw; /* Фиксированный квадратный размер */
+    height: 90vw;
+    max-width: 400px;
+    max-height: 400px;
     position: relative;
     border: 5px solid #444;
     overflow: hidden; /* Важно: скрывает всё, что выходит за квадрат */
@@ -168,3 +170,16 @@ button:disabled {
     text-align: center;
     padding: 20px;
 }
+input, button {
+        padding: 12px 20px; /* Увеличиваем область нажатия */
+        font-size: 1.1em;
+        width: 100%; /* На телефонах инпуты будут друг под другом на всю ширину */
+        box-sizing: border-box;
+    }
+    #ui {
+        width: 90%;
+        margin: 0 auto;
+    }
+    #betList {
+        width: 90%;
+    }
