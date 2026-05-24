@@ -80,6 +80,7 @@ button:disabled {
     background: #222; 
     margin: 15px auto;
     display: block; /* Убираем флекс-влияние */
+    border-radius: 10%;
 }
 
 /* Эффект шахматного поля (когда нет ставок) */
