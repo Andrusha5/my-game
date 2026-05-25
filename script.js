@@ -134,8 +134,10 @@ db.ref('players/${myPlayerId}').set({
         if (me) {
             document.getElementById('userWelcome').textContent = me.name || "Игрок";
             document.getElementById('myBalance').textContent = me.balance || 0;
+        } else {
+            document.getElementById('userWelcome').textContent = playerNameInput.value.trim() || "Игрок";
+            document.getElementById('myBalance').textContent = 0;
         }
-    
 
         renderBets();
         renderWheelSections();
