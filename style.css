@@ -110,6 +110,7 @@ button:disabled {
     background: #222;
     margin: 10px auto;
     display: block;
+     border-radius: 10%;
 }
 
 #gameAreaWrapper.empty-field {
