@@ -118,15 +118,24 @@ const presenceRef = db.ref(`presence/${myPlayerId}`);
     db.ref('players').on('value', (snapshot) => {
         players = snapshot.val() || {};
         
+
+        if (!Players[myPlayerId]){
+db.ref('players/${myPlayerId}').set({
+    name: "Игрок",
+    balance: 0,
+    totalBet: 0,
+    color: "#FFFFFF"
+
+});
+}
+
         // Отображение приветствия и баланса в шапке
         const me = players[myPlayerId];
         if (me) {
             document.getElementById('userWelcome').textContent = me.name || "Игрок";
             document.getElementById('myBalance').textContent = me.balance || 0;
-        } else {
-            document.getElementById('userWelcome').textContent = playerNameInput.value.trim() || "Игрок";
-            document.getElementById('myBalance').textContent = 0;
         }
+    
 
         renderBets();
         renderWheelSections();
@@ -396,49 +405,43 @@ function animateDeterministicBall() {
 
 // ======= Определение Победителя =======
 function determineAndPublishWinner() {
+    const activePlayers = Object.values(players).filter(p => p.totalBet > 0);
+    const totalBank = calculateTotalBank();
+    
+    // Комиссия 15%
+    const commission = totalBank * 0.15;
+    const bankAfterCommission = totalBank - commission;
+
+    // Считаем угол шарика...
     const dx = ballX - (VIRTUAL_WIDTH / 2);
     const dy = ballY - (VIRTUAL_HEIGHT / 2);
-
     let finalAngle = (Math.atan2(dy, dx) * 180 / Math.PI) + 90;
     if (finalAngle < 0) finalAngle += 360;
-    if (finalAngle >= 360) finalAngle -= 360;
 
-    const activePlayers = Object.values(players).filter(p => p.totalBet > 0);
     let winner = null;
-    let winAmount = calculateTotalBank();
+    let currentAngle = 0;
+    activePlayers.sort((a, b) => a.name.localeCompare(b.name));
 
-    if (activePlayers.length > 0) {
-        activePlayers.sort((a, b) => a.name.localeCompare(b.name));
-        let currentAngle = 0;
-
-        for (const p of activePlayers) {
-            const size = (p.totalBet / winAmount) * 360;
-            const startAngle = currentAngle;
-            const endAngle = currentAngle + size;
-            currentAngle += size;
-
-            if (startAngle <= endAngle) {
-                if (finalAngle >= startAngle && finalAngle < endAngle) {
-                    winner = p;
-                    break;
-                }
-            } else {
-                if (finalAngle >= startAngle || finalAngle < endAngle) {
-                    winner = p;
-                    break;
-                }
-            }
+    for (const p of activePlayers) {
+        const size = (p.totalBet / totalBank) * 360;
+        if (finalAngle >= currentAngle && finalAngle < currentAngle + size) {
+            winner = p;
+            break;
         }
-        if (!winner) winner = activePlayers[0];
+        currentAngle += size;
     }
 
     if (winner) {
-        // Начисляем выигрыш победителю на его баланс в БД
+        // Вычисляем выигрыш
+        // Логика: (Весь банк - 15%) или минимум ставка игрока
+        let winAmount = Math.max(winner.totalBet, bankAfterCommission);
+        winAmount = Math.floor(winAmount); // Округляем до целого
+
+        // Начисляем победителю
         const winnerId = Object.keys(players).find(k => players[k].name === winner.name);
         if (winnerId) {
-            const winnerCurrentBalance = players[winnerId].balance || 0;
-            db.ref(`players/${winnerId}`).update({
-                balance: winnerCurrentBalance + winAmount
+            db.ref(`players/${winnerId}/balance`).transaction((current) => {
+                return (current || 0) + winAmount;
             });
         }
 
@@ -448,21 +451,10 @@ function determineAndPublishWinner() {
             winnerColor: winner.color,
             winnerPrize: winAmount
         });
-    } else {
-        db.ref('gameState').set({
-            status: 'finished',
-            winnerName: 'Никто',
-            winnerColor: '#e57373',
-            winnerPrize: 0
-        });
     }
-
-    setTimeout(() => {
-        if (isHost()) {
-            resetRoomForNextRound();
-        }
-    }, 6000);
+    // ... остальной код сброса
 }
+
 
 function resetRoomForNextRound() {
     const updatedPlayers = {};
