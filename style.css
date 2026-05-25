@@ -1,21 +1,52 @@
-/* В самый верх файла style.css */
-• {
-    box-sizing: border-box; /* Чтобы рамки не увеличивали размер поля */
+ss
+* {
+    box-sizing: border-box;
 }
+
 body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: #222;
+    background: #1e1e1e;
     color: white;
     font-family: Arial, sans-serif;
     margin: 0;
-    padding: 15px;
+    padding: 10px;
     box-sizing: border-box;
 }
 
+/* Верхняя панель */
+#headerBar {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #2b2b2b;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+#userWelcome {
+    font-weight: bold;
+    color: #bbb;
+}
+
+#balanceBtn {
+    background: #00E676;
+    color: black;
+    font-weight: bold;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    width: auto;
+    font-size: 0.9em;
+}
+
 #ui {
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     text-align: center;
     width: 100%;
     max-width: 400px;
@@ -27,7 +58,7 @@ input, button {
     border: none;
     border-radius: 5px;
     font-size: 1em;
-    width: 100%; /* На мобильных элементы во всю ширину */
+    width: 100%;
     box-sizing: border-box;
 }
 
@@ -41,7 +72,6 @@ button {
     color: black;
     cursor: pointer;
     font-weight: bold;
-    transition: background 0.2s;
 }
 button:disabled {
     background: #555;
@@ -50,7 +80,7 @@ button:disabled {
 }
 
 #statusInfo {
-    margin-top: 10px;
+    margin-top: 5px;
     font-size: 1.1em;
     font-weight: bold;
 }
@@ -60,30 +90,28 @@ button:disabled {
 }
 
 #gameMessage {
-    margin-top: 10px;
-    padding: 10px;
+    margin-top: 5px;
+    padding: 8px;
     border-radius: 5px;
-    font-size: 1.2em;
+    font-size: 1.1em;
     font-weight: bold;
     min-height: 30px;
     text-align: center;
 }
 
-
+/* Поле */
 #gameAreaWrapper {
     width: 90vw; 
     max-width: 400px;
-    aspect-ratio: 1 / 1; /* ГАРАНТИРУЕТ КВАДРАТ 1 к 1 */
+    aspect-ratio: 1 / 1;
     position: relative;
     border: 5px solid #444;
-    overflow: hidden; 
-    background: #222; 
-    margin: 15px auto;
-    display: block; /* Убираем флекс-влияние */
-    border-radius: 10%;
+    overflow: hidden;
+    background: #222;
+    margin: 10px auto;
+    display: block;
 }
 
-/* Эффект шахматного поля (когда нет ставок) */
 #gameAreaWrapper.empty-field {
     background: conic-gradient(
         #2b2b2b 0deg 90deg, 
@@ -94,7 +122,6 @@ button:disabled {
     background-size: 100% 100%;
 }
 
-/* Колесо должно быть внутри на 100% */
 #wheelInner {
     position: absolute;
     top: 0; 
@@ -105,15 +132,8 @@ button:disabled {
     z-index: 1;
 }
 
-/* Если поле пустое - шахматы */
-#gameAreaWrapper.empty-field {
-    background: conic-gradient(
-        #2b2b2b 0deg 90deg, 
-        #1e1e1e 90deg 180deg, 
-        #2b2b2b 180deg 270deg, 
-        #1e1e1e 270deg 360deg
-    );
-    background-size: 100% 100%;
+#gameAreaWrapper.empty-field #wheelInner {
+    display: none;
 }
 
 #bettingTimer {
@@ -133,29 +153,27 @@ button:disabled {
     display: none;
 }
 
-/* Шарик */
 #ball {
     width: 24px; 
     height: 24px;
-    background: rgba(255, 255, 255, 0.5); 
+    background: rgba(255, 255, 255, 0.85); 
     border-radius: 50%;
     position: absolute;
     z-index: 10;
-    box-shadow: 0 0 8px rgba(0,0,0,0.6);
+    box-shadow: 0 0 8px rgba(0,0,0,0.5);
     display: none;
 }
 
-/* Список ставок */
+/* Ставки */
 #betList {
     width: 100%;
     max-width: 400px;
-    margin-top: 15px;
+    margin-top: 10px;
     background: #333;
     padding: 10px;
     border-radius: 8px;
-    max-height: 200px;
+    max-height: 180px;
     overflow-y: auto;
-    box-sizing: border-box;
 }
 
 .bet-item {
@@ -167,9 +185,6 @@ button:disabled {
 }
 .bet-item:last-child {
     border-bottom: none;
-}
-.bet-item strong {
-    color: white;
 }
 .bet-item .avatar {
     width: 30px;
@@ -183,35 +198,120 @@ button:disabled {
     margin-right: 10px;
     color: black;
 }
+
+.bet-info {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+.bet-info strong {
+    color: white;
+}
+.bet-info span {
+    font-size: 0.85em;
+    color: #bbb;
+}
+.bet-chance {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #61dafb;
+    margin-left: 10px;
+}
+
 .bet-placeholder {
     color: #888;
     text-align: center;
     padding: 15px;
 }
 
-/* Стили для десктопов (чтобы кнопки не были огромными) */
-@media (min-width: 600px) {
+/* Модальные окна */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+}
+.modal-content {
+    background-color: #2b2b2b;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #444;
+    width: 90%;
+    max-width: 360px;
+    border-radius: 10px;
+    position: relative;
+    text-align: center;
+}
+.close-btn {
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.requisites-box {
+    background: #1e1e1e;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 15px 0;
+    border: 1px dashed #61dafb;
+}
+.requisites-box code {
+    font-size: 1.2em;
+    color: #61dafb;
+    font-weight: bold;
+}
+.warning-text {
+    color: #ff9100;
+    font-size: 0.85em;
+}
+.success-text {
+    color: #00E676;
+    font-size: 1.1em;
+}
+
+/* Панель администратора */
+#adminPanel {
+    width: 100%;
+    max-width: 400px;
+    background: #2e1f1f;
+    border: 2px solid #ff1744;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 20px;
+}
+#adminPanel h2 {
+    margin-top: 0;
+    color: #ff1744;
+    text-align: center;
+}
+.admin-req-item {
+    background: #1e1e1e;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    border-left: 4px solid #ff9100;
+}
+.admin-btns {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+}
+.admin-approve-btn { background: #00E676; color: black; }
+.admin-decline-btn { background: #ff1744; color: white; }
+
+min-width {
     input, button {
         width: auto;
         display: inline-block;
     }
-}
-
-.bet-info {
-    flex-grow: 1; /* Занимает всё свободное место, выталкивая проценты вправо */
-    display: flex;
-    flex-direction: column;
-}
-
-.bet-info span {
-    font-size: 0.9em;
-    color: #bbb;
-}
-
-.bet-chance {
-    font-weight: bold;
-    font-size: 1.1em;
-    color: #61dafb; /* Цвет процентов */
-    margin-left: 10px;
-    padding-right: 5px;
+    #ui input, #ui button {
+        width: 100%; /* оставляем во всю ширину в игровой панели */
+    }
 }

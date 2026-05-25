@@ -2,19 +2,25 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <!-- Метатег для идеального отображения на телефонах -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Не лудка! (Мультиплеер)</title>
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=8">
     
-    <!-- Подключаем официальные библиотеки Firebase (Compat-версия для простой интеграции) -->
+    <!-- Подключаем Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
+
+    <!-- Верхняя панель с балансом -->
+    <div id="headerBar">
+        <span id="userWelcome">Вход...</span>
+        <button id="balanceBtn" onclick="openDepositModal()">Баланс: <span id="myBalance">0</span> ₽</button>
+    </div>
+
     <div id="ui">
         <input type="text" id="playerNameInput" placeholder="Имя игрока">
-        <input type="number" id="betAmountInput" placeholder="Ставка" min="5">
+        <input type="number" id="betAmountInput" placeholder="Ставка (мин. 10₽)" min="10">
         <button id="placeBetButton">Сделать ставку</button>
         
         <div id="statusInfo">
@@ -33,6 +39,44 @@
         <div class="bet-placeholder">Пока нет ставок...</div>
     </div>
 
-    <script src="script.js?v=6"></script>
+    <!-- МОДАЛЬНОЕ ОКНО ПОПОЛНЕНИЯ БАЛАНСА -->
+    <div id="depositModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeDepositModal()">&times;</span>
+            <h2>Пополнение баланса</h2>
+            
+            <div id="depositStep1">
+                <p>Введите сумму пополнения (в ₽):</p>
+                <input type="number" id="depositAmountInput" placeholder="Сумма" min="10">
+                <button onclick="goToDepositStep2()">Далее</button>
+            </div>
+
+            <div id="depositStep2" style="display: none;">
+                <p>Переведите <strong id="reqAmount">0</strong> ₽ по реквизитам ниже:</p>
+                <div class="requisites-box">
+                    <p>💳 Карта Сбербанк:</p>
+                    <code id="cardNum">2202 2002 4455 6677</code>
+                    <p>Получатель: Александр К.</p>
+                </div>
+                <p class="warning-text">После перевода обязательно нажмите кнопку ниже!</p>
+                <button id="confirmPaidBtn" onclick="sendDepositRequest()">Я перевел, подтверждаю</button>
+            </div>
+
+            <div id="depositStep3" style="display: none;">
+                <p class="success-text">⏳ Заявка отправлена администратору. Ожидайте зачисления средств!</p>
+                <button onclick="closeDepositModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- СЕКРЕТНАЯ АДМИН ПАНЕЛЬ (отображается только по ссылке ?admin=1) -->
+    <div id="adminPanel" style="display: none;">
+        <h2>Панель администратора</h2>
+        <div id="adminRequestsList">
+            <p class="no-reqs">Нет активных заявок на пополнение</p>
+        </div>
+    </div>
+
+    <script src="script.js?v=8"></script>
 </body>
 </html>
