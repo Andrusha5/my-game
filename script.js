@@ -1,13 +1,13 @@
 // ======= НАСТРОЙКИ FIREBASE =======
 // !!! Вставь сюда СВОИ данные из консоли Firebase !!!
 const firebaseConfig = {
-    apiKey: "ТВОЙ_API_KEY",
-    authDomain: "ТВОЙ_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://ТВОЙ_PROJECT_ID-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "ТВОЙ_PROJECT_ID",
-    storageBucket: "ТВОЙ_PROJECT_ID.appspot.com",
-    messagingSenderId: "ТВОЙ_ОТПРАВИТЕЛЬ",
-    appId: "ТВОЙ_APP_ID"
+  apiKey: "AIzaSyDaqDEFnRgoOoQRpoQoZ5_OZq4FywdbByM",
+  authDomain: "checkers-roulette.firebaseapp.com",
+  databaseURL: "https://checkers-roulette-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "checkers-roulette",
+  storageBucket: "checkers-roulette.firebasestorage.app",
+  messagingSenderId: "856460439104",
+  appId: "1:856460439104:web:0e386cc2afca3b655af9a5"
 };
 
 // Инициализируем Firebase
