@@ -47,13 +47,11 @@ const DISTINCT_COLORS = [
     '#00C853', '#FF6D00',  
     '#00a0ea',    
 ];
+// Переменные одиночной игры
+let spSelectedPercent = 50;  
+let spTotalRotation = 0;     
+let spIsSpinning = false;    
 
-// Переменные «Невозможного колеса» (Одиночная игра)
-let spSelectedPercent = 50;  // По умолчанию шанс 50%
-let spTotalRotation = 0;     // Отслеживание общей прокрутки колеса в градусах
-let spIsSpinning = false;    // Идет ли сейчас раунд
-
-// Правила и коэффициенты одиночной игры
 const SP_RULES = {
     75: { mult: 1.2, label: 'x1.2' },
     50: { mult: 1.4, label: 'x1.4' },
@@ -64,7 +62,7 @@ const SP_RULES = {
 };
 
 // DOM элементы
-let bettingTimerDisplay, totalBankDisplay, wheelInner, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, gameMessage;
+let bettingTimerDisplay, totalBankDisplay, gameCanvas, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, gameMessage;
 
 function getServerTime() {
     return Date.now() + serverOffset;
@@ -75,7 +73,6 @@ function isHost() {
     return onlinePlayers[0] === myPlayerId;
 }
 
-// ======= Навигация между экранами =======
 window.showScreen = function(screenId) {
     document.getElementById('lobbyScreen').style.display = 'none';
     document.getElementById('multiplayerGameScreen').style.display = 'none';
@@ -86,10 +83,9 @@ window.showScreen = function(screenId) {
 
 // ======= Инициализация приложения =======
 document.addEventListener('DOMContentLoaded', () => {
-    // Селекторы мультиплеера
     bettingTimerDisplay = document.getElementById('bettingTimer');
     totalBankDisplay = document.getElementById('totalBank');
-    wheelInner = document.getElementById('wheelInner');
+    gameCanvas = document.getElementById('gameCanvas');
     gameAreaWrapper = document.getElementById('gameAreaWrapper');
     ball = document.getElementById('ball');
     playerNameInput = document.getElementById('playerNameInput');
@@ -104,16 +100,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (placeBetButton) placeBetButton.addEventListener('click', placeBet);
-    if (betAmountInput) betAmountInput.addEventListener('keypress', e => {if (e.key === 'Enter') placeBet(); });
+    if (betAmountInput) betAmountInput.addEventListener('keypress', e => { if (e.key === 'Enter') placeBet(); });
 
-    // Проверяем админские права
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('admin') === '1') {
         document.getElementById('adminPanel').style.display = 'block';
         initAdminPanel();
     }
 
-    // Слушатели базы данных
     db.ref('.info/serverTimeOffset').on('value', (snap) => {
         serverOffset = snap.val() || 0;
     });
@@ -135,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!snap.exists()) {
             db.ref(`players/${myPlayerId}`).set({
                 name: savedName || "Игрок",
-                balance: 100, // Стартовый баланс для тестов (можно изменить на 0)
+                balance: 100, 
                 totalBet: 0,
                 color: DISTINCT_COLORS[Math.floor(Math.random() * DISTINCT_COLORS.length)]
             });
@@ -152,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (document.getElementById('myBalance')) {
                 document.getElementById('myBalance').textContent = me.balance || 0;
             }
-            // Обновляем расчет в одиночной игре при изменении баланса
             updateSpSummary();
         }
         renderBets();
@@ -165,19 +158,43 @@ document.addEventListener('DOMContentLoaded', () => {
         syncGameWithDatabase();
     });
 
-    // Инициализируем стартовое состояние «Невозможного колеса»
     selectSpPercent(50);
 });
 
+// ======= НОВЫЙ МАТЕМАТИЧЕСКИЙ ДВИЖОК СЕГМЕНТАЦИИ (ДИАГОНАЛЬ) =======
+
+// Функция делит плоскость 400x400 на диагональные параллельные полосы.
+// minW = 30px гарантирует видимость полосы даже при шансе меньше 1%.
+function getPlayersWithSegments() {
+    const active = Object.keys(players)
+        .filter(id => players[id].totalBet > 0)
+        .map(id => ({ id, ...players[id] }))
+        .sort((a, b) => a.id.localeCompare(b.id)); // Постоянная сортировка, чтобы полосы не прыгали
+
+    const totalB = active.reduce((sum, p) => sum + p.totalBet, 0);
+    if (active.length === 0 || totalB === 0) return [];
+
+    const L = 400 * Math.SQRT2; // Длина диагонали квадрата (~565.68px)
+    const minW = Math.min(30, L / (active.length + 1)); // Гарантированный минимум
+    const totalMin = active.length * minW;
+    const remainingL = L - totalMin;
+
+    let currentX = -L / 2;
+    return active.map(p => {
+        const width = minW + remainingL * (p.totalBet / totalB);
+        const startX = currentX;
+        const endX = currentX + width;
+        currentX = endX;
+        return { ...p, startX, endX, width };
+    });
+}
+
 // ======= ЛОГИКА ОДИНОЧНОЙ ИГРЫ «НЕВОЗМОЖНОЕ КОЛЕСО» =======
 
-// 1. Выбор процента выигрыша
 window.selectSpPercent = function(pct) {
     if (spIsSpinning) return;
     
     spSelectedPercent = pct;
-
-    // Снимаем класс active со всех кнопок и вешаем на активную
     const buttons = document.querySelectorAll('.sp-pct-btn');
     buttons.forEach(btn => {
         btn.classList.remove('active');
@@ -186,15 +203,12 @@ window.selectSpPercent = function(pct) {
         }
     });
 
-    // Перерисовываем Колесо
-    // Ваша зона (ВЫ) - зеленая (#00E676), Зона бота - красная (#ff1744)
     const deg = (pct / 100) * 360;
     const wheel = document.getElementById('spWheel');
     if (wheel) {
         wheel.style.background = `conic-gradient(#00E676 0deg ${deg}deg, #ff1744 ${deg}deg 360deg)`;
     }
 
-    // Двигаем надпись «ВЫ» по центру нашего сектора
     const label = document.getElementById('spWheelText');
     if (label) {
         const halfAngle = deg / 2;
@@ -204,7 +218,6 @@ window.selectSpPercent = function(pct) {
     updateSpSummary();
 };
 
-// 2. Расчет потенциальной суммы выплаты в реальном времени
 function updateSpSummary() {
     const betInput = document.getElementById('spBetInput');
     const summaryChance = document.getElementById('summaryChance');
@@ -223,10 +236,8 @@ function updateSpSummary() {
     }
 }
 
-// Слушатель ввода ставки для пересчета потенциального выигрыша
 document.getElementById('spBetInput')?.addEventListener('input', updateSpSummary);
 
-// 3. Запуск вращения
 window.spinSingleplayerWheel = function() {
     if (spIsSpinning) return;
 
@@ -253,20 +264,16 @@ window.spinSingleplayerWheel = function() {
     message.textContent = 'Колесо вращается...';
     message.style.color = '#00E5FF';
 
-    // Списываем ставку из баланса в Firebase
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
         return (current || 0) - bet;
     }, (error, committed) => {
         if (committed) {
-            // Выполняем поворот колеса
-            // Чтобы симулировать вращение, делаем минимум 5 полных оборотов + случайный угол
             const randomAngle = Math.random() * 360;
-            spTotalRotation += 1800 + randomAngle; // 1800 град = 5 оборотов
+            spTotalRotation += 1800 + randomAngle; 
             
             const wheel = document.getElementById('spWheel');
             wheel.style.transform = `rotate(${spTotalRotation}deg)`;
 
-            // Ждем завершения анимации (4 секунды)
             setTimeout(() => {
                 evaluateSpResult(randomAngle, bet);
             }, 4000);
@@ -274,23 +281,19 @@ window.spinSingleplayerWheel = function() {
             spIsSpinning = false;
             spinBtn.disabled = false;
             betInput.disabled = false;
-            message.textContent = 'Произошла ошибка транзакции. Попробуйте еще раз.';
+            message.textContent = 'Ошибка транзакции. Повторите запуск.';
         }
     });
 };
 
-// 4. Определение результата
 function evaluateSpResult(stoppedAngle, bet) {
     const message = document.getElementById('spMessage');
     const spinBtn = document.getElementById('spSpinBtn');
     const betInput = document.getElementById('spBetInput');
 
-    // Находим фактический сектор, который остановился напротив стрелочки (на 12 часов)
-    // Так как колесо крутится по часовой стрелке, угол на стрелке рассчитывается следующим образом:
     const netRotation = spTotalRotation % 360;
     const winningAngleOnWheel = (360 - netRotation) % 360;
 
-    // Зона игрока (ВЫ) находится в диапазоне от 0 до (pct / 100) * 360 градусов
     const playerBoundary = (spSelectedPercent / 100) * 360;
     const isPlayerWinner = winningAngleOnWheel <= playerBoundary;
 
@@ -298,7 +301,6 @@ function evaluateSpResult(stoppedAngle, bet) {
         const rule = SP_RULES[spSelectedPercent];
         const prize = Math.floor(bet * rule.mult);
 
-        // Начисляем баланс
         db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
             return (current || 0) + prize;
         });
@@ -308,13 +310,12 @@ function evaluateSpResult(stoppedAngle, bet) {
         message.innerHTML = `🔴 ВЫ ПРОИГРАЛИ! <span style="color:#ff1744">-${bet} ₽</span>`;
     }
 
-    // Возвращаем UI к рабочему состоянию
     spIsSpinning = false;
     spinBtn.disabled = false;
     betInput.disabled = false;
 }
 
-// ======= СТАРЫЙ МУЛЬТИПЛЕЕР (БЕЗ ИЗМЕНЕНИЙ) =======
+// ======= ОБНОВЛЕННЫЙ МУЛЬТИПЛЕЕР (КВАДРАТНАЯ ИГРА) =======
 
 function placeBet() {
     const status = gameState.status || 'betting';
@@ -347,11 +348,10 @@ function placeBet() {
 
     const newBalance = myCurrentBalance - amount;
     const currentBet = myData.totalBet || 0;
-    const playerColor = myData.color || DISTINCT_COLORS[Object.keys(players).length % DISTINCT_COLORS.length];
+    const playerColor = DISTINCT_COLORS[Object.keys(players).length % DISTINCT_COLORS.length];
 
-    db.ref(`players/${myPlayerId}`).update({
-        name: name,
-        color: playerColor,
+    db.ref(`players/${myPlayerId}`).update({name: name,
+        color: myData.color || playerColor,
         totalBet: currentBet + amount,
         balance: newBalance
     });
@@ -531,7 +531,7 @@ function animateDeterministicBall() {
 
         if (ball && gameAreaWrapper) {
             const rect = gameAreaWrapper.getBoundingClientRect();
-            const borderSize = 5;
+            const borderSize = 6;
             const actualSize = rect.width - (borderSize * 2);
             const scale = actualSize / VIRTUAL_WIDTH;
 
@@ -558,40 +558,18 @@ function animateDeterministicBall() {
     }
 }
 
+// Определение победителя по координатам холста диагоналей
 function determineAndPublishWinner() {
-    const dx = ballX - (VIRTUAL_WIDTH / 2);
-    const dy = ballY - (VIRTUAL_HEIGHT / 2);
-
-    let finalAngle = (Math.atan2(dy, dx) * 180 / Math.PI) + 90;
-    if (finalAngle < 0) finalAngle += 360;
-    if (finalAngle >= 360) finalAngle -= 360;
-
-    const activePlayers = Object.values(players).filter(p => p.totalBet > 0);
+    const segments = getPlayersWithSegments();
     let winner = null;
     const totalBank = calculateTotalBank();
 
-    if (activePlayers.length > 0) {
-        activePlayers.sort((a, b) => a.name.localeCompare(b.name));
-        let currentAngle = 0;
+    // Проекция координат на диагональную ось (x + y - 400) * Math.SQRT1_2
+    const finalXCanvas = (ballX + ballY - 400) * Math.SQRT1_2;
 
-        for (const p of activePlayers) {
-            const size = (p.totalBet / totalBank) * 360;
-            const startAngle = currentAngle;
-            const endAngle = currentAngle + size;
-            currentAngle += size;
-
-            if (startAngle <= endAngle) {
-                if (finalAngle >= startAngle && finalAngle < endAngle) {winner = p;
-                    break;
-                }
-            } else {
-                if (finalAngle >= startAngle || finalAngle < endAngle) {
-                    winner = p;
-                    break;
-                }
-            }
-        }
-        if (!winner) winner = activePlayers[0];
+    if (segments.length > 0) {
+        winner = segments.find(p => finalXCanvas >= p.startX && finalXCanvas <= p.endX);
+        if (!winner) winner = segments[segments.length - 1]; 
     }
 
     if (winner) {
@@ -605,12 +583,9 @@ function determineAndPublishWinner() {
 
         finalPrize = Math.floor(finalPrize); 
 
-        const winnerId = Object.keys(players).find(k => players[k].name === winner.name);
-        if (winnerId) {
-            db.ref(`players/${winnerId}/balance`).transaction((current) => {
-                return (current || 0) + finalPrize;
-            });
-        }
+        db.ref(`players/${winner.id}/balance`).transaction((current) => {
+            return (current || 0) + finalPrize;
+        });
 
         db.ref('gameState').set({
             status: 'finished',
@@ -658,6 +633,66 @@ function resetRoomForNextRound() {
     });
 }
 
+// ======= ОТРИСОВКА ДИАГОНАЛЬНОГО ПОЛЯ (CANVAS) =======
+
+function renderWheelSections() {
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.clearRect(0, 0, 400, 400);
+
+    const segments = getPlayersWithSegments();
+
+    // Если нет ставок - рисуем стильную клетку "Игры в кальмара"
+    if (segments.length === 0) {
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0, 0, 400, 400);
+        
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= 400; i += 40) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0); ctx.lineTo(i, 400);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, i); ctx.lineTo(400, i);
+            ctx.stroke();
+        }
+        return;
+    }
+
+    const L = 400 * Math.SQRT2; // ~565px
+
+    ctx.save();
+    ctx.translate(200, 200);
+    ctx.rotate(Math.PI / 4); // Поворачиваем холст на 45 градусов для создания диагоналей
+
+    segments.forEach(p => {
+        ctx.fillStyle = p.color;
+        // Заливаем прямоугольник на повернутом холсте (он станет диагональной полосой)
+        ctx.fillRect(p.startX, -L, p.width, L * 2);
+
+        // Пишем "Вы" на твоем поле
+        if (p.id === myPlayerId) {
+            ctx.save();
+            ctx.translate(p.startX + p.width / 2, 0);
+            ctx.rotate(-Math.PI / 4); // Поворачиваем текст обратно горизонтально
+            
+            // Стилизация текста "Вы" с неоновой обводкой для максимальной читаемости
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 24px Segoe UI, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 8;
+            ctx.fillText('Вы', 0, 0);
+            ctx.restore();
+        }
+    });
+    ctx.restore();
+}
+
 // ======= ДЕПОЗИТЫ И АДМИНКА =======
 
 window.openDepositModal = function() {
@@ -689,7 +724,7 @@ window.sendDepositRequest = function() {
     const reqRef = db.ref('deposit_requests').push();
     reqRef.set({
         id: reqRef.key,
-        playerId: myPlayerId,
+        playerId:myPlayerId,
         playerName: name,
         amount: amount,
         status: 'pending'
@@ -772,34 +807,4 @@ function renderBets() {
     });
 }
 
-function renderWheelSections() {
-    if (!wheelInner) return;
-    const active = Object.values(players).filter(p => p.totalBet > 0);
-    const totalB = calculateTotalBank();
 
-    if (active.length === 0 || totalB === 0) {
-        wheelInner.style.background = '#333';
-        if (gameAreaWrapper) {
-            gameAreaWrapper.classList.add('empty-field');
-        }
-        return;
-    } else {
-        if (gameAreaWrapper) {
-            gameAreaWrapper.classList.remove('empty-field');
-        }
-    }
-
-    active.sort((a, b) => a.name.localeCompare(b.name));
-
-    let currentAngle = 0;
-    const segments = active.map(p => {
-        const size = (p.totalBet / totalB) * 360;
-        const start = currentAngle;
-        const end = currentAngle + size;
-        const seg = `${p.color} ${start}deg ${end}deg`;
-        currentAngle += size;
-        return seg;
-    });
-
-    wheelInner.style.background = `conic-gradient(${segments.join(', ')})`;
-}

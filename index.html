@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Не лудка!</title>
-    <link rel="stylesheet" href="style.css?v=17">
+    <title>Игровой Портал</title>
+    <link rel="stylesheet" href="style.css?v=19">
     
     <!-- Подключаем Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -12,7 +12,7 @@
 </head>
 <body>
 
-    <!-- ВЕРХНЯЯ ПАНЕЛЬ (Общая для всех экранов) -->
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
     <div id="headerBar">
         <span id="userWelcome">Вход...</span>
         <button id="balanceBtn" onclick="openDepositModal()">Баланс: <span id="myBalance">0</span> ₽</button>
@@ -53,18 +53,18 @@
         <div id="ui">
             <input type="text" id="playerNameInput" placeholder="Имя игрока">
             <input type="number" id="betAmountInput" placeholder="Ставка (мин. 10₽)" min="10">
+            <button id="placeBetButton">Сделать ставку</button>
 
 
-<button id="placeBetButton">Сделать ставку</button>
-            
-            <div id="statusInfo">
+<div id="statusInfo">
                 <p>Общий Банк: <span id="totalBank">0</span> ₽</p>
             </div>
             <div id="gameMessage">Ждем ставки...</div>
         </div>
 
         <div id="gameAreaWrapper">
-            <div id="wheelInner"></div>
+            <!-- Холст для диагональных полос игроков -->
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
             <span id="bettingTimer">15с</span>
             <div id="ball"></div>
         </div>
@@ -79,7 +79,6 @@
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В меню</button>
 
         <div class="sp-layout">
-            <!-- Колесо и указатель -->
             <div class="sp-wheel-container">
                 <div class="sp-pointer"></div>
                 <div id="spWheel">
@@ -87,7 +86,6 @@
                 </div>
             </div>
 
-            <!-- Панель управления одиночной игрой -->
             <div class="sp-controls">
                 <h2 class="sp-title">Невозможное колесо</h2>
                 
@@ -96,20 +94,18 @@
                     <input type="number" id="spBetInput" placeholder="Ставка (мин. 10₽)" min="10" value="10">
                 </div>
 
-                <!-- Выбор шанса победы -->
                 <div class="sp-percentage-label">Ваш шанс на победу:</div>
                 <div class="sp-percent-grid">
                     <button class="sp-pct-btn" onclick="selectSpPercent(1)">1% <span class="btn-mult">x33.0</span></button>
                     <button class="sp-pct-btn" onclick="selectSpPercent(10)">10% <span class="btn-mult">x2.2</span></button>
                     <button class="sp-pct-btn" onclick="selectSpPercent(25)">25% <span class="btn-mult">x1.8</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(33)">33% <span class="btn-mult">x1.55</span></button>
 
 
-<button class="sp-pct-btn" onclick="selectSpPercent(33)">33% <span class="btn-mult">x1.55</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(50)" class="active">50% <span class="btn-mult">x1.4</span></button>
+<button class="sp-pct-btn" onclick="selectSpPercent(50)" class="active">50% <span class="btn-mult">x1.4</span></button>
                     <button class="sp-pct-btn" onclick="selectSpPercent(75)">75% <span class="btn-mult">x1.2</span></button>
                 </div>
 
-                <!-- Сводка и Кнопка Запуска -->
                 <div class="sp-summary">
                     <p>Шанс: <strong id="summaryChance">50%</strong></p>
                     <p>Возможный выигрыш: <strong id="summaryWin" class="win-color">14 ₽</strong></p>
@@ -137,8 +133,10 @@
                 <p>Переведите <strong id="reqAmount">0</strong> ₽ по реквизитам ниже:</p>
                 <div class="requisites-box">
                     <p>💳Сбербанк:</p>
-                    <code>6767 3333 5555 1488</code>
-                    <p>Получатель: CBEPXCEKPETHbIN</p>
+
+
+<code>1234 5678 3333 5555</code>
+                    <p>Получатель: Павел Дуров</p>
                 </div>
                 <p class="warning-text">После перевода обязательно нажмите кнопку ниже!</p>
                 <button id="confirmPaidBtn" onclick="sendDepositRequest()">Я перевел, подтверждаю</button>
@@ -159,6 +157,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=17"></script>
+    <script src="script.js?v=19"></script>
 </body>
 </html>
