@@ -332,7 +332,7 @@ input[type="text"]:focus, input[type="number"]:focus {
     height: 0;
     border-left: 15px solid transparent;
     border-right: 15px solid transparent;
-    border-top: 25px solid #ff1744;
+    border-top: 25px solid #ffffff;
     z-index: 15;
     filter: drop-shadow(0px 2px 5px rgba(255,23,68,0.5));
 }
