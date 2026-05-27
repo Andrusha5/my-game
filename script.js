@@ -41,10 +41,10 @@ let animStartTime = 0;
 let ballX = 200, ballY = 200;
 
 const DISTINCT_COLORS = [
-     '#00E676',  '#eeff00',  
-    '#ff7b00',  '#a7ff03', '#0026ff',  
+     '#6d8681',  '#eeff00',  
+      '#a7ff03', '#0026ff',  
     '#651FFF', '#FF1744',  '#e100ff',
-    '#00C853', '#FF6D00',  
+    '#00ff15', '#FF6D00',  
     '#00a0ea',    
 ];
 // Переменные одиночной игры
