@@ -243,7 +243,7 @@ input[type="text"]:focus, input[type="number"]:focus {
     background: #181818;
     margin: 10px auto;
     box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    border-radius: 10%;
+    border-radius: 3%;
 }
 
 #gameCanvas {
