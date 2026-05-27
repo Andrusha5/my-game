@@ -7,25 +7,26 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: #1e1e1e;
+    background: #121212;
     color: white;
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 10px;
-    box-sizing: border-box;
+    min-height: 100vh;
 }
 
 /* Верхняя панель */
 #headerBar {
     width: 100%;
-    max-width: 400px;
+    max-width: 600px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #2b2b2b;
-    padding: 10px 15px;
-    border-radius: 8px;
-    margin-bottom: 10px;
+    background: #1e1e1e;
+    padding: 12px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
 }
 
 #userWelcome {
@@ -39,67 +40,197 @@ body {
     font-weight: bold;
     border: none;
     padding: 8px 15px;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
-    width: auto;
-    font-size: 0.9em;
+    font-size: 0.95em;
+    transition: transform 0.2s;
+}
+#balanceBtn:hover {
+    transform: scale(1.05);
 }
 
+/* Базовые экраны */
+.screen-container {
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Стили ЛОББИ */
+.lobby-title {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    text-align: center;
+    color: #61dafb;
+    text-shadow: 0 2px 10px rgba(97, 218, 251, 0.3);
+}
+
+.lobby-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+.lobby-card {
+    display: flex;
+    align-items: center;
+    background: #1e1e1e;
+    border: 2px solid #333;
+    border-radius: 16px;
+    padding: 15px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: all 0.3s ease;
+}
+
+.lobby-card:hover {
+    transform: translateY(-3px);
+    border-color: #61dafb;
+    box-shadow: 0 8px 20px rgba(97, 218, 251, 0.2);
+}
+
+.card-squid {
+    border-left: 6px solid #FF3366;
+}
+.card-wheel {
+    border-left: 6px solid #00E5FF;
+}
+
+.card-icon {
+    width: 60px;
+    height: 60px;
+    background: #252525;
+    border-radius: 12px;
+    margin-right: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Иконка 1: Квадратное поле */
+.mini-square-grid {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #FF3366;
+    border-radius: 4px;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 5px,
+      rgba(255, 51, 102, 0.2) 5px,
+      rgba(255, 51, 102, 0.2) 10px
+    );
+}
+
+/* Иконка 2: Колесо */
+.mini-wheel {
+    width: 32px;
+    height: 32px;
+    border: 4px dashed #00E5FF;
+    border-radius: 50%;
+    animation: rotateMiniWheel 8s linear infinite;
+}
+
+@keyframes rotateMiniWheel {
+    100% { transform: rotate(360deg); }
+}
+
+.card-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.card-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: white;
+    margin-bottom: 4px;
+}
+
+.card-desc {
+    font-size: 0.85rem;
+    color: #888;
+}
+
+/* Кнопка НАЗАД */
+.back-to-menu-btn {
+    align-self: flex-start;
+    background: #333;
+    color: #ccc;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 15px;
+    font-weight: bold;
+    width: auto;
+}
+.back-to-menu-btn:hover {
+    background: #444;
+    color: white;
+}
+
+/* Мультиплеер (Квадратная игра) */
 #ui {
     margin-bottom: 10px;
     text-align: center;
     width: 100%;
-    max-width: 400px;
 }
 
 input, button {
     padding: 12px 15px;
     margin: 5px 0;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     font-size: 1em;
     width: 100%;
-    box-sizing: border-box;
 }
 
 input[type="text"], input[type="number"] {
-    background: #333;
+    background: #252525;
     color: white;
+    border: 1px solid #444;
+}
+input[type="text"]:focus, input[type="number"]:focus {
+    outline: none;
+    border-color: #61dafb;
 }
 
-button {
+#placeBetButton {
     background: #61dafb;
     color: black;
     cursor: pointer;
     font-weight: bold;
 }
-button:disabled {
-    background: #555;
+#placeBetButton:disabled {
+    background: #444;
+    color: #888;
     cursor: not-allowed;
-    color: #999;
 }
 
 #statusInfo {
     margin-top: 5px;
     font-size: 1.1em;
-    font-weight: bold;
 }
-
 #totalBank {
-    color: lightgreen;
+    color: #00E676;
+    font-weight: bold;
 }
 
 #gameMessage {
     margin-top: 5px;
     padding: 8px;
-    border-radius: 5px;
     font-size: 1.1em;
     font-weight: bold;
     min-height: 30px;
     text-align: center;
 }
 
-/* Поле */
 #gameAreaWrapper {
     width: 90vw; 
     max-width: 400px;
@@ -109,27 +240,15 @@ button:disabled {
     overflow: hidden;
     background: #222;
     margin: 10px auto;
-    display: block;
-     border-radius: 10%;
 }
 
 #gameAreaWrapper.empty-field {
-    background: conic-gradient(
-        #2b2b2b 0deg 90deg, 
-        #1e1e1e 90deg 180deg, 
-        #2b2b2b 180deg 270deg, 
-        #1e1e1e 270deg 360deg
-    );
-    background-size: 100% 100%;
+    background: conic-gradient(#2b2b2b 0deg 90deg, #1e1e1e 90deg 180deg, #2b2b2b 180deg 270deg, #1e1e1e 270deg 360deg);
 }
 
 #wheelInner {
     position: absolute;
-    top: 0; 
-    left: 0;
-    width: 100%; 
-    height: 100%;
-    border-radius: 0;
+    top: 0; left: 0; width: 100%; height: 100%;
     z-index: 1;
 }
 
@@ -139,90 +258,220 @@ button:disabled {
 
 #bettingTimer {
     font-size: 70px;
-    color: white;
-    top: 50%;
-    left: 50%;
-    margin: 0;
-    line-height: 1;
-    font-weight: bold;
+    top: 50%; left: 50%;
     position: absolute;
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 5;
-    color: rgba(255, 255, 255, 0.4);
-    text-shadow: 0px 4px 10px rgba(0, 0, 0, 0.6);
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: bold;
     display: none;
 }
 
 #ball {
-    width: 24px; 
-    height: 24px;
-    background: rgba(255, 255, 255, 0.5); 
+    width: 24px; height: 24px;
+    background: white; 
     border-radius: 50%;
     position: absolute;
     z-index: 10;
-    box-shadow: 0 0 8px rgba(0,0,0,0.6);
+    box-shadow: 0 0 10px rgba(255,255,255,0.8);
     display: none;
 }
 
-/* Ставки */
 #betList {
     width: 100%;
-    max-width: 400px;
-    margin-top: 10px;
-    background: #333;
+    background: #1e1e1e;
     padding: 10px;
-    border-radius: 8px;
+    border-radius: 12px;
     max-height: 180px;
     overflow-y: auto;
+    border: 1px solid #333;
 }
 
 .bet-item {
     display: flex;
     align-items: center;
     padding: 8px 0;
-    border-bottom: 1px solid #444;
-    border-left: 4px solid transparent;
+    border-bottom: 1px solid #2a2a2a;
 }
-.bet-item:last-child {
-    border-bottom: none;
-}
-.bet-item .avatar {
-    width: 30px;
-    height: 30px;
+.bet-item:last-child { border-bottom: none; }
+.avatar {
+    width: 30px; height: 30px;
     border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    font-size: 0.9em;
-    margin-right: 10px;
-    color: black;
+    display: flex; justify-content: center; align-items: center;
+    font-weight: bold; margin-right: 10px; color: black;
 }
+.bet-info { flex-grow: 1; display: flex; flex-direction: column; }
+.bet-chance { font-weight: bold; color: #61dafb; }
+.bet-placeholder { color: #666; text-align: center; padding: 15px; }
 
-.bet-info {
-    flex-grow: 1;
+/* ================= СТИЛИ ДЛЯ НЕВОЗМОЖНОГО КОЛЕСА ================= */
+.sp-layout {
     display: flex;
     flex-direction: column;
-}
-.bet-info strong {
-    color: white;
-}
-.bet-info span {
-    font-size: 0.85em;
-    color: #bbb;
-}
-.bet-chance {
-    font-weight: bold;
-    font-size: 1.1em;
-    color: #61dafb;
-    margin-left: 10px;
+    align-items: center;
+    width: 100%;
+    gap: 20px;
 }
 
-.bet-placeholder {
-    color: #888;
+.sp-wheel-container {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin-top: 10px;
+}
+
+/* Указатель сверху */
+.sp-pointer {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    border-top: 25px solid #ff1744;
+    z-index: 15;
+    filter: drop-shadow(0px 2px 5px rgba(255,23,68,0.5));
+}
+
+#spWheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 6px solid #333;
+    background: conic-gradient(#00E676 0deg 180deg, #ff1744 180deg 360deg);
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.6);
+    transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1);
+    overflow: hidden;
+}
+
+.sp-wheel-label {
+    position: absolute;
+    color: black;
+    font-weight: bold;
+    font-size: 1.4rem;
+    text-shadow: 0 0 3px white;
+    pointer-events: none;
+    z-index: 5;
+    top: 25%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.sp-controls {
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 16px;
+    padding: 20px;
+}
+
+.sp-title {
+    margin-top: 0;
+    color: #00E5FF;
     text-align: center;
+}
+
+.sp-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 15px;
+}
+.sp-input-group label {
+    color: #aaa;
+    font-size: 0.9em;
+}
+
+.sp-percentage-label {
+    color: #aaa;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+}
+
+.sp-percent-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.sp-pct-btn {
+    background: #2b2b2b;
+    border: 1px solid #444;
+    color: white;
+    padding: 10px 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 1.05rem;
+    transition: all 0.2s ease;
+}
+.sp-pct-btn:hover {
+    background: #3a3a3a;
+    border-color: #00E5FF;
+}
+.sp-pct-btn.active {
+    background: #00E5FF !important;
+    color: black !important;
+    border-color: #00E5FF !important;
+}
+.btn-mult {
+    font-size: 0.75rem;
+    color: #00E676;
+    margin-top: 2px;
+}
+.sp-pct-btn.active .btn-mult {
+    color: #121212;
+}
+
+.sp-summary {
+    background: #252525;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+}
+.sp-summary p {
+    margin: 0;
+    font-size: 0.95rem;
+}
+.win-color {
+    color: #00E676;
+}
+
+#spSpinBtn {
+    background: #00E676;
+    color: black;
+    font-weight: bold;
+    font-size: 1.15rem;
     padding: 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+#spSpinBtn:hover {
+    transform: scale(1.02);
+}
+#spSpinBtn:disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+    transform: none;
+}
+
+#spMessage {
+    text-align: center;
+    margin-top: 10px;
+    font-weight: bold;
+    min-height: 24px;
 }
 
 /* Модальные окна */
@@ -230,89 +479,53 @@ button:disabled {
     display: none;
     position: fixed;
     z-index: 100;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.8);
+    left: 0; top: 0; width: 100%; height: 100%;
+    background-color: rgba(0,0,0,0.85);
 }
 .modal-content {
-    background-color: #2b2b2b;
+    background-color: #1e1e1e;
     margin: 15% auto;
-    padding: 20px;
-    border: 1px solid #444;
+    padding: 25px;
+    border: 1px solid #333;
     width: 90%;
     max-width: 360px;
-    border-radius: 10px;
+    border-radius: 16px;
     position: relative;
     text-align: center;
 }
 .close-btn {
-    position: absolute;
-    right: 15px;
-    top: 10px;
-    color: #aaa;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
+    position: absolute; right: 15px; top: 10px;
+    color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;
 }
 .requisites-box {
-    background: #1e1e1e;
-    padding: 10px;
-    border-radius: 5px;
+    background: #121212;
+    padding: 15px;
+    border-radius: 8px;
     margin: 15px 0;
     border: 1px dashed #61dafb;
 }
-.requisites-box code {
-    font-size: 1.2em;
-    color: #61dafb;
-    font-weight: bold;
-}
-.warning-text {
-    color: #ff9100;
-    font-size: 0.85em;
-}
-.success-text {
-    color: #00E676;
-    font-size: 1.1em;
-}
+.requisites-box code { font-size: 1.25em; color: #61dafb; font-weight: bold; }
+.warning-text { color: #ff9100; font-size: 0.85em; }
+.success-text { color: #00E676; font-size: 1.1em; }
 
-/* Панель администратора */
+/* Админка */
 #adminPanel {
     width: 100%;
-    max-width: 400px;
+    max-width: 500px;
     background: #2e1f1f;
     border: 2px solid #ff1744;
-    border-radius: 8px;
+    border-radius: 12px;
     padding: 15px;
     margin-top: 20px;
 }
-#adminPanel h2 {
-    margin-top: 0;
-    color: #ff1744;
-    text-align: center;
-}
+#adminPanel h2 { margin-top: 0; color: #ff1744; text-align: center; }
 .admin-req-item {
-    background: #1e1e1e;
-    padding: 10px;
-    border-radius: 5px;
+    background: #121212;
+    padding: 12px;
+    border-radius: 8px;
     margin-bottom: 10px;
     border-left: 4px solid #ff9100;
 }
-.admin-btns {
-    display: flex;
-    gap: 10px;
-    margin-top: 5px;
-}
-.admin-approve-btn { background: #00E676; color: black; }
-.admin-decline-btn { background: #ff1744; color: white; }
-
-min-width {
-    input, button {
-        width: auto;
-        display: inline-block;
-    }
-    #ui input, #ui button {
-        width: 100%; /* оставляем во всю ширину в игровой панели */
-    }
-}
+.admin-btns { display: flex; gap: 10px; margin-top: 8px; }
+.admin-approve-btn { background: #00E676; color: black; font-weight: bold;}
+.admin-decline-btn { background: #ff1744; color: white; font-weight: bold;}

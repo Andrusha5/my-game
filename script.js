@@ -1,5 +1,4 @@
 // ======= НАСТРОЙКИ FIREBASE =======
-// !!! Вставь сюда СВОИ данные из консоли Firebase !!!
 const firebaseConfig = {
   apiKey: "AIzaSyDaqDEFnRgoOoQRpoQoZ5_OZq4FywdbByM",
   authDomain: "checkers-roulette.firebaseapp.com",
@@ -14,17 +13,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ======= Игровые Константы =======
-const BETTING_TIME = 15;         // Время ставок (сек)
-const BALL_MAX_SPEED = 150;       // Виртуальная скорость
-const BALL_DECELERATION = 0.985; // Коэффициент замедления
-const MIN_BET = 10;              // Минимальная ставка
-
-// Виртуальные размеры поля для 100% одинаковой физики на телефонах и ПК
-const VIRTUAL_WIDTH = 400;
-const VIRTUAL_HEIGHT = 400;
-const VIRTUAL_RADIUS = 12;
-
 // ======= Глобальные переменные состояния =======
 let myPlayerId = localStorage.getItem('roulette_player_id');
 if (!myPlayerId) {
@@ -34,41 +22,71 @@ if (!myPlayerId) {
 
 let players = {};         // Локальная копия игроков из БД
 let gameState = {};       // Состояние игры из БД
-let onlinePlayers = [];   // Список ID игроков, которые сейчас ОНЛАЙН
+let onlinePlayers = [];   // Список ID игроков онлайн
+let serverOffset = 0;     // Разница во времени с сервером
+
+// Переменные мультиплеера
+const BETTING_TIME = 15;
+const BALL_MAX_SPEED = 150;
+const BALL_DECELERATION = 0.985;
+const MIN_BET = 10;
+const VIRTUAL_WIDTH = 400;
+const VIRTUAL_HEIGHT = 400;
+const VIRTUAL_RADIUS = 12;
 
 let timerInterval = null;
 let animationFrameId = null;
-let serverOffset = 0;     // Разница во времени между клиентом и сервером
-
-// Физика и воспроизведение пути
-let currentPath = [];     // Сюда запишется рассчитанный путь шарика
-let animStartTime = 0;    // Точное время запуска анимации на устройстве
+let currentPath = [];
+let animStartTime = 0;
 let ballX = 200, ballY = 200;
 
-// Расширенная палитра из 30 ярких и контрастных цветов
 const DISTINCT_COLORS = [
-     '#00e61f', '#5289e7',   
-    '#ff3c00',  '#7dff03', '#3D5AFE', '#1DE9B6', 
-    '#651FFF', '#FF1744',  '#ff00ff', 
-    '#00C853', '#FF6D00',  '#00B8D4',  
-        '#C0CA33', 
+     '#00E676',  '#eeff00',  
+    '#ff7b00',  '#a7ff03', '#0026ff',  
+    '#651FFF', '#FF1744',  '#e100ff',
+    '#00C853', '#FF6D00',  
+    '#00a0ea',    
 ];
 
-// DOM Элементы
+// Переменные «Невозможного колеса» (Одиночная игра)
+let spSelectedPercent = 50;  // По умолчанию шанс 50%
+let spTotalRotation = 0;     // Отслеживание общей прокрутки колеса в градусах
+let spIsSpinning = false;    // Идет ли сейчас раунд
+
+// Правила и коэффициенты одиночной игры
+const SP_RULES = {
+    75: { mult: 1.2, label: 'x1.2' },
+    50: { mult: 1.4, label: 'x1.4' },
+    33: { mult: 1.55, label: 'x1.55' },
+    25: { mult: 1.7, label: 'x1.7' },
+    10: { mult: 1.85, label: 'x1.85' },
+    1:  { mult: 3.0, label: 'x3.0' }
+};
+
+// DOM элементы
 let bettingTimerDisplay, totalBankDisplay, wheelInner, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, gameMessage;
 
 function getServerTime() {
     return Date.now() + serverOffset;
 }
 
-// Определение Хоста: первый игрок по списку среди тех, кто в сети
 function isHost() {
     if (onlinePlayers.length === 0) return false;
     return onlinePlayers[0] === myPlayerId;
 }
 
-// ======= Инициализация при загрузке страницы =======
+// ======= Навигация между экранами =======
+window.showScreen = function(screenId) {
+    document.getElementById('lobbyScreen').style.display = 'none';
+    document.getElementById('multiplayerGameScreen').style.display = 'none';
+    document.getElementById('singleplayerGameScreen').style.display = 'none';
+    
+    document.getElementById(screenId).style.display = 'flex';
+};
+
+// ======= Инициализация приложения =======
 document.addEventListener('DOMContentLoaded', () => {
+    // Селекторы мультиплеера
     bettingTimerDisplay = document.getElementById('bettingTimer');
     totalBankDisplay = document.getElementById('totalBank');
     wheelInner = document.getElementById('wheelInner');
@@ -86,21 +104,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (placeBetButton) placeBetButton.addEventListener('click', placeBet);
-    if (betAmountInput) betAmountInput.addEventListener('keypress', e => { if (e.key === 'Enter') placeBet(); });
+    if (betAmountInput) betAmountInput.addEventListener('keypress', e => {if (e.key === 'Enter') placeBet(); });
 
-    // Проверяем, зашел ли Администратор (?admin=1 в ссылке)
+    // Проверяем админские права
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('admin') === '1') {
         document.getElementById('adminPanel').style.display = 'block';
         initAdminPanel();
     }
 
-    // 1. Получаем разницу во времени с сервером
+    // Слушатели базы данных
     db.ref('.info/serverTimeOffset').on('value', (snap) => {
         serverOffset = snap.val() || 0;
     });
 
-    // 2. Система мониторинга присутствия (Online/Offline)
     db.ref('.info/connected').on('value', (snap) => {
         if (snap.val() === true) {
             const presenceRef = db.ref(`presence/${myPlayerId}`);
@@ -109,28 +126,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 3. Отслеживаем список тех, кто сейчас онлайн
     db.ref('presence').on('value', (snap) => {
         onlinePlayers = Object.keys(snap.val() || {}).sort();
         checkHostTimerLogic();
     });
 
-    // 4. Единоразово проверяем существование игрока в базе, чтобы не занулять баланс при перезапуске
     db.ref(`players/${myPlayerId}`).once('value', (snap) => {
         if (!snap.exists()) {
             db.ref(`players/${myPlayerId}`).set({
                 name: savedName || "Игрок",
-                balance: 0,
+                balance: 100, // Стартовый баланс для тестов (можно изменить на 0)
                 totalBet: 0,
                 color: DISTINCT_COLORS[Math.floor(Math.random() * DISTINCT_COLORS.length)]
             });
         }
     });
 
-    // 5. Постоянно слушаем изменения игроков (ставок, балансов)
     db.ref('players').on('value', (snapshot) => {
         players = snapshot.val() || {};
-        
         const me = players[myPlayerId];
         if (me) {
             if (document.getElementById('userWelcome')) {
@@ -139,21 +152,170 @@ document.addEventListener('DOMContentLoaded', () => {
             if (document.getElementById('myBalance')) {
                 document.getElementById('myBalance').textContent = me.balance || 0;
             }
+            // Обновляем расчет в одиночной игре при изменении баланса
+            updateSpSummary();
         }
-
         renderBets();
         renderWheelSections();
         checkHostTimerLogic();
     });
 
-    // 6. Слушаем состояние игры
     db.ref('gameState').on('value', (snapshot) => {
         gameState = snapshot.val() || { status: 'betting' };
         syncGameWithDatabase();
     });
+
+    // Инициализируем стартовое состояние «Невозможного колеса»
+    selectSpPercent(50);
 });
 
-// ======= Логика Ставок =======
+// ======= ЛОГИКА ОДИНОЧНОЙ ИГРЫ «НЕВОЗМОЖНОЕ КОЛЕСО» =======
+
+// 1. Выбор процента выигрыша
+window.selectSpPercent = function(pct) {
+    if (spIsSpinning) return;
+    
+    spSelectedPercent = pct;
+
+    // Снимаем класс active со всех кнопок и вешаем на активную
+    const buttons = document.querySelectorAll('.sp-pct-btn');
+    buttons.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.includes(pct + '%')) {
+            btn.classList.add('active');
+        }
+    });
+
+    // Перерисовываем Колесо
+    // Ваша зона (ВЫ) - зеленая (#00E676), Зона бота - красная (#ff1744)
+    const deg = (pct / 100) * 360;
+    const wheel = document.getElementById('spWheel');
+    if (wheel) {
+        wheel.style.background = `conic-gradient(#00E676 0deg ${deg}deg, #ff1744 ${deg}deg 360deg)`;
+    }
+
+    // Двигаем надпись «ВЫ» по центру нашего сектора
+    const label = document.getElementById('spWheelText');
+    if (label) {
+        const halfAngle = deg / 2;
+        label.style.transform = `translate(-50%, -50%) rotate(${halfAngle}deg) translateY(-50px) rotate(-${halfAngle}deg)`;
+    }
+
+    updateSpSummary();
+};
+
+// 2. Расчет потенциальной суммы выплаты в реальном времени
+function updateSpSummary() {
+    const betInput = document.getElementById('spBetInput');
+    const summaryChance = document.getElementById('summaryChance');
+    const summaryWin = document.getElementById('summaryWin');
+
+    if (!betInput || !summaryChance || !summaryWin) return;
+
+    const bet = parseInt(betInput.value) || 0;
+    const rule = SP_RULES[spSelectedPercent];
+    
+    summaryChance.textContent = spSelectedPercent + '%';
+    
+    if (rule) {
+        const possiblePayout = Math.floor(bet * rule.mult);
+        summaryWin.textContent = possiblePayout + ' ₽';
+    }
+}
+
+// Слушатель ввода ставки для пересчета потенциального выигрыша
+document.getElementById('spBetInput')?.addEventListener('input', updateSpSummary);
+
+// 3. Запуск вращения
+window.spinSingleplayerWheel = function() {
+    if (spIsSpinning) return;
+
+    const betInput = document.getElementById('spBetInput');
+    const message = document.getElementById('spMessage');
+    const spinBtn = document.getElementById('spSpinBtn');
+    
+    const bet = parseInt(betInput.value) || 0;
+    const myData = players[myPlayerId] || { balance: 0 };
+    const balance = myData.balance || 0;
+
+    if (isNaN(bet) || bet < 10) {
+        alert('Минимальная ставка — 10 ₽!');
+        return;
+    }
+    if (bet > balance) {
+        alert('Недостаточно средств на балансе!');
+        return;
+    }
+
+    spIsSpinning = true;
+    spinBtn.disabled = true;
+    betInput.disabled = true;
+    message.textContent = 'Колесо вращается...';
+    message.style.color = '#00E5FF';
+
+    // Списываем ставку из баланса в Firebase
+    db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+        return (current || 0) - bet;
+    }, (error, committed) => {
+        if (committed) {
+            // Выполняем поворот колеса
+            // Чтобы симулировать вращение, делаем минимум 5 полных оборотов + случайный угол
+            const randomAngle = Math.random() * 360;
+            spTotalRotation += 1800 + randomAngle; // 1800 град = 5 оборотов
+            
+            const wheel = document.getElementById('spWheel');
+            wheel.style.transform = `rotate(${spTotalRotation}deg)`;
+
+            // Ждем завершения анимации (4 секунды)
+            setTimeout(() => {
+                evaluateSpResult(randomAngle, bet);
+            }, 4000);
+        } else {
+            spIsSpinning = false;
+            spinBtn.disabled = false;
+            betInput.disabled = false;
+            message.textContent = 'Произошла ошибка транзакции. Попробуйте еще раз.';
+        }
+    });
+};
+
+// 4. Определение результата
+function evaluateSpResult(stoppedAngle, bet) {
+    const message = document.getElementById('spMessage');
+    const spinBtn = document.getElementById('spSpinBtn');
+    const betInput = document.getElementById('spBetInput');
+
+    // Находим фактический сектор, который остановился напротив стрелочки (на 12 часов)
+    // Так как колесо крутится по часовой стрелке, угол на стрелке рассчитывается следующим образом:
+    const netRotation = spTotalRotation % 360;
+    const winningAngleOnWheel = (360 - netRotation) % 360;
+
+    // Зона игрока (ВЫ) находится в диапазоне от 0 до (pct / 100) * 360 градусов
+    const playerBoundary = (spSelectedPercent / 100) * 360;
+    const isPlayerWinner = winningAngleOnWheel <= playerBoundary;
+
+    if (isPlayerWinner) {
+        const rule = SP_RULES[spSelectedPercent];
+        const prize = Math.floor(bet * rule.mult);
+
+        // Начисляем баланс
+        db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+            return (current || 0) + prize;
+        });
+
+        message.innerHTML = `🎉 ВЫ ПОБЕДИЛИ! Получено: <span style="color:#00E676">+${prize} ₽</span>`;
+    } else {
+        message.innerHTML = `🔴 ВЫ ПРОИГРАЛИ! <span style="color:#ff1744">-${bet} ₽</span>`;
+    }
+
+    // Возвращаем UI к рабочему состоянию
+    spIsSpinning = false;
+    spinBtn.disabled = false;
+    betInput.disabled = false;
+}
+
+// ======= СТАРЫЙ МУЛЬТИПЛЕЕР (БЕЗ ИЗМЕНЕНИЙ) =======
+
 function placeBet() {
     const status = gameState.status || 'betting';
     if (status !== 'betting') {
@@ -197,7 +359,6 @@ function placeBet() {
     if (betAmountInput) betAmountInput.value = '';
 }
 
-// ======= Синхронизация с базой данных =======
 function syncGameWithDatabase() {
     const status = gameState.status || 'betting';
     const totalBank = calculateTotalBank();
@@ -257,7 +418,6 @@ function syncGameWithDatabase() {
     }
 }
 
-// ======= Таймер =======
 function startLocalTimer(timerEnd) {
     stopLocalTimer();
     timerInterval = setInterval(() => {
@@ -280,7 +440,6 @@ function stopLocalTimer() {
     }
 }
 
-// ======= Усиленная Логика Хоста =======
 function checkHostTimerLogic() {
     if (!isHost()) return;
 
@@ -315,7 +474,6 @@ function triggerRoundStart() {
     });
 }
 
-// ======= Путь шарика =======
 function generateDeterministicPath(angle) {
     let x = VIRTUAL_WIDTH / 2;
     let y = VIRTUAL_HEIGHT / 2;
@@ -400,7 +558,6 @@ function animateDeterministicBall() {
     }
 }
 
-// ======= Определение Победителя и Выигрыша (Комиссия 15%) =======
 function determineAndPublishWinner() {
     const dx = ballX - (VIRTUAL_WIDTH / 2);
     const dy = ballY - (VIRTUAL_HEIGHT / 2);
@@ -424,8 +581,7 @@ function determineAndPublishWinner() {
             currentAngle += size;
 
             if (startAngle <= endAngle) {
-                if (finalAngle >= startAngle && finalAngle < endAngle) {
-                    winner = p;
+                if (finalAngle >= startAngle && finalAngle < endAngle) {winner = p;
                     break;
                 }
             } else {
@@ -439,19 +595,16 @@ function determineAndPublishWinner() {
     }
 
     if (winner) {
-        // --- РАСЧЕТ ВЫИГРЫША С УМНОЙ КОМИССИЕЙ 15% ---
-        const defaultPrize = totalBank * 0.85; // Весь банк минус 15%
+        const defaultPrize = totalBank * 0.85; 
         let finalPrize = defaultPrize;
 
-        // Если выигрыш меньше личной ставки игрока
         if (defaultPrize < winner.totalBet) {
-            const otherBets = totalBank - winner.totalBet; // Ставки других игроков
-            finalPrize = winner.totalBet + (otherBets * 0.85); // Его ставка + 85% от других
+            const otherBets = totalBank - winner.totalBet; 
+            finalPrize = winner.totalBet + (otherBets * 0.85); 
         }
 
-        finalPrize = Math.floor(finalPrize); // Округляем до целых рублей
+        finalPrize = Math.floor(finalPrize); 
 
-        // Начисляем баланс в БД
         const winnerId = Object.keys(players).find(k => players[k].name === winner.name);
         if (winnerId) {
             db.ref(`players/${winnerId}/balance`).transaction((current) => {
@@ -459,7 +612,8 @@ function determineAndPublishWinner() {
             });
         }
 
-        db.ref('gameState').set({status: 'finished',
+        db.ref('gameState').set({
+            status: 'finished',
             winnerName: winner.name,
             winnerColor: winner.color,
             winnerPrize: finalPrize
@@ -491,7 +645,7 @@ function resetRoomForNextRound() {
                 name: players[id].name,
                 color: shuffledColors[colorIndex % shuffledColors.length],
                 totalBet: 0,
-                balance: players[id].balance || 0 // баланс сохраняем!
+                balance: players[id].balance || 0
             };
             colorIndex++;
         }
@@ -504,7 +658,8 @@ function resetRoomForNextRound() {
     });
 }
 
-// ======= Окна Пополнения =======
+// ======= ДЕПОЗИТЫ И АДМИНКА =======
+
 window.openDepositModal = function() {
     document.getElementById('depositModal').style.display = 'block';
     document.getElementById('depositStep1').style.display = 'block';
@@ -529,7 +684,7 @@ window.goToDepositStep2 = function() {
 
 window.sendDepositRequest = function() {
     const amount = parseInt(document.getElementById('depositAmountInput').value);
-    const name = playerNameInput.value.trim() || "Без имени";
+    const name = (playerNameInput ? playerNameInput.value.trim() : "Без имени") || "Без имени";
 
     const reqRef = db.ref('deposit_requests').push();
     reqRef.set({
@@ -544,11 +699,11 @@ window.sendDepositRequest = function() {
     document.getElementById('depositStep3').style.display = 'block';
 }
 
-// ======= ПАНЕЛЬ АДМИНИСТРАТОРА =======
 function initAdminPanel() {
     db.ref('deposit_requests').on('value', (snap) => {
         const requests = snap.val() || {};
         const adminList = document.getElementById('adminRequestsList');
+        if (!adminList) return;
         adminList.innerHTML = '';
 
         const pending = Object.values(requests).filter(r => r.status === 'pending');
@@ -584,7 +739,6 @@ window.declineDeposit = function(reqId) {
     db.ref(`deposit_requests/${reqId}`).remove();
 }
 
-// ======= Вспомогательные отрисовки UI =======
 function calculateTotalBank() {
     return Object.values(players).reduce((acc, p) => acc + (p.totalBet || 0), 0);
 }

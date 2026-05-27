@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Не лудка!</title>
-    <link rel="stylesheet" href="style.css?v=10">
+    <title>Игровой Портал</title>
+    <link rel="stylesheet" href="style.css?v=11">
     
     <!-- Подключаем Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -12,31 +12,113 @@
 </head>
 <body>
 
-    <!-- Верхняя панель с балансом -->
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ (Общая для всех экранов) -->
     <div id="headerBar">
         <span id="userWelcome">Вход...</span>
         <button id="balanceBtn" onclick="openDepositModal()">Баланс: <span id="myBalance">0</span> ₽</button>
     </div>
 
-    <div id="ui">
-        <input type="text" id="playerNameInput" placeholder="Имя игрока">
-        <input type="number" id="betAmountInput" placeholder="Ставка (мин. 10₽)" min="10">
-        <button id="placeBetButton">Сделать ставку</button>
-        
-        <div id="statusInfo">
-            <p>Общий Банк: <span id="totalBank">0</span> ₽</p>
+    <!-- ================= ЭКРАН 1: ЛОББИ (МЕНЮ) ================= -->
+    <div id="lobbyScreen" class="screen-container">
+        <h1 class="lobby-title">Выбор игры</h1>
+        <div class="lobby-grid">
+            <!-- Кнопка 1: Игра в кальмара -->
+            <button class="lobby-card card-squid" onclick="showScreen('multiplayerGameScreen')">
+                <div class="card-icon">
+                    <div class="mini-square-grid"></div>
+                </div>
+                <div class="card-info">
+                    <span class="card-name">Игра в кальмара</span>
+                    <span class="card-desc">Мультиплеер • Квадратное поле</span>
+                </div>
+            </button>
+
+            <!-- Кнопка 2: Невозможное колесо -->
+            <button class="lobby-card card-wheel" onclick="showScreen('singleplayerGameScreen')">
+                <div class="card-icon">
+                    <div class="mini-wheel"></div>
+                </div>
+                <div class="card-info">
+                    <span class="card-name">Невозможное колесо</span>
+                    <span class="card-desc">Одиночная • Колесо фортуны</span>
+                </div>
+            </button>
         </div>
-        <div id="gameMessage">Ждем ставки...</div>
     </div>
 
-    <div id="gameAreaWrapper">
-        <div id="wheelInner"></div>
-        <span id="bettingTimer">15с</span>
-        <div id="ball"></div>
+    <!-- ================= ЭКРАН 2: ИГРА В КАЛЬМАРА (Мультиплеер) ================= -->
+    <div id="multiplayerGameScreen" class="screen-container" style="display: none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В меню</button>
+        
+        <div id="ui">
+            <input type="text" id="playerNameInput" placeholder="Имя игрока">
+            <input type="number" id="betAmountInput" placeholder="Ставка (мин. 10₽)" min="10">
+
+
+<button id="placeBetButton">Сделать ставку</button>
+            
+            <div id="statusInfo">
+                <p>Общий Банк: <span id="totalBank">0</span> ₽</p>
+            </div>
+            <div id="gameMessage">Ждем ставки...</div>
+        </div>
+
+        <div id="gameAreaWrapper">
+            <div id="wheelInner"></div>
+            <span id="bettingTimer">15с</span>
+            <div id="ball"></div>
+        </div>
+
+        <div id="betList">
+            <div class="bet-placeholder">Пока нет ставок...</div>
+        </div>
     </div>
 
-    <div id="betList">
-        <div class="bet-placeholder">Пока нет ставок...</div>
+    <!-- ================= ЭКРАН 3: НЕВОЗМОЖНОЕ КОЛЕСО (Одиночная) ================= -->
+    <div id="singleplayerGameScreen" class="screen-container" style="display: none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В меню</button>
+
+        <div class="sp-layout">
+            <!-- Колесо и указатель -->
+            <div class="sp-wheel-container">
+                <div class="sp-pointer"></div>
+                <div id="spWheel">
+                    <div id="spWheelText" class="sp-wheel-label">ВЫ</div>
+                </div>
+            </div>
+
+            <!-- Панель управления одиночной игрой -->
+            <div class="sp-controls">
+                <h2 class="sp-title">Невозможное колесо</h2>
+                
+                <div class="sp-input-group">
+                    <label for="spBetInput">Сумма ставки (₽):</label>
+                    <input type="number" id="spBetInput" placeholder="Ставка (мин. 10₽)" min="10" value="10">
+                </div>
+
+                <!-- Выбор шанса победы -->
+                <div class="sp-percentage-label">Ваш шанс на победу:</div>
+                <div class="sp-percent-grid">
+                    <button class="sp-pct-btn" onclick="selectSpPercent(1)">1% <span class="btn-mult">x3.0</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(10)">10% <span class="btn-mult">x1.85</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(25)">25% <span class="btn-mult">x1.7</span></button>
+
+
+<button class="sp-pct-btn" onclick="selectSpPercent(33)">33% <span class="btn-mult">x1.55</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(50)" class="active">50% <span class="btn-mult">x1.4</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(75)">75% <span class="btn-mult">x1.2</span></button>
+                </div>
+
+                <!-- Сводка и Кнопка Запуска -->
+                <div class="sp-summary">
+                    <p>Шанс: <strong id="summaryChance">50%</strong></p>
+                    <p>Возможный выигрыш: <strong id="summaryWin" class="win-color">14 ₽</strong></p>
+                </div>
+
+                <button id="spSpinBtn" onclick="spinSingleplayerWheel()">Запустить колесо</button>
+                <div id="spMessage">Выберите ставку и крутите!</div>
+            </div>
+        </div>
     </div>
 
     <!-- МОДАЛЬНОЕ ОКНО ПОПОЛНЕНИЯ БАЛАНСА -->
@@ -54,9 +136,9 @@
             <div id="depositStep2" style="display: none;">
                 <p>Переведите <strong id="reqAmount">0</strong> ₽ по реквизитам ниже:</p>
                 <div class="requisites-box">
-                    <p>💳 Карта Сбербанк:</p>
-                    <code id="cardNum">0000 6767 3333 1488</code>
-                    <p>Получатель: @CBEPXCEKPETHbIN</p>
+                    <p>💳Сбербанк:</p>
+                    <code>6767 3333 5555 1488</code>
+                    <p>Получатель: CBEPXCEKPETHbIN</p>
                 </div>
                 <p class="warning-text">После перевода обязательно нажмите кнопку ниже!</p>
                 <button id="confirmPaidBtn" onclick="sendDepositRequest()">Я перевел, подтверждаю</button>
@@ -69,7 +151,7 @@
         </div>
     </div>
 
-    <!-- СЕКРЕТНАЯ АДМИН ПАНЕЛЬ (отображается только по ссылке ?admin=1) -->
+    <!-- СЕКРЕТНАЯ АДМИН ПАНЕЛЬ -->
     <div id="adminPanel" style="display: none;">
         <h2>Панель администратора</h2>
         <div id="adminRequestsList">
@@ -77,6 +159,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=10"></script>
+    <script src="script.js?v=11"></script>
 </body>
 </html>
