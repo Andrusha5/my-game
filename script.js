@@ -58,9 +58,9 @@ const SP_RULES = {
     75: { mult: 1.2, label: 'x1.2' },
     50: { mult: 1.4, label: 'x1.4' },
     33: { mult: 1.55, label: 'x1.55' },
-    25: { mult: 1.7, label: 'x1.7' },
-    10: { mult: 1.85, label: 'x1.85' },
-    1:  { mult: 3.0, label: 'x3.0' }
+    25: { mult: 1.8, label: 'x1.8' },
+    10: { mult: 2.2, label: 'x2.2' },
+    1:  { mult: 10.0, label: 'x10.0' }
 };
 
 // DOM элементы
