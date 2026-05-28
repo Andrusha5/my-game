@@ -20,10 +20,10 @@ if (!myPlayerId) {
     localStorage.setItem('roulette_player_id', myPlayerId);
 }
 
-let players = {};         // Локальная копия игроков из БД
-let gameState = {};       // Состояние игры из БД
-let onlinePlayers = [];   // Список ID игроков онлайн
-let serverOffset = 0;     // Разница во времени с сервером
+let players = {};         
+let gameState = {};       
+let onlinePlayers = [];   
+let serverOffset = 0;     
 
 // Переменные мультиплеера
 const BETTING_TIME = 15;
@@ -47,7 +47,9 @@ const DISTINCT_COLORS = [
     '#00ff15', '#FF6D00',  
     '#00a0ea',    
 ];
-// Переменные одиночной игры
+
+
+// Переменные «Невозможного колеса»
 let spSelectedPercent = 50;  
 let spTotalRotation = 0;     
 let spIsSpinning = false;    
@@ -61,8 +63,25 @@ const SP_RULES = {
     1:  { mult: 33.0, label: 'x33.0' }
 };
 
+// Переменные «Всегда Голубь» (Монетка)
+let coinChoice = 'heads'; // 'heads' или 'tails'
+let coinIsSpinning = false;
+
+// Переменные «Везде мины»
+let minesGameActive = false;
+let minesMap = []; // Массив из 25 элементов (true - мина, false - пусто)
+let minesOpened = []; // Массив открытых индексов
+let minesCurrentBet = 0;
+
+// Массив мультипликаторов для 3 мин из 25 клеток (всего 22 безопасные)
+const MINES_MULTIPLIERS = [
+    0.90, 1.00, 1.11, 1.33, 1.50, 1.86, 2.00, 2.75, 3.33, 4.00, 
+    5.55, 6.15, 6.99, 8.99, 12.65, 15.33, 22.65, 33.33, 49.75, 
+    67.00, 133.33, 555.55, 999.67
+];
+
 // DOM элементы
-let bettingTimerDisplay, totalBankDisplay, gameCanvas, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, gameMessage;
+let bettingTimerDisplay, totalBankDisplay, gameCanvas, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, historyList, gameMessage;
 
 function getServerTime() {
     return Date.now() + serverOffset;
@@ -77,11 +96,13 @@ window.showScreen = function(screenId) {
     document.getElementById('lobbyScreen').style.display = 'none';
     document.getElementById('multiplayerGameScreen').style.display = 'none';
     document.getElementById('singleplayerGameScreen').style.display = 'none';
+    document.getElementById('coinGameScreen').style.display = 'none';
+    document.getElementById('minesGameScreen').style.display = 'none';
     
     document.getElementById(screenId).style.display = 'flex';
 };
 
-// ======= Инициализация приложения =======
+// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
     bettingTimerDisplay = document.getElementById('bettingTimer');
     totalBankDisplay = document.getElementById('totalBank');
@@ -92,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     betAmountInput = document.getElementById('betAmountInput');
     placeBetButton = document.getElementById('placeBetButton');
     betList = document.getElementById('betList');
+    historyList = document.getElementById('historyList');
     gameMessage = document.getElementById('gameMessage');
 
     const savedName = localStorage.getItem('roulette_player_name');
@@ -147,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('myBalance').textContent = me.balance || 0;
             }
             updateSpSummary();
+            updateMinesSummary();
         }
         renderBets();
         renderWheelSections();
@@ -158,24 +181,323 @@ document.addEventListener('DOMContentLoaded', () => {
         syncGameWithDatabase();
     });
 
+    // Получаем последние 10 записей истории
+    db.ref('history').limitToLast(10).on('value', (snapshot) => {
+        renderHistory(snapshot.val() || {});
+    });
+
     selectSpPercent(50);
+    renderMinesGrid();
 });
 
-// ======= НОВЫЙ МАТЕМАТИЧЕСКИЙ ДВИЖОК СЕГМЕНТАЦИИ (ДИАГОНАЛЬ) =======
+// ======= ВКЛАДКИ МУЛЬТИПЛЕЕРА =======
+window.switchMultiTab = function(tabName) {
+    const betsBtn = document.getElementById('tabBetsBtn');
+    const historyBtn = document.getElementById('tabHistoryBtn');
+    
+    if (tabName === 'bets') {
+        betsBtn.classList.add('active');
+        historyBtn.classList.remove('active');
+        betList.style.display = 'block';
+        historyList.style.display = 'none';
+    } else {
+        betsBtn.classList.remove('active');
+        historyBtn.classList.add('active');
+        betList.style.display = 'none';
+        historyList.style.display = 'block';
+    }
+}
 
-// Функция делит плоскость 400x400 на диагональные параллельные полосы.
-// minW = 30px гарантирует видимость полосы даже при шансе меньше 1%.
+// Отображение истории
+function renderHistory(historyData) {
+    if (!historyList) return;
+    historyList.innerHTML = '';
+
+    const list = Object.values(historyData).reverse(); // Показываем последние сверху
+
+    if (list.length === 0) {
+        historyList.innerHTML = '<div class="bet-placeholder">История побед пуста...</div>';
+        return;
+    }
+
+    list.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'bet-item';
+        div.style.borderLeft = `4px solid #00E676`;
+        div.innerHTML = `
+            <div class="avatar" style="background:#00E676; color:black;">💰</div>
+            <div class="bet-info">
+                <strong>${item.playerName}</strong>
+                <span>Выиграл: ${item.winnerPrize} ₽</span>
+            </div>
+            <div class="bet-chance" style="color:#00E676">${item.winnerChance}% шанс</div>
+        `;
+        historyList.appendChild(div);
+    });
+}
+
+// ======= ИГРА 1: ВСЕГДА ГОЛУБЬ (COIN FLIP) =======
+
+window.selectCoinChoice = function(choice) {
+    if (coinIsSpinning) return;
+    coinChoice = choice;
+    document.getElementById('btnCoinHeads').classList.toggle('active', choice === 'heads');
+    document.getElementById('btnCoinTails').classList.toggle('active', choice === 'tails');
+}
+
+window.playCoinFlip = function() {
+    if (coinIsSpinning) return;
+
+    const betInput = document.getElementById('coinBetInput');
+    const message = document.getElementById('coinMessage');
+    const coinEl = document.getElementById('coin3d');
+    
+    const bet = parseInt(betInput.value) || 0;
+    const myData = players[myPlayerId] || { balance: 0 };
+    const balance = myData.balance || 0;
+
+    if (isNaN(bet) || bet < 10) {
+        alert('Минимальная ставка — 10 ₽!');
+        return;
+    }
+    if (bet > balance) {
+        alert('Недостаточно средств на балансе!');
+        return;
+    }
+
+    coinIsSpinning = true;
+    betInput.disabled = true;
+    message.textContent = 'Монетка летит...';
+    message.style.color = '#FFC400';
+
+    // Списание баланса
+    db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+        return (current || 0) - bet;
+    }, (error, committed) => {
+        if (committed) {
+            // Определяем исход (50% орел, 50% решка)
+            const result = Math.random() < 0.5 ? 'heads' : 'tails';
+            
+            // Расчет углов анимации (несколько полных кувырков)
+            const spins = 10; 
+            const targetRotation = result === 'heads' ? (spins * 360) : (spins * 360 + 180);
+            
+            coinEl.style.transform = `rotateY(${targetRotation}deg)`;
+
+            setTimeout(() => {
+                const won = coinChoice === result;
+                if (won) {
+                    const prize = Math.floor(bet * 1.5);
+                    db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+                        return (current || 0) + prize;
+                    });
+                    message.innerHTML = `🎉 Вы угадали! Монетка выпала: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. Выигрыш: <span class="win-color">+${prize} ₽</span>`;
+                } else {
+                    message.innerHTML = `🔴 Не угадали! Монетка выпала: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. <span style="color:#ff1744">-${bet} ₽</span>`;
+                }
+                
+                coinIsSpinning = false;
+                betInput.disabled = false;
+            }, 3000); // Время анимации
+        } else {
+            coinIsSpinning = false;
+            betInput.disabled = false;
+            message.textContent = 'Ошибка транзакции. Попробуйте еще раз.';
+        }
+    });
+}
+
+// ======= ИГРА 2: ВЕЗДЕ МИНЫ (MINES) =======
+
+function renderMinesGrid() {
+    const grid = document.getElementById('minesGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('button');
+        cell.className = 'mine-cell';
+        cell.id = `mine_cell_${i}`;
+        cell.disabled = true; // Отключены до нажатия "Начать"
+        cell.onclick = () => clickMineCell(i);
+        grid.appendChild(cell);
+    }
+}
+
+function updateMinesSummary() {
+    const betInput = document.getElementById('minesBetInput');
+    const cashoutVal = document.getElementById('minesCashoutValue');
+    if (!betInput || !cashoutVal) return;
+
+    const bet = parseInt(betInput.value) || 0;
+    if (!minesGameActive) {
+        cashoutVal.textContent = '0';
+        return;
+    }
+
+    const currentMult = MINES_MULTIPLIERS[minesOpened.length];
+    cashoutVal.textContent = Math.floor(minesCurrentBet * currentMult);
+}
+
+document.getElementById('minesBetInput')?.addEventListener('input', updateMinesSummary);
+
+window.startMinesRound = function() {
+    if (minesGameActive) return;
+
+    const betInput = document.getElementById('minesBetInput');
+    constmessage = document.getElementById('minesMessage');
+    const startBtn = document.getElementById('minesStartBtn');
+    const cashoutBtn = document.getElementById('minesCashoutBtn');
+
+    const bet = parseInt(betInput.value) || 0;
+    const myData = players[myPlayerId] || { balance: 0 };
+    const balance = myData.balance || 0;
+
+    if (isNaN(bet) || bet < 10) {
+        alert('Минимальная ставка — 10 ₽!');
+        return;
+    }
+    if (bet > balance) {
+        alert('Недостаточно средств на балансе!');
+        return;
+    }
+
+    // Блокируем баланс
+    db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+        return (current || 0) - bet;
+    }, (error, committed) => {
+        if (committed) {
+            minesCurrentBet = bet;
+            minesGameActive = true;
+            minesOpened = [];
+            
+            // Генерируем ровно 3 мины случайным образом
+            minesMap = Array(25).fill(false);
+            let placed = 0;
+            while (placed < 3) {
+                const idx = Math.floor(Math.random() * 25);
+                if (!minesMap[idx]) {
+                    minesMap[idx] = true;
+                    placed++;
+                }
+            }
+
+            // Настройка UI
+            startBtn.disabled = true;
+            betInput.disabled = true;
+            cashoutBtn.disabled = false;
+            message.textContent = 'Раунд начался! Выбирайте ячейки.';
+            message.style.color = '#00E5FF';
+
+            // Разблокировка ячеек
+            for (let i = 0; i < 25; i++) {
+                const cell = document.getElementById(`mine_cell_${i}`);
+                cell.className = 'mine-cell';
+                cell.textContent = '';
+                cell.disabled = false;
+            }
+
+            document.getElementById('minesOpenedCount').textContent = '0/22';
+            document.getElementById('minesCurrentMultiplier').textContent = '1.00x';
+            updateMinesSummary();
+        } else {
+            alert('Сбой транзакции при запуске раунда.');
+        }
+    });
+}
+
+function clickMineCell(index) {
+    if (!minesGameActive) return;
+    const cell = document.getElementById(`mine_cell_${index}`);
+    if (cell.disabled || minesOpened.includes(index)) return;
+
+    cell.disabled = true;
+
+    // Попал на мину
+    if (minesMap[index]) {
+        cell.classList.add('exploded');
+        cell.textContent = '💣';
+        endMinesGame(false);
+    } else {
+        // Безопасная клетка
+        cell.classList.add('safe');
+        cell.textContent = '💎';
+        minesOpened.push(index);
+
+        const newMultiplier = MINES_MULTIPLIERS[minesOpened.length];
+        document.getElementById('minesOpenedCount').textContent = `${minesOpened.length}/22`;
+        document.getElementById('minesCurrentMultiplier').textContent = `${newMultiplier.toFixed(2)}x`;
+        updateMinesSummary();
+
+        // Если угадал все 22 клетки
+        if (minesOpened.length === 22) {
+            endMinesGame(true);
+        }
+    }
+}
+
+window.cashoutMines = function() {
+    if (!minesGameActive || minesOpened.length === 0) return;
+    endMinesGame(true);
+}
+
+function endMinesGame(isWin) {
+    minesGameActive = false;
+    const startBtn = document.getElementById('minesStartBtn');
+    const cashoutBtn = document.getElementById('minesCashoutBtn');
+    const betInput = document.getElementById('minesBetInput');
+    const message = document.getElementById('minesMessage');
+
+    startBtn.disabled = false;
+    betInput.disabled = false;
+    cashoutBtn.disabled = true;
+
+    // Вскрываем все ячейки
+    for (let i = 0; i < 25; i++) {
+        const cell = document.getElementById(`mine_cell_${i}`);
+        cell.disabled = true;
+        
+        if (minesMap[i]) {
+            if (!cell.classList.contains('exploded')) {
+                cell.classList.add('revealed-mine');
+                cell.textContent = '💣';
+            }
+        } else {
+            if (!cell.classList.contains('safe')) {
+                cell.textContent = '💎';
+            }
+
+
+}
+    }
+
+    if (isWin) {
+        const mult = MINES_MULTIPLIERS[minesOpened.length];
+        const winnings = Math.floor(minesCurrentBet * mult);
+
+        db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+            return (current || 0) + winnings;
+        });
+
+        message.innerHTML = `🎉 Победа! Вы забрали <span class="win-color">${winnings} ₽</span> (${mult.toFixed(2)}x)`;
+    } else {
+        message.innerHTML = `💥 Бабах! Наступили на мину. Ставка <span style="color:#ff1744">${minesCurrentBet} ₽</span> сгорела.`;
+    }
+}
+
+// ======= МАТЕМАТИЧЕСКИЙ ДВИЖОК ДИАГОНАЛЕЙ («ИГРА В КАЛЬМАРА») =======
+
 function getPlayersWithSegments() {
     const active = Object.keys(players)
         .filter(id => players[id].totalBet > 0)
         .map(id => ({ id, ...players[id] }))
-        .sort((a, b) => a.id.localeCompare(b.id)); // Постоянная сортировка, чтобы полосы не прыгали
+        .sort((a, b) => a.id.localeCompare(b.id)); 
 
     const totalB = active.reduce((sum, p) => sum + p.totalBet, 0);
     if (active.length === 0 || totalB === 0) return [];
 
-    const L = 400 * Math.SQRT2; // Длина диагонали квадрата (~565.68px)
-    const minW = Math.min(30, L / (active.length + 1)); // Гарантированный минимум
+    const L = 400 * Math.SQRT2; 
+    const minW = Math.min(30, L / (active.length + 1)); 
     const totalMin = active.length * minW;
     const remainingL = L - totalMin;
 
@@ -189,7 +511,7 @@ function getPlayersWithSegments() {
     });
 }
 
-// ======= ЛОГИКА ОДИНОЧНОЙ ИГРЫ «НЕВОЗМОЖНОЕ КОЛЕСО» =======
+// ======= НЕВОЗМОЖНОЕ КОЛЕСО =======
 
 window.selectSpPercent = function(pct) {
     if (spIsSpinning) return;
@@ -315,7 +637,7 @@ function evaluateSpResult(stoppedAngle, bet) {
     betInput.disabled = false;
 }
 
-// ======= ОБНОВЛЕННЫЙ МУЛЬТИПЛЕЕР (КВАДРАТНАЯ ИГРА) =======
+// ======= СЕТЕВАЯ ЧАСТЬ МУЛЬТИПЛЕЕРА =======
 
 function placeBet() {
     const status = gameState.status || 'betting';
@@ -350,7 +672,8 @@ function placeBet() {
     const currentBet = myData.totalBet || 0;
     const playerColor = DISTINCT_COLORS[Object.keys(players).length % DISTINCT_COLORS.length];
 
-    db.ref(`players/${myPlayerId}`).update({name: name,
+    db.ref(`players/${myPlayerId}`).update({
+        name: name,
         color: myData.color || playerColor,
         totalBet: currentBet + amount,
         balance: newBalance
@@ -558,13 +881,11 @@ function animateDeterministicBall() {
     }
 }
 
-// Определение победителя по координатам холста диагоналей
 function determineAndPublishWinner() {
     const segments = getPlayersWithSegments();
     let winner = null;
     const totalBank = calculateTotalBank();
 
-    // Проекция координат на диагональную ось (x + y - 400) * Math.SQRT1_2
     const finalXCanvas = (ballX + ballY - 400) * Math.SQRT1_2;
 
     if (segments.length > 0) {
@@ -585,6 +906,18 @@ function determineAndPublishWinner() {
 
         db.ref(`players/${winner.id}/balance`).transaction((current) => {
             return (current || 0) + finalPrize;
+        });
+
+        // Расчет шанса победы в %
+        const chancePct = ((winner.totalBet / totalBank) * 100).toFixed(0);
+
+        // Публикуем победу в историю
+        const historyRef = db.ref('history');
+        historyRef.push({
+            playerName: winner.name,
+            winnerPrize: finalPrize,
+            winnerChance: chancePct,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
         });
 
         db.ref('gameState').set({
@@ -633,7 +966,7 @@ function resetRoomForNextRound() {
     });
 }
 
-// ======= ОТРИСОВКА ДИАГОНАЛЬНОГО ПОЛЯ (CANVAS) =======
+// ======= CANVASES ДЛЯ ДИАГОНАЛЕЙ =======
 
 function renderWheelSections() {
     const canvas = document.getElementById('gameCanvas');
@@ -644,7 +977,6 @@ function renderWheelSections() {
 
     const segments = getPlayersWithSegments();
 
-    // Если нет ставок - рисуем стильную клетку "Игры в кальмара"
     if (segments.length === 0) {
         ctx.fillStyle = '#1e1e1e';
         ctx.fillRect(0, 0, 400, 400);
@@ -662,24 +994,21 @@ function renderWheelSections() {
         return;
     }
 
-    const L = 400 * Math.SQRT2; // ~565px
+    const L = 400 * Math.SQRT2; 
 
     ctx.save();
     ctx.translate(200, 200);
-    ctx.rotate(Math.PI / 4); // Поворачиваем холст на 45 градусов для создания диагоналей
+    ctx.rotate(Math.PI / 4); 
 
     segments.forEach(p => {
         ctx.fillStyle = p.color;
-        // Заливаем прямоугольник на повернутом холсте (он станет диагональной полосой)
         ctx.fillRect(p.startX, -L, p.width, L * 2);
 
-        // Пишем "Вы" на твоем поле
         if (p.id === myPlayerId) {
             ctx.save();
             ctx.translate(p.startX + p.width / 2, 0);
-            ctx.rotate(-Math.PI / 4); // Поворачиваем текст обратно горизонтально
+            ctx.rotate(-Math.PI / 4); 
             
-            // Стилизация текста "Вы" с неоновой обводкой для максимальной читаемости
             ctx.fillStyle = '#000000';
             ctx.font = 'bold 24px Segoe UI, sans-serif';
             ctx.textAlign = 'center';
@@ -724,7 +1053,7 @@ window.sendDepositRequest = function() {
     const reqRef = db.ref('deposit_requests').push();
     reqRef.set({
         id: reqRef.key,
-        playerId:myPlayerId,
+        playerId: myPlayerId,
         playerName: name,
         amount: amount,
         status: 'pending'
@@ -806,5 +1135,3 @@ function renderBets() {
         betList.appendChild(item);
     });
 }
-
-

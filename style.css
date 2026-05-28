@@ -49,7 +49,7 @@ body {
     transform: scale(1.05);
 }
 
-/* Базовые экраны */
+/* Экраны */
 .screen-container {
     width: 100%;
     max-width: 500px;
@@ -68,93 +68,125 @@ body {
 }
 
 .lobby-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
     width: 100%;
+}
+
+max-width{
+    .lobby-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .lobby-card {
     display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
     background: #1e1e1e;
     border: 2px solid #333;
     border-radius: 16px;
-    padding: 15px;
+    padding: 20px 15px;
     cursor: pointer;
-    width: 100%;
-    text-align: left;
+    text-align: center;
     transition: all 0.3s ease;
+    min-height: 150px;
 }
 
 .lobby-card:hover {
-    transform: translateY(-3px);
+    transform: translateY(-4px);
     border-color: #61dafb;
-    box-shadow: 0 8px 20px rgba(97, 218, 251, 0.2);
+    box-shadow: 0 8px 20px rgba(97, 218, 251, 0.25);
 }
 
-.card-squid {
-    border-left: 6px solid #FF3366;
-}
-.card-wheel {
-    border-left: 6px solid #00E5FF;
-}
+.card-squid { border-top: 5px solid #FF3366; }
+.card-wheel { border-top: 5px solid #00E5FF; }
+.card-coin { border-top: 5px solid #FFC400; }
+.card-mines { border-top: 5px solid #E65100; }
 
 .card-icon {
-    width: 60px;
-    height: 60px;
+    width: 50px;
+    height: 50px;
     background: #252525;
     border-radius: 12px;
-    margin-right: 15px;
+    margin-bottom: 12px;
     display: flex;
     justify-content: center;
     align-items: center;
-    flex-shrink: 0;
 }
 
-/* Иконка 1: Квадратное поле */
+/* Иконки лобби */
 .mini-square-grid {
-    width: 30px;
-    height: 30px;
+    width: 26px; height: 26px;
     border: 3px solid #FF3366;
     border-radius: 4px;
-    background: repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 5px,
-      rgba(255, 51, 102, 0.2) 5px,
-      rgba(255, 51, 102, 0.2) 10px
-    );
 }
-
-/* Иконка 2: Колесо */
 .mini-wheel {
-    width: 32px;
-    height: 32px;
-    border: 4px dashed #00E5FF;
+    width: 26px; height: 26px;
+    border: 3px dashed #00E5FF;
     border-radius: 50%;
-    animation: rotateMiniWheel 8s linear infinite;
+    animation: rotateMiniWheel 10s linear infinite;
+}
+.mini-coin {
+    width: 26px; height: 26px;
+    background: #FFC400;
+    border-radius: 50%;
+    border: 2px solid #FFA000;
+    box-shadow: inset 0 0 4px white;
+}
+.mini-mine {
+    width: 26px; height: 26px;
+    background: #e65100;
+    border-radius: 6px;
+    position: relative;
+}
+.mini-mine::after {
+    content: ''; position: absolute; width: 8px; height: 8px;
+    background: black; border-radius: 50%; top: 9px; left: 9px;
 }
 
-@keyframes rotateMiniWheel {
-    100% { transform: rotate(360deg); }
-}
+@keyframes rotateMiniWheel { 100% { transform: rotate(360deg); } }
 
 .card-info {
     display: flex;
     flex-direction: column;
 }
-
 .card-name {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: bold;
     color: white;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
+}
+.card-desc {
+    font-size: 0.75rem;
+    color: #888;
 }
 
-.card-desc {
-    font-size: 0.85rem;
+/* Переключатели вкладок мультиплеера */
+.multi-tabs {
+    display: flex;
+    width: 100%;
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 3px;
+    margin-top: 15px;
+}
+.tab-btn {
+    flex: 1;
+    background: transparent;
     color: #888;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+.tab-btn.active {
+    background: #333;
+    color: white;
 }
 
 /* Кнопка НАЗАД */
@@ -170,132 +202,52 @@ body {
     font-weight: bold;
     width: auto;
 }
-.back-to-menu-btn:hover {
-    background: #444;
-    color: white;
-}
+.back-to-menu-btn:hover { background: #444; color: white; }
 
-/* Мультиплеер (Квадратная игра) */
-#ui {
-    margin-bottom: 10px;
-    text-align: center;
-    width: 100%;
-}
-
-input, button {
-    padding: 12px 15px;
-    margin: 5px 0;
-    border: none;
-    border-radius: 8px;
-    font-size: 1em;
-    width: 100%;
-}
-
-input[type="text"], input[type="number"] {
-    background: #252525;
-    color: white;
-    border: 1px solid #444;
-}
-input[type="text"]:focus, input[type="number"]:focus {
-    outline: none;
-    border-color: #61dafb;
-}
-
-#placeBetButton {
-    background: #61dafb;
-    color: black;
-    cursor: pointer;
-    font-weight: bold;
-}
-#placeBetButton:disabled {
-    background: #444;
-    color: #888;
-    cursor: not-allowed;
-}
-
-#statusInfo {
-    margin-top: 5px;
-    font-size: 1.1em;
-}
-#totalBank {
-    color: #00E676;
-    font-weight: bold;
-}
-
-#gameMessage {
-    margin-top: 5px;
-    padding: 8px;
-    font-size: 1.1em;
-    font-weight: bold;
-    min-height: 30px;
-    text-align: center;
-}
+/* Мультиплеер */
+#ui { text-align: center; width: 100%; }
+input, button { padding: 12px 15px; margin: 5px 0; border: none; border-radius: 8px; font-size: 1em; width: 100%; }
+input[type="text"], input[type="number"] { background: #252525; color: white; border: 1px solid #444; }
+input:focus { outline: none; border-color: #61dafb; }
+#placeBetButton { background: #61dafb; color: black; cursor: pointer; font-weight: bold; }
+#placeBetButton:disabled { background: #444; color: #888; cursor: not-allowed; }
+#statusInfo { margin-top: 5px; font-size: 1.1em; }
+#totalBank { color: #00E676; font-weight: bold; }
+#gameMessage { margin-top: 5px; padding: 8px; font-size: 1.1em; font-weight: bold; min-height: 30px; text-align: center; }
 
 /* Контейнер игрового поля */
 #gameAreaWrapper {
-    width: 90vw; 
-    max-width: 400px;
-    aspect-ratio: 1 / 1;
-    position: relative;
-    border: 6px solid #2b2b2b;
-    border-radius: 20px; /* Красивые скругленные углы как на фото */
-    overflow: hidden;
-    background: #181818;
-    margin: 10px auto;
+    width: 90vw; max-width: 400px; aspect-ratio: 1 / 1;
+    position: relative; border: 6px solid #2b2b2b; border-radius: 20px;
+    overflow: hidden; background: #181818; margin: 10px auto;
     box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    border-radius: 3%;
 }
-
-#gameCanvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-}
-
+#gameCanvas { width: 100%; height: 100%; display: block; }
 #bettingTimer {
-    font-size: 70px;
-    top: 50%; left: 50%;
-    position: absolute;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    z-index: 5;
-    color: rgba(255, 255, 255, 0.45);
-    text-shadow: 0 4px 15px rgba(0,0,0,0.6);
-    font-weight: bold;
-    display: none;
+    font-size: 70px; top: 50%; left: 50%; position: absolute;
+    transform: translate(-50%, -50%); pointer-events: none; z-index: 5;
+    color: rgba(255, 255, 255, 0.45); text-shadow: 0 4px 15px rgba(0,0,0,0.6);
+    font-weight: bold; display: none;
 }
-
 #ball {
     width: 24px; height: 24px;
-    background: white; 
-    border-radius: 50%;
+     background: white; 
+     border-radius: 50%;
     position: absolute;
-    z-index: 10;
-    box-shadow: 0 0 12px rgba(255,255,255,0.9), inset 0 0 4px rgba(0,0,0,0.3);
+     z-index: 10;
+    box-shadow: 0 0 12px rgba(255,255,255,0.9),
+     inset 0 0 4px rgba(0,0,0,0.3);
     display: none;
 }
 
-#betList {
-    width: 100%;
-    background: #1e1e1e;
-    padding: 10px;
-    border-radius: 12px;
-    max-height: 180px;
-    overflow-y: auto;
-    border: 1px solid #333;
-    margin-top: 10px;
+#betList, #historyList {
+    width: 100%; background: #1e1e1e; padding: 10px; border-radius: 12px;
+    max-height: 180px; overflow-y: auto; border: 1px solid #333; margin-top: 10px;
 }
-
-.bet-item {
-    display: flex;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #2a2a2a;
-}
+.bet-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #2a2a2a; }
 .bet-item:last-child { border-bottom: none; }
 .avatar {
-    width: 30px; height: 30px;
-    border-radius: 50%;
+    width: 30px; height: 30px; border-radius: 50%;
     display: flex; justify-content: center; align-items: center;
     font-weight: bold; margin-right: 10px; color: black;
 }
@@ -304,225 +256,150 @@ input[type="text"]:focus, input[type="number"]:focus {
 .bet-placeholder { color: #666; text-align: center; padding: 15px; }
 
 /* ================= СТИЛИ ДЛЯ НЕВОЗМОЖНОГО КОЛЕСА ================= */
-.sp-layout {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    gap: 20px;
+.sp-layout, .coin-layout, .mines-layout {
+    display: flex; flex-direction: column; align-items: center; width: 100%; gap: 15px;
 }
-
-.sp-wheel-container {
-    position: relative;
-    width: 280px;
-    height: 280px;
-    margin-top: 10px;
-}
-
+.sp-wheel-container { position: relative; width: 280px; height: 280px; margin-top: 10px; }
 .sp-pointer {
-    position: absolute;
-    top: -15px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 15px solid transparent;
-    border-right: 15px solid transparent;
-    border-top: 25px solid #ff1744;
-    z-index: 15;
-    filter: drop-shadow(0px 2px 5px rgba(255,23,68,0.5));
+    position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent;
+    border-top: 25px solid #ff1744; z-index: 15; filter: drop-shadow(0px 2px 5px rgba(255,23,68,0.5));
 }
-
 #spWheel {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    border: 6px solid #333;
+    width: 100%; height: 100%; border-radius: 50%; border: 6px solid #333;
     background: conic-gradient(#00E676 0deg 180deg, #ff1744 180deg 360deg);
-    position: relative;
-    box-shadow: 0 0 20px rgba(0,0,0,0.6);
-    transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1);
-    overflow: hidden;
+    position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.6);
+    transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1); overflow: hidden;
 }
-
 .sp-wheel-label {
-    position: absolute;
-    color: black;
-    font-weight: bold;
-    font-size: 1.4rem;
-    text-shadow: 0 0 3px white;
-    pointer-events: none;
-    z-index: 5;
-    top: 25%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    position: absolute; color: black; font-weight: bold; font-size: 1.4rem;
+    text-shadow: 0 0 3px white; pointer-events: none; z-index: 5;
+    top: 25%; left: 50%; transform: translate(-50%, -50%);
 }
-
-.sp-controls {
-    width: 100%;
-    background: #1e1e1e;
-    border: 1px solid #333;
-    border-radius: 16px;
-    padding: 20px;
-}
-
-.sp-title {
-    margin-top: 0;
-    color: #00E5FF;
-    text-align: center;
-}
-
-.sp-input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    margin-bottom: 15px;
-}
-.sp-input-group label {
-    color: #aaa;
-    font-size: 0.9em;
-}
-
-.sp-percentage-label {
-    color: #aaa;
-    font-size: 0.95rem;
-    margin-bottom: 8px;
-}
-
-.sp-percent-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 15px;
-}
-
+.sp-controls, .coin-controls, .mines-controls { width: 100%; background: #1e1e1e; border: 1px solid #333; border-radius: 16px; padding: 20px; }
+.sp-title { margin-top: 0; color: #00E5FF; text-align: center; }
+.sp-input-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
+.sp-input-group label { color: #aaa; font-size: 0.9em; text-align: left; }
+.sp-percentage-label { color: #aaa; font-size: 0.95rem; margin-bottom: 8px; text-align: left; width: 100%; }
+.sp-percent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
 .sp-pct-btn {
-    background: #2b2b2b;
-    border: 1px solid #444;
-    color: white;
-    padding: 10px 5px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-size: 1.05rem;
-    transition: all 0.2s ease;
+    background: #2b2b2b; border: 1px solid #444; color: white; padding: 10px 5px;
+    border-radius: 8px; cursor: pointer; font-weight: bold; display: flex;
+    flex-direction: column; align-items: center; font-size: 1.05rem; transition: all 0.2s ease;
 }
-.sp-pct-btn:hover {
-    background: #3a3a3a;
-    border-color: #00E5FF;
+.sp-pct-btn:hover { background: #3a3a3a; border-color: #00E5FF; }
+.sp-pct-btn.active { background: #00E5FF !important; color: black !important; border-color: #00E5FF !important; }
+.btn-mult { font-size: 0.75rem; color: #00E676; margin-top: 2px; }
+.sp-pct-btn.active .btn-mult { color: #121212; }
+.sp-summary { background: #252525; border-radius: 8px; padding: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; }
+.sp-summary p { margin: 0; font-size: 0.95rem; }
+.win-color { color: #00E676; }
+#spSpinBtn, #coinStartBtn, #minesStartBtn {
+    background: #00E676; color: black; font-weight: bold; font-size: 1.15rem;
+    padding: 15px; border-radius: 10px; cursor: pointer; transition: transform 0.2s;
 }
-.sp-pct-btn.active {
-    background: #00E5FF !important;
-    color: black !important;
-    border-color: #00E5FF !important;
+#spSpinBtn:hover, #coinStartBtn:hover, #minesStartBtn:hover { transform: scale(1.02); }
+#spSpinBtn:disabled, #coinStartBtn:disabled, #minesStartBtn:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
+#spMessage, #coinMessage, #minesMessage { text-align: center; margin-top: 10px; font-weight: bold; min-height: 24px; }
+
+/* ================= СТИЛИ ВСЕГДА ГОЛУБЬ (COIN FLIP) ================= */
+.game-headline { margin: 0; font-size: 1.6rem; color: #FFC400; text-align: center; }
+.game-subline { margin: 2px 0 10px; font-size: 0.9rem; color: #aaa; text-align: center; }
+
+.coin-container {
+    perspective: 1000px;
+    width: 140px; height: 140px;
+    margin: 15px auto;
 }
-.btn-mult {
-    font-size: 0.75rem;
-    color: #00E676;
-    margin-top: 2px;
+.coin {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 3s cubic-bezier(0.1, 0.8, 0.1, 1);
 }
-.sp-pct-btn.active .btn-mult {
-    color: #121212;
+.coin .side {
+    position: absolute; width: 100%; height: 100%;
+    border-radius: 50%; backface-visibility: hidden;
+    display: flex; justify-content: center; align-items: center;
+    font-weight: bold; font-size: 1.4rem; color: black;
+    border: 6px solid #B58A00;
+}
+.coin .heads {
+    background: radial-gradient(circle, #FFE082 0%, #FFC400 100%);
+}
+.coin .tails {
+    background: radial-gradient(circle, #FFE082 0%, #FF9100 100%);
+    transform: rotateY(180deg);
 }
 
-.sp-summary {
-    background: #252525;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 15px;
-    display: flex;
-    justify-content: space-between;
+.coin-choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+.coin-choice-btn {
+    background: #252525; color: white; border: 2px solid #444; padding: 12px;
+    font-size: 1.1rem; font-weight: bold; border-radius: 10px; cursor: pointer; transition: all 0.2s;
 }
-.sp-summary p {
-    margin: 0;
-    font-size: 0.95rem;
-}
-.win-color {
-    color: #00E676;
+.coin-choice-btn:hover { border-color: #FFC400; }
+.coin-choice-btn.active {
+    background: #FFC400; color: black; border-color: #FFC400;
+    box-shadow: 0 0 15px rgba(255, 196, 0, 0.4);
 }
 
-#spSpinBtn {
-    background: #00E676;
-    color: black;
-    font-weight: bold;
-    font-size: 1.15rem;
-    padding: 15px;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: transform 0.2s;
+/* ================= СТИЛИ ВЕЗДЕ МИНЫ (MINES) ================= */
+.mines-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+    width: 100%; max-width: 340px; aspect-ratio: 1 / 1;
+    background: #1a1a1a; padding: 10px; border-radius: 16px;
+    border: 3px solid #333;
 }
-#spSpinBtn:hover {
-    transform: scale(1.02);
+.mine-cell {
+    background: #2e2e2e; border: none; border-radius: 8px; cursor: pointer;
+    transition: all 0.15s ease; width: 100%; height: 100%;
+    display: flex; justify-content: center; align-items: center;
+    font-weight: bold; font-size: 1.25rem; color: white; padding: 0; margin: 0;
 }
-#spSpinBtn:disabled {
-    background: #333;
-    color: #666;
-    cursor: not-allowed;
-    transform: none;
+.mine-cell:hover:not(:disabled) { background: #424242; transform: scale(1.04); }
+.mine-cell.safe {
+    background: #00E676 !important; color: black;
+    box-shadow: 0 0 8px rgba(0, 230, 118, 0.6);
 }
+.mine-cell.exploded {
+    background: #ff1744 !important; color: white;
+    animation: shake 0.3s linear;
+}
+.mine-cell.revealed-mine { background: #5c1414; color: #ff1744; }
 
-#spMessage {
-    text-align: center;
-    margin-top: 10px;
-    font-weight: bold;
-    min-height: 24px;
+.mines-stats {
+    display: flex; justify-content: space-between; background: #252525;
+    padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.95rem;
+}
+.mines-action-buttons { display: flex; flex-direction: column; gap: 10px; }
+#minesCashoutBtn {
+    background: #FF9100; color: black; font-weight: bold; font-size: 1.15rem;
+    padding: 15px; border-radius: 10px; cursor: pointer;
+}
+#minesCashoutBtn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
 }
 
 /* Модальные окна */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 100;
-    left: 0; top: 0; width: 100%; height: 100%;
-    background-color: rgba(0,0,0,0.85);
-}
+.modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); }
 .modal-content {
-    background-color: #1e1e1e;
-    margin: 15% auto;
-    padding: 25px;
-    border: 1px solid #333;
-    width: 90%;
-    max-width: 360px;
-    border-radius: 16px;
-    position: relative;
-    text-align: center;
+    background-color: #1e1e1e; margin: 15% auto; padding: 25px; border: 1px solid #333;
+    width: 90%; max-width: 360px; border-radius: 16px; position: relative; text-align: center;
 }
-.close-btn {
-    position: absolute; right: 15px; top: 10px;
-    color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;
-}
-.requisites-box {
-    background: #121212;
-    padding: 15px;
-    border-radius: 8px;
-    margin: 15px 0;
-    border: 1px dashed #61dafb;
-}
+.close-btn { position: absolute; right: 15px; top: 10px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+.requisites-box { background: #121212; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px dashed #61dafb; }
 .requisites-box code { font-size: 1.25em; color: #61dafb; font-weight: bold; }
 .warning-text { color: #ff9100; font-size: 0.85em; }
 .success-text { color: #00E676; font-size: 1.1em; }
 
 /* Админка */
-#adminPanel {
-    width: 100%;
-    max-width: 500px;
-    background: #2e1f1f;
-    border: 2px solid #ff1744;
-    border-radius: 12px;
-    padding: 15px;
-    margin-top: 20px;
-}
+#adminPanel { width: 100%; max-width: 500px; background: #2e1f1f; border: 2px solid #ff1744; border-radius: 12px; padding: 15px; margin-top: 20px; }
 #adminPanel h2 { margin-top: 0; color: #ff1744; text-align: center; }
-.admin-req-item {
-    background: #121212;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    border-left: 4px solid #ff9100;
-}
+.admin-req-item { background: #121212; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #ff9100; }
 .admin-btns { display: flex; gap: 10px; margin-top: 8px; }
 .admin-approve-btn { background: #00E676; color: black; font-weight: bold;}
 .admin-decline-btn { background: #ff1744; color: white; font-weight: bold;}
