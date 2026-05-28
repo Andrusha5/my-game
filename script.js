@@ -8,6 +8,7 @@ const firebaseConfig = {
   messagingSenderId: "856460439104",
   appId: "1:856460439104:web:0e386cc2afca3b655af9a5"
 };
+
 // Инициализируем Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -18,205 +19,6 @@ if (!myPlayerId) {
     myPlayerId = `player_${Math.random().toString(36).slice(2, 11)}`;
     localStorage.setItem('roulette_player_id', myPlayerId);
 }
-// ======= ДОБАВИТЬ В ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =======
-let impGameActive = false;
-let impCurrentRow = 0; // 0 - 5
-let impBet = 0;
-let impMinesData = [
-    { cells: 5, mines: 1, mult: 1.2 },  // Ряд 1
-    { cells: 5, mines: 1, mult: 1.5 },  // Ряд 2
-    { cells: 5, mines: 2, mult: 2.5 },  // Ряд 3
-    { cells: 4, mines: 1, mult: 5.0 },  // Ряд 4
-    { cells: 3, mines: 1, mult: 9.0 },  // Ряд 5
-    { cells: 2, mines: 1, mult: 15.0 }  // Ряд 6
-];
-let impBoard = []; // Тут будем хранить мины для каждого ряда
-
-// ======= ИСПРАВЛЕНИЕ: ВЕЗДЕ МИНЫ (Обновление кнопки) =======
-function updateMinesSummary() {
-    const betInput = document.getElementById('minesBetInput');
-    const cashoutVal = document.getElementById('minesCashoutValue');
-    const cashoutBtn = document.getElementById('minesCashoutBtn');
-    if (!betInput || !cashoutVal || !cashoutBtn) return;
-
-    const bet = parseInt(betInput.value) || 0;
-    
-    if (!minesGameActive) {
-        cashoutVal.textContent = '0';
-        cashoutBtn.textContent = 'Забрать 0 ₽';
-        return;
-    }
-
-    const currentMult = MINES_MULTIPLIERS[minesOpened.length];
-    const currentWin = Math.floor(minesCurrentBet * currentMult);
-    
-    cashoutVal.textContent = currentWin;
-    // ТЕПЕРЬ ТЕКСТ НА КНОПКЕ ОБНОВЛЯЕТСЯ
-    cashoutBtn.textContent = `Забрать ${currentWin} ₽`;
-}
-
-// ======= ИГРА: НЕВОЗМОЖНАЯ МИНА =======
-
-function initImpMinesUI() {
-    const container = document.getElementById('impMinesRowsContainer');
-    container.innerHTML = '';
-
-    // Генерируем ряды сверху вниз (от 6-го к 1-му визуально)
-    for (let i = 5; i >= 0; i--) {
-        const rowData = impMinesData[i];
-        const rowDiv = document.createElement('div');
-        rowDiv.className = 'imp-row locked';
-        rowDiv.id = `imp_row_${i}`;
-
-        const multLabel = document.createElement('div');
-        multLabel.className = 'row-multiplier';
-        multLabel.textContent = rowData.mult + 'x';
-        rowDiv.appendChild(multLabel);
-
-        for (let j = 0; j < rowData.cells; j++) {
-            const btn = document.createElement('button');
-            btn.className = 'imp-cell';
-            btn.id = `imp_cell_${i}_${j}`;
-            btn.onclick = () => clickImpCell(i, j);
-            rowDiv.appendChild(btn);
-        }
-        container.appendChild(rowDiv);
-    }
-}
-
-// Вызываем при загрузке страницы
-document.addEventListener('DOMContentLoaded', () => {
-    initImpMinesUI();
-    // ... остальной твой код инициализации ...
-});
-
-window.startImpMines = function() {
-    if (impGameActive) return;
-
-    const betInput = document.getElementById('impBetInput');
-    const bet = parseInt(betInput.value) || 0;
-    const myBalance = players[myPlayerId]?.balance || 0;
-
-    if (bet < 10 || bet > myBalance) {
-        alert("Некорректная ставка!");
-        return;
-    }
-
-    db.ref(`players/${myPlayerId}/balance`).transaction(c => (c || 0) - bet, (err, committed) => {
-        if (committed) {
-            impBet = bet;
-            impGameActive = true;
-            impCurrentRow = 0;
-            impBoard = [];
-
-            // Генерируем мины заранее для всех рядов
-            for (let i = 0; i < 6; i++) {
-                let rowMines = new Array(impMinesData[i].cells).fill(false);
-                let placed = 0;
-                while (placed < impMinesData[i].mines) {
-                    let r = Math.floor(Math.random() * rowMines.length);
-                    if (!rowMines[r]) { rowMines[r] = true; placed++; }
-                }
-                impBoard.push(rowMines);
-            }
-
-            // UI
-            document.getElementById('impStartBtn').disabled = true;
-            document.getElementById('impCashoutBtn').disabled = true;
-            document.getElementById('impCashoutBtn').textContent = `Забрать 0 ₽`;
-            document.getElementById('impMessage').textContent = "Удачи! Начни с первого ряда";
-            document.getElementById('impMessage').style.color = "#00E5FF";
-
-            // Обновляем визуально ряды
-            for (let i = 0; i < 6; i++) {
-                const rDiv = document.getElementById(`imp_row_${i}`);
-                rDiv.className = (i === 0) ? 'imp-row active' : 'imp-row locked';
-                // Чистим ячейки
-                Array.from(rDiv.getElementsByClassName('imp-cell')).forEach(c => {
-                    c.className = 'imp-cell';
-                    c.textContent = '';
-                });
-            }
-        }
-    });
-}
-
-function clickImpCell(rowIdx, cellIdx) {
-    if (!impGameActive || rowIdx !== impCurrentRow) return;
-
-    const cellBtn = document.getElementById(`imp_cell_${rowIdx}_${cellIdx}`);
-    const isMine = impBoard[rowIdx][cellIdx];
-
-    if (isMine) {
-        cellBtn.classList.add('lose');
-        cellBtn.textContent = '💣';
-        endImpGame(false);
-    } else {
-        cellBtn.classList.add('win');
-        cellBtn.textContent = '💎';
-        
-        const currentMult = impMinesData[rowIdx].mult;
-        const currentWin = Math.floor(impBet * currentMult);
-        
-        document.getElementById('impCashoutBtn').disabled = false;
-        document.getElementById('impCashoutBtn').textContent = `Забрать ${currentWin} ₽`;
-        
-        if (rowIdx < 5) {
-            // Переход на следующий ряд
-            document.getElementById(`imp_row_${rowIdx}`).className = 'imp-row passed';
-            impCurrentRow++;
-            document.getElementById(`imp_row_${impCurrentRow}`).className = 'imp-row active';
-            document.getElementById('impMessage').textContent = `Ряд ${rowIdx + 1} пройден!`;
-        } else {
-            // Победа во всей игре
-            endImpGame(true);
-        }
-    }
-}
-
-window.cashoutImpMines = function() {
-    if (!impGameActive) return;
-    endImpGame(true);
-}
-
-function endImpGame(isWin) {
-    impGameActive = false;
-    const currentWin = isWin ? Math.floor(impBet * impMinesData[impCurrentRow - (isWin && impCurrentRow < 5 ? 1 : 0)].mult) : 0;
-    
-    // Если выиграл последний ряд, берем именно его коэф
-    let finalMult = isWin ? impMinesData[impCurrentRow].mult : 0;
-    // Но если нажали "Забрать" раньше, берем коэф ПРОЙДЕННОГО ряда
-    if (isWin && impCurrentRow > 0 && document.getElementById(`imp_row_${impCurrentRow}`).classList.contains('active')) {
-        finalMult = impMinesData[impCurrentRow-1].mult;
-    }
-    
-    const finalWin = Math.floor(impBet * finalMult);
-
-    if (isWin && finalWin > 0) {
-        db.ref(`players/${myPlayerId}/balance`).transaction(c => (c || 0) + finalWin);
-        document.getElementById('impMessage').textContent = `Победа! +${finalWin} ₽`;
-        document.getElementById('impMessage').style.color = "#00E676";
-    } else if (!isWin) {
-        document.getElementById('impMessage').textContent = `Взрыв! Ставка проиграна`;
-        document.getElementById('impMessage').style.color = "#FF1744";
-    }
-
-    // Вскрываем все мины
-    for (let i = 0; i < 6; i++) {
-        document.getElementById(`imp_row_${i}`).classList.remove('locked', 'active');
-        impBoard[i].forEach((m, cellIdx) => {
-            if (m) {
-                const c = document.getElementById(`imp_cell_${i}_${cellIdx}`);
-                if (!c.classList.contains('lose')) c.textContent = '💣';
-            }
-        });
-    }
-
-    document.getElementById('impStartBtn').disabled = false;
-    document.getElementById('impCashoutBtn').disabled = true;
-}
-
-
 
 let players = {};         
 let gameState = {};       
@@ -259,22 +61,37 @@ const SP_RULES = {
     10: { mult: 2.2, label: 'x2.2' },
     1:  { mult: 33.0, label: 'x33.0' }
 };
+
 // Переменные «Всегда Голубь» (Монетка)
-let coinChoice = 'heads'; // 'heads' или 'tails'
+let coinChoice = 'heads'; 
 let coinIsSpinning = false;
-let coinRotationY = 0; // Накопительный угол для бесконечного плавного вращения
+let coinRotationY = 0; 
 
 // Переменные «Везде мины»
 let minesGameActive = false;
-let minesMap = []; // Массив из 25 элементов (true - мина, false - пусто)
-let minesOpened = []; // Массив открытых индексов
+let minesMap = []; 
+let minesOpened = []; 
 let minesCurrentBet = 0;
 
-// Массив мультипликаторов для 3 мин из 25 клеток (всего 22 безопасные)
 const MINES_MULTIPLIERS = [
-    0.90, 1.00, 1.15, 1.33, 1.67, 2.00, 2.45, 2.89, 3.33, 4.25, 
-    4.99, 5.85, 7.33, 9.99, 12.33, 15.67, 22.65, 33.33, 47.75, 
-    77.77, 333.33, 555.55, 999.99
+    1.00, 1.12, 1.27, 1.45, 1.67, 1.93, 2.25, 2.64, 3.13, 3.75, 
+    4.55, 5.58, 6.98, 8.90, 11.62, 15.60, 21.65, 31.20, 47.05, 
+    76.00, 134.00, 275.00, 750.00
+];
+
+// Переменные «Невозможная мина» (Новая игра)
+let impGameActive = false;
+let impCurrentRow = 0; 
+let impBet = 0;
+let impBoard = []; 
+
+const impMinesData = [
+    { cells: 5, mines: 1, mult: 1.2 },  // Ряд 1 (0.9x - 1.2x стартовый)
+    { cells: 5, mines: 1, mult: 1.6 },  // Ряд 2
+    { cells: 5, mines: 2, mult: 2.5 },  // Ряд 3
+    { cells: 4, mines: 1, mult: 4.5 },  // Ряд 4
+    { cells: 3, mines: 1, mult: 8.0 },  // Ряд 5
+    { cells: 2, mines: 1, mult: 15.0 }  // Ряд 6 (Максимум 15x)
 ];
 
 // DOM элементы
@@ -295,6 +112,7 @@ window.showScreen = function(screenId) {
     document.getElementById('singleplayerGameScreen').style.display = 'none';
     document.getElementById('coinGameScreen').style.display = 'none';
     document.getElementById('minesGameScreen').style.display = 'none';
+    document.getElementById('impMinesGameScreen').style.display = 'none';
     
     document.getElementById(screenId).style.display = 'flex';
 };
@@ -304,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bettingTimerDisplay = document.getElementById('bettingTimer');
     totalBankDisplay = document.getElementById('totalBank');
     gameCanvas = document.getElementById('gameCanvas');
-    gameAreaWrapper = document.getElementById('gameAreaWrapper');
+    gameAreaWrapper= document.getElementById('gameAreaWrapper');
     ball = document.getElementById('ball');
     playerNameInput = document.getElementById('playerNameInput');
     betAmountInput = document.getElementById('betAmountInput');
@@ -378,16 +196,16 @@ document.addEventListener('DOMContentLoaded', () => {
         syncGameWithDatabase();
     });
 
-    // Получаем последние 10 записей истории
     db.ref('history').limitToLast(10).on('value', (snapshot) => {
         renderHistory(snapshot.val() || {});
     });
 
     selectSpPercent(50);
     renderMinesGrid();
+    initImpMinesUI();
 });
 
-// ======= ВКЛАДКИ МУЛЬТИПЛЕЕРА =======
+// Вкладки мультиплеера
 window.switchMultiTab = function(tabName) {
     const betsBtn = document.getElementById('tabBetsBtn');
     const historyBtn = document.getElementById('tabHistoryBtn');
@@ -405,18 +223,14 @@ window.switchMultiTab = function(tabName) {
     }
 }
 
-// Отображение истории
 function renderHistory(historyData) {
     if (!historyList) return;
     historyList.innerHTML = '';
-
-    const list = Object.values(historyData).reverse(); // Показываем последние сверху
-
+    const list = Object.values(historyData).reverse();
     if (list.length === 0) {
         historyList.innerHTML = '<div class="bet-placeholder">История пуста...</div>';
         return;
     }
-
     list.forEach(item => {
         const div = document.createElement('div');
         div.className = 'bet-item';
@@ -447,6 +261,7 @@ window.playCoinFlip = function() {
 
     const betInput = document.getElementById('coinBetInput');
     const coinEl = document.getElementById('coin3d');
+    const coinMsg = document.getElementById('coinMessage');
     
     const bet = parseInt(betInput.value) || 0;
     const myData = players[myPlayerId] || { balance: 0 };
@@ -463,26 +278,25 @@ window.playCoinFlip = function() {
 
     coinIsSpinning = true;
     betInput.disabled = true;
-    document.getElementById('coinMessage').textContent = 'Монетка летит...';
-    document.getElementById('coinMessage').style.color = '#FFC400';
+    coinMsg.textContent = 'Монетка летит...';
+    coinMsg.style.color = '#FFC400';
 
-    // Списание баланса
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
         return (current || 0) - bet;
     }, (error, committed) => {
         if (committed) {
-            // Определяем исход (50% орел, 50% решка)
             const result = Math.random() < 0.5 ? 'heads' : 'tails';
+            const minSpins = 1800; 
+            const currentFacing = (coinRotationY % 360) === 0 ? 'heads' : 'tails';
+            let additionalRotation = 0;
             
-            // Расчет углов анимации (накопительный, чтобы всегда крутилась вперед)
-            const randomAngle = result === 'heads' ? 0 : 180;
-            const currentAngle = coinRotationY % 360;
-            let diff = randomAngle - currentAngle;
-            if (diff <= 0) {
-                diff += 360;
+            if (currentFacing === result) {
+                additionalRotation = 360; 
+            } else {
+                additionalRotation = 180; 
             }
-            coinRotationY += diff + 3600; // 10 полных оборотов + угол исхода
             
+            coinRotationY += minSpins + additionalRotation;
             coinEl.style.transform = `rotateY(${coinRotationY}deg)`;
 
             setTimeout(() => {
@@ -492,34 +306,33 @@ window.playCoinFlip = function() {
                     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
                         return (current || 0) + prize;
                     });
-                    document.getElementById('coinMessage').innerHTML = `🎉 Вы угадали! Монетка выпала: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. Выигрыш: <span class="win-color">+${prize} ₽</span>`;
+                    coinMsg.innerHTML = `🎉 Вы выиграли! Выпало: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. <span class="win-color">+${prize} ₽</span>`;
                 } else {
-                    document.getElementById('coinMessage').innerHTML = `🔴 Не угадали! Монетка выпала: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. <span style="color:#ff1744">-${bet} ₽</span>`;
+                    coinMsg.innerHTML = `🔴 Не угадали! Выпало: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. <span style="color:#ff1744">-${bet} ₽</span>`;
                 }
                 
                 coinIsSpinning = false;
                 betInput.disabled = false;
-            }, 3000); // Время анимации броска
+            }, 3000);
         } else {
             coinIsSpinning = false;
             betInput.disabled = false;
-            document.getElementById('coinMessage').textContent = 'Ошибка транзакции. Попробуйте еще раз.';
+            coinMsg.textContent = 'Ошибка транзакции.';
         }
     });
 }
 
-// ======= ИГРА 2: ВЕЗДЕ МИНЫ (MINES) =======
+// ======= ИГРА 2: ВЕЗДЕ МИНЫ (ОБНОВЛЕННАЯ СУММА В РЕАЛЬНОМ ВРЕМЕНИ) =======
 
 function renderMinesGrid() {
     const grid = document.getElementById('minesGrid');
     if (!grid) return;
     grid.innerHTML = '';
-
     for (let i = 0; i < 25; i++) {
         const cell = document.createElement('button');
         cell.className = 'mine-cell';
         cell.id = `mine_cell_${i}`;
-        cell.disabled = true; // Отключены по умолчанию, пока не нажали кнопку "Начать"
+        cell.disabled = true;
         cell.onclick = () => clickMineCell(i);
         grid.appendChild(cell);
     }
@@ -528,16 +341,21 @@ function renderMinesGrid() {
 function updateMinesSummary() {
     const betInput = document.getElementById('minesBetInput');
     const cashoutVal = document.getElementById('minesCashoutValue');
-    if (!betInput || !cashoutVal) return;
+    const cashoutBtn = document.getElementById('minesCashoutBtn');
+    if (!betInput || !cashoutVal || !cashoutBtn) return;
 
-    const bet = parseInt(betInput.value) || 0;
     if (!minesGameActive) {
-        cashoutVal.textContent = '0';
+        cashoutVal.textContent ='0';
+        cashoutBtn.textContent = 'Забрать 0 ₽';
         return;
     }
 
     const currentMult = MINES_MULTIPLIERS[minesOpened.length];
-    cashoutVal.textContent = Math.floor(minesCurrentBet * currentMult);
+    const currentWin = Math.floor(minesCurrentBet * currentMult);
+    
+    cashoutVal.textContent = currentWin;
+    // ТЕПЕРЬ ТЕКСТ НА КНОПКЕ ОБНОВЛЯЕТСЯ В РЕАЛЬНОМ ВРЕМЕНИ СУММОЙ!
+    cashoutBtn.textContent = `Забрать ${currentWin} ₽`;
 }
 
 document.getElementById('minesBetInput')?.addEventListener('input', updateMinesSummary);
@@ -548,21 +366,20 @@ window.startMinesRound = function() {
     const betInput = document.getElementById('minesBetInput');
     const startBtn = document.getElementById('minesStartBtn');
     const cashoutBtn = document.getElementById('minesCashoutBtn');
+    const minesMsg = document.getElementById('minesMessage');
 
     const bet = parseInt(betInput.value) || 0;
-    const myData = players[myPlayerId] || { balance: 0 };
-    const balance = myData.balance || 0;
+    const balance = players[myPlayerId]?.balance || 0;
 
     if (isNaN(bet) || bet < 10) {
         alert('Минимальная ставка — 10 ₽!');
         return;
     }
     if (bet > balance) {
-        alert('Недостаточно средств на балансе!');
+        alert('Недостаточно средств!');
         return;
     }
 
-    // Блокируем баланс
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
         return (current || 0) - bet;
     }, (error, committed) => {
@@ -571,7 +388,6 @@ window.startMinesRound = function() {
             minesGameActive = true;
             minesOpened = [];
             
-            // Генерируем ровно 3 мины случайным образом
             minesMap = Array(25).fill(false);
             let placed = 0;
             while (placed < 3) {
@@ -582,14 +398,12 @@ window.startMinesRound = function() {
                 }
             }
 
-            // Настройка UI
             startBtn.disabled = true;
             betInput.disabled = true;
             cashoutBtn.disabled = false;
-            document.getElementById('minesMessage').textContent = 'Раунд начался! Выбирайте ячейки.';
-            document.getElementById('minesMessage').style.color = '#00E5FF';
+            minesMsg.textContent = 'Раунд начался! Ищите алмазы!';
+            minesMsg.style.color = '#00E5FF';
 
-            // Разблокировка ячеек
             for (let i = 0; i < 25; i++) {
                 const cell = document.getElementById(`mine_cell_${i}`);
                 cell.className = 'mine-cell';
@@ -600,8 +414,6 @@ window.startMinesRound = function() {
             document.getElementById('minesOpenedCount').textContent = '0/22';
             document.getElementById('minesCurrentMultiplier').textContent = '1.00x';
             updateMinesSummary();
-        } else {
-            alert('Сбой транзакции при запуске раунда.');
         }
     });
 }
@@ -613,13 +425,11 @@ function clickMineCell(index) {
 
     cell.disabled = true;
 
-    // Попал на мину
     if (minesMap[index]) {
         cell.classList.add('exploded');
         cell.textContent = '💣';
         endMinesGame(false);
     } else {
-        // Безопасная клетка
         cell.classList.add('safe');
         cell.textContent = '💎';
         minesOpened.push(index);
@@ -629,7 +439,6 @@ function clickMineCell(index) {
         document.getElementById('minesCurrentMultiplier').textContent = `${newMultiplier.toFixed(2)}x`;
         updateMinesSummary();
 
-        // Если угадал все 22 безопасные клетки
         if (minesOpened.length === 22) {
             endMinesGame(true);
         }
@@ -646,16 +455,15 @@ function endMinesGame(isWin) {
     const startBtn = document.getElementById('minesStartBtn');
     const cashoutBtn = document.getElementById('minesCashoutBtn');
     const betInput = document.getElementById('minesBetInput');
+    const minesMsg = document.getElementById('minesMessage');
 
     startBtn.disabled = false;
     betInput.disabled = false;
     cashoutBtn.disabled = true;
 
-    // Вскрываем все ячейки
     for (let i = 0; i < 25; i++) {
         const cell = document.getElementById(`mine_cell_${i}`);
         cell.disabled = true;
-        
         if (minesMap[i]) {
             if (!cell.classList.contains('exploded')) {
                 cell.classList.add('revealed-mine');
@@ -676,39 +484,207 @@ function endMinesGame(isWin) {
             return (current || 0) + winnings;
         });
 
-        document.getElementById('minesMessage').innerHTML = `🎉 Победа! Вы забрали <span class="win-color">${winnings} ₽</span> (${mult.toFixed(2)}x)`;
+        minesMsg.innerHTML = `🎉 Забрали <span class="win-color">${winnings} ₽</span> (${mult.toFixed(2)}x)`;
     } else {
-        document.getElementById('minesMessage').innerHTML = `💥 Бабах! Наступили на мину. Ставка <span style="color:#ff1744">${minesCurrentBet} ₽</span> сгорела.`;
+        minesMsg.innerHTML = `💥 Бабах! Вы проиграли <span style="color:#ff1744">${minesCurrentBet} ₽</span>`;
     }
 }
 
-// ======= МАТЕМАТИЧЕСКИЙ ДВИЖОК ДИАГОНАЛЕЙ («ИГРА В КАЛЬМАРА») =======
+// ======= ИГРА 3: НЕВОЗМОЖНАЯ МИНА (НОВАЯ СУПЕР ИГРА) =======
 
-function getPlayersWithSegments() {
-    const active = Object.keys(players)
-        .filter(id => players[id].totalBet > 0)
-        .map(id => ({ id, ...players[id] }))
-        .sort((a, b) => a.id.localeCompare(b.id)); 
+function initImpMinesUI() {
+    const container = document.getElementById('impMinesRowsContainer');
+    if (!container) return;
+    container.innerHTML = '';
 
-    const totalB = active.reduce((sum, p) => sum + p.totalBet, 0);
-    if (active.length === 0 || totalB === 0) return [];
+    // Генерируем 6 рядов (от 5 индекса вниз до 0)
+    for (let i = 5; i >= 0; i--) {
+        const rowData = impMinesData[i];
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'imp-row locked';
+        rowDiv.id = `imp_row_${i}`;
 
-    const L = 400 * Math.SQRT2; 
-    const minW = Math.min(30, L / (active.length + 1)); 
-    const totalMin = active.length * minW;
-    const remainingL = L - totalMin;
+        // Множитель слева от ряда
+        const multLabel = document.createElement('div');
+        multLabel.className = 'row-multiplier';
+        multLabel.textContent = rowData.mult + 'x';
+        rowDiv.appendChild(multLabel);
 
-    let currentX = -L / 2;
-    return active.map(p => {
-        const width = minW + remainingL * (p.totalBet / totalB);
-        const startX = currentX;
-        const endX = currentX + width;
-        currentX = endX;
-        return { ...p, startX, endX, width };
+        // Квадратики ряда
+        for (let j = 0; j < rowData.cells; j++) {
+            const btn = document.createElement('button');
+            btn.className = 'imp-cell';
+            btn.id = `imp_cell_${i}_${j}`;
+            btn.onclick = () => clickImpCell(i, j);
+            rowDiv.appendChild(btn);
+        }
+        container.appendChild(rowDiv);
+    }
+}
+
+window.startImpMines = function() {
+    if (impGameActive) return;
+
+    const betInput = document.getElementById('impBetInput');
+    const startBtn = document.getElementById('impStartBtn');
+    const cashoutBtn = document.getElementById('impCashoutBtn');
+    const impMsg = document.getElementById('impMessage');
+
+    const bet = parseInt(betInput.value) || 0;
+    const balance = players[myPlayerId]?.balance || 0;
+
+    if (isNaN(bet) || bet < 10) {
+        alert('Минимальная ставка — 10 ₽!');
+        return;
+    }
+    if (bet > balance) {
+        alert('Недостаточно баланса!');
+        return;
+    }
+
+    db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+        return (current || 0) - bet;
+    }, (error, committed) => {
+        if (committed) {
+            impBet = bet;
+            impGameActive = true;
+            impCurrentRow = 0;
+            impBoard = [];
+
+            // Генерация скрытых мин для каждого ряда
+            for (let i = 0; i < 6; i++) {
+                const rowConf = impMinesData[i];
+                let rowMines = new Array(rowConf.cells).fill(false);
+                let placed = 0;
+                while (placed < rowConf.mines) {
+                    let r = Math.floor(Math.random() * rowConf.cells);
+                    if (!rowMines[r]) {
+                        rowMines[r] = true;
+                        placed++;
+                    }
+                }
+                impBoard.push(rowMines);
+            }
+
+            startBtn.disabled = true;
+            betInput.disabled = true;
+            cashoutBtn.disabled = true; // Сначала угадай 1 ряд
+            cashoutBtn.textContent = 'Забрать 0 ₽';
+            impMsg.textContent = 'Начните с первого ряда (самый нижний)!';
+            impMsg.style.color = '#00E5FF';
+
+            // Настройка анимации рядов
+            for (let i = 0; i < 6; i++) {
+                const rDiv = document.getElementById(`imp_row_${i}`);
+                rDiv.className = (i === 0) ? 'imp-row active' : 'imp-row locked';
+                
+                // Чистим ячейки
+                Array.from(rDiv.getElementsByClassName('imp-cell')).forEach(c => {
+                    c.
+
+
+className = 'imp-cell';
+                    c.textContent = '';
+                });
+            }
+        }
     });
 }
 
-// ======= НЕВОЗМОЖНОЕ КОЛЕСО =======
+function clickImpCell(rowIdx, cellIdx) {
+    if (!impGameActive || rowIdx !== impCurrentRow) return;
+
+    const cellBtn = document.getElementById(`imp_cell_${rowIdx}_${cellIdx}`);
+    const isMine = impBoard[rowIdx][cellIdx];
+    const impMsg = document.getElementById('impMessage');
+    const cashoutBtn = document.getElementById('impCashoutBtn');
+
+    if (isMine) {
+        cellBtn.classList.add('lose');
+        cellBtn.textContent = '💣';
+        endImpGame(false);
+    } else {
+        cellBtn.classList.add('win');
+        cellBtn.textContent = '💎';
+        
+        const currentMult = impMinesData[rowIdx].mult;
+        const currentWin = Math.floor(impBet * currentMult);
+        
+        cashoutBtn.disabled = false;
+        cashoutBtn.textContent = `Забрать ${currentWin} ₽`;
+
+        if (rowIdx < 5) {
+            // Переход на следующий уровень
+            document.getElementById(`imp_row_${rowIdx}`).className = 'imp-row passed';
+            impCurrentRow++;
+            document.getElementById(`imp_row_${impCurrentRow}`).className = 'imp-row active';
+            impMsg.textContent = `Ряд ${rowIdx + 1} пройден! Поднимайтесь выше.`;
+            impMsg.style.color = '#00E676';
+        } else {
+            // Идеальное прохождение башни
+            endImpGame(true);
+        }
+    }
+}
+
+window.cashoutImpMines = function() {
+    if (!impGameActive) return;
+    endImpGame(true);
+}
+
+function endImpGame(isWin) {
+    impGameActive = false;
+    const startBtn = document.getElementById('impStartBtn');
+    const cashoutBtn = document.getElementById('impCashoutBtn');
+    const betInput = document.getElementById('impBetInput');
+    const impMsg = document.getElementById('impMessage');
+
+    startBtn.disabled = false;
+    betInput.disabled = false;
+    cashoutBtn.disabled = true;
+
+    // Рассчитываем коэффициент выигрыша
+    let finalMult = 0;
+    if (isWin) {
+        // Если дошел до конца
+        if (impCurrentRow === 5 && !document.getElementById('imp_row_5').classList.contains('active')) {
+            finalMult = impMinesData[5].mult;
+        } else if (impCurrentRow > 0) {
+            // Если забрал раньше
+            finalMult = impMinesData[impCurrentRow - 1].mult;
+        }
+    }
+
+    const winnings = Math.floor(impBet * finalMult);
+
+    if (isWin && winnings > 0) {
+        db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+            return (current || 0) + winnings;
+        });
+        impMsg.innerHTML = `🎉 ПОБЕДА! Вы поднялись на вершину и забрали <span class="win-color">${winnings} ₽</span>`;
+    } else if (!isWin) {
+        impMsg.innerHTML = `💥 ВЗРЫВ! Ваша ставка <span style="color:#ff1744">${impBet} ₽</span> сгорела.`;
+    }
+
+    // Показываем скрытые мины во всех строках
+    for (let i = 0; i < 6; i++) {
+        document.getElementById(`imp_row_${i}`).classList.remove('locked', 'active');
+        impBoard[i].forEach((isMine, cellIdx) => {
+            const cell = document.getElementById(`imp_cell_${i}_${cellIdx}`);
+            if (isMine) {
+                if (!cell.classList.contains('lose')) {
+                    cell.textContent = '💣';
+                }
+            } else {
+                if (!cell.classList.contains('win')) {
+                    cell.textContent = '💎';
+                }
+            }
+        });
+    }
+}
+
+// ======= ИГРА 4: НЕВОЗМОЖНОЕ КОЛЕСО =======
 
 window.selectSpPercent = function(pct) {
     if (spIsSpinning) return;
@@ -748,7 +724,6 @@ function updateSpSummary() {
     const rule = SP_RULES[spSelectedPercent];
     
     summaryChance.textContent = spSelectedPercent + '%';
-    
     if (rule) {
         const possiblePayout = Math.floor(bet * rule.mult);
         summaryWin.textContent = possiblePayout + ' ₽';
@@ -762,25 +737,25 @@ window.spinSingleplayerWheel = function() {
 
     const betInput = document.getElementById('spBetInput');
     const spinBtn = document.getElementById('spSpinBtn');
+    const spMsg = document.getElementById('spMessage');
     
     const bet = parseInt(betInput.value) || 0;
-    const myData = players[myPlayerId] || { balance: 0 };
-    const balance = myData.balance || 0;
+    const balance = players[myPlayerId]?.balance || 0;
 
     if (isNaN(bet) || bet < 10) {
         alert('Минимальная ставка — 10 ₽!');
         return;
     }
     if (bet > balance) {
-        alert('Недостаточно средств на балансе!');
+        alert('Недостаточно баланса!');
         return;
     }
 
     spIsSpinning = true;
     spinBtn.disabled = true;
     betInput.disabled = true;
-    document.getElementById('spMessage').textContent = 'Колесо вращается...';
-    document.getElementById('spMessage').style.color = '#00E5FF';
+    spMsg.textContent = 'Колесо раскручивается...';
+    spMsg.style.color = '#00E5FF';
 
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
         return (current || 0) - bet;
@@ -799,7 +774,7 @@ window.spinSingleplayerWheel = function() {
             spIsSpinning = false;
             spinBtn.disabled = false;
             betInput.disabled = false;
-            document.getElementById('spMessage').textContent = 'Ошибка транзакции. Повторите запуск.';
+            spMsg.textContent = 'Ошибка.';
         }
     });
 };
@@ -807,6 +782,7 @@ window.spinSingleplayerWheel = function() {
 function evaluateSpResult(stoppedAngle, bet) {
     const spinBtn = document.getElementById('spSpinBtn');
     const betInput = document.getElementById('spBetInput');
+    const spMsg = document.getElementById('spMessage');
 
     const netRotation = spTotalRotation % 360;
     const winningAngleOnWheel = (360 - netRotation) % 360;
@@ -822,9 +798,9 @@ function evaluateSpResult(stoppedAngle, bet) {
             return (current || 0) + prize;
         });
 
-        document.getElementById('spMessage').innerHTML = `🎉 ВЫ ПОБЕДИЛИ! Получено: <span style="color:#00E676">+${prize} ₽</span>`;
+        spMsg.innerHTML = `🎉 ВЫ ПОБЕДИЛИ! Получено: <span style="color:#00E676">+${prize} ₽</span>`;
     } else {
-        document.getElementById('spMessage').innerHTML = `🔴 ВЫ ПРОИГРАЛИ! <span style="color:#ff1744">-${bet} ₽</span>`;
+        spMsg.innerHTML = `🔴 ВЫ ПРОИГРАЛИ! <span style="color:#ff1744">-${bet} ₽</span>`;
     }
 
     spIsSpinning = false;
@@ -832,7 +808,7 @@ function evaluateSpResult(stoppedAngle, bet) {
     betInput.disabled = false;
 }
 
-// ======= СЕТЕВАЯ ЧАСТЬ МУЛЬТИПЛЕЕРА =======
+// ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР) =======
 
 function placeBet() {
     const status = gameState.status || 'betting';
@@ -853,7 +829,10 @@ function placeBet() {
         return;
     }
 
-    const myData = players[myPlayerId] || { balance: 0 };
+    const myData = players[myPlayerId] ||
+
+
+{ balance: 0 };
     const myCurrentBalance = myData.balance || 0;
 
     if (amount > myCurrentBalance) {
@@ -968,7 +947,9 @@ function checkHostTimerLogic() {
     if (status === 'betting' && gameState.timerEnd > 0 && now >= gameState.timerEnd) {
         triggerRoundStart();
         return;
-    }
+
+
+}
 
     if (status === 'betting' && activePlayers.length >= 2 && (!gameState.timerEnd || gameState.timerEnd === 0)) {
         db.ref('gameState').update({
@@ -1100,13 +1081,13 @@ function determineAndPublishWinner() {
         finalPrize = Math.floor(finalPrize); 
 
         db.ref(`players/${winner.id}/balance`).transaction((current) => {
-            return (current || 0) + finalPrize;
+
+
+return (current || 0) + finalPrize;
         });
 
-        // Расчет шанса победы в %
         const chancePct = ((winner.totalBet / totalBank) * 100).toFixed(0);
 
-        // Публикуем победу в историю
         const historyRef = db.ref('history');
         historyRef.push({
             playerName: winner.name,
@@ -1150,8 +1131,7 @@ function resetRoomForNextRound() {
                 totalBet: 0,
                 balance: players[id].balance || 0
             };
-
-colorIndex++;
+            colorIndex++;
         }
     }
 
@@ -1162,7 +1142,29 @@ colorIndex++;
     });
 }
 
-// ======= CANVASES ДЛЯ ДИАГОНАЛЕЙ =======
+function getPlayersWithSegments() {
+    const active = Object.keys(players)
+        .filter(id => players[id].totalBet > 0)
+        .map(id => ({ id, ...players[id] }))
+        .sort((a, b) => a.id.localeCompare(b.id)); 
+
+    const totalB = active.reduce((sum, p) => sum + p.totalBet, 0);
+    if (active.length === 0 || totalB === 0) return [];
+
+    const L = 400 * Math.SQRT2; 
+    const minW = Math.min(30, L / (active.length + 1)); 
+    const totalMin = active.length * minW;
+    const remainingL = L - totalMin;
+
+    let currentX = -L / 2;
+    return active.map(p => {
+        const width = minW + remainingL * (p.totalBet / totalB);
+        const startX = currentX;
+        const endX = currentX + width;
+        currentX = endX;
+        return { ...p, startX, endX, width };
+    });
+}
 
 function renderWheelSections() {
     const canvas = document.getElementById('gameCanvas');

@@ -74,7 +74,7 @@ body {
     width: 100%;
 }
 
-max-width{
+max-width {
     .lobby-grid {
         grid-template-columns: 1fr;
     }
@@ -105,6 +105,7 @@ max-width{
 .card-wheel { border-top: 5px solid #00E5FF; }
 .card-coin { border-top: 5px solid #FFC400; }
 .card-mines { border-top: 5px solid #E65100; }
+.card-imp-mines { border-top: 5px solid #FF1744; }
 
 .card-icon {
     width: 50px;
@@ -146,6 +147,10 @@ max-width{
     content: ''; position: absolute; width: 8px; height: 8px;
     background: black; border-radius: 50%; top: 9px; left: 9px;
 }
+.mini-imp-mine {
+    width: 26px; height: 26px; background: #FF1744; border-radius: 4px; position: relative;
+}
+.mini-imp-mine::before { content: '▲'; position: absolute; top: 3px; left: 6px; font-size: 14px; color: black; }
 
 @keyframes rotateMiniWheel { 100% { transform: rotate(360deg); } }
 
@@ -162,31 +167,6 @@ max-width{
 .card-desc {
     font-size: 0.75rem;
     color: #888;
-}
-
-/* Переключатели вкладок мультиплеера */
-.multi-tabs {
-    display: flex;
-    width: 100%;
-    background: #1e1e1e;
-    border-radius: 8px;
-    padding: 3px;
-    margin-top: 15px;
-}
-.tab-btn {
-    flex: 1;
-    background: transparent;
-    color: #888;
-    border: none;
-    padding: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    border-radius: 6px;
-    font-size: 0.9rem;
-}
-.tab-btn.active {
-    background: #333;
-    color: white;
 }
 
 /* Кнопка НАЗАД */
@@ -230,13 +210,9 @@ input:focus { outline: none; border-color: #61dafb; }
     font-weight: bold; display: none;
 }
 #ball {
-    width: 24px; height: 24px;
-     background: white; 
-     border-radius: 50%;
-    position: absolute;
-     z-index: 10;
-    box-shadow: 0 0 12px rgba(255,255,255,0.9),
-     inset 0 0 4px rgba(0,0,0,0.3);
+    width: 24px; height: 24px; background: white; border-radius: 50%;
+    position: absolute; z-index: 10;
+    box-shadow: 0 0 12px rgba(255,255,255,0.9), inset 0 0 4px rgba(0,0,0,0.3);
     display: none;
 }
 
@@ -254,6 +230,31 @@ input:focus { outline: none; border-color: #61dafb; }
 .bet-info { flex-grow: 1; display: flex; flex-direction: column; }
 .bet-chance { font-weight: bold; color: #61dafb; }
 .bet-placeholder { color: #666; text-align: center; padding: 15px; }
+
+/* Вкладки мультиплеера */
+.multi-tabs {
+    display: flex;
+    width: 100%;
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 3px;
+    margin-top: 15px;
+}
+.tab-btn {
+    flex: 1;
+    background: transparent;
+    color: #888;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+.tab-btn.active {
+    background: #333;
+    color: white;
+}
 
 /* ================= СТИЛИ ДЛЯ НЕВОЗМОЖНОГО КОЛЕСА ================= */
 .sp-layout, .coin-layout, .mines-layout {
@@ -294,19 +295,20 @@ input:focus { outline: none; border-color: #61dafb; }
 .sp-summary { background: #252525; border-radius: 8px; padding: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; }
 .sp-summary p { margin: 0; font-size: 0.95rem; }
 .win-color { color: #00E676; }
-#spSpinBtn, #coinStartBtn, #minesStartBtn {
+#spSpinBtn, #coinStartBtn, #minesStartBtn, #impStartBtn {
     background: #00E676; color: black; font-weight: bold; font-size: 1.15rem;
     padding: 15px; border-radius: 10px; cursor: pointer; transition: transform 0.2s;
 }
-#spSpinBtn:hover, #coinStartBtn:hover, #minesStartBtn:hover { transform: scale(1.02); }
-#spSpinBtn:disabled, #coinStartBtn:disabled, #minesStartBtn:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
-#spMessage, #coinMessage, #minesMessage { text-align: center; margin-top: 10px; font-weight: bold; min-height: 24px; }
+#spSpinBtn:hover, #coinStartBtn:hover, #minesStartBtn:hover, #impStartBtn:hover { transform: scale(1.02); }
+#spSpinBtn:disabled, #coinStartBtn:disabled, #minesStartBtn:disabled, #impStartBtn:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
+#spMessage, #coinMessage, #minesMessage, #impMessage { text-align: center; margin-top: 10px; font-weight: bold; min-height: 24px; }
 
-/* ================= СТИЛИ ВСЕГДА ГОЛУБЬ (COIN FLIP) ================= */
+/* ================= СТИЛИ ДЛЯ МОНЕТКИ (ALL ALWAYS COIN) ================= */
 .game-headline { margin: 0; font-size: 1.6rem; color: #FFC400; text-align: center; }
 .game-subline { margin: 2px 0 10px; font-size: 0.9rem; color: #aaa; text-align: center; }
 
 .coin-container {
+    -webkit-perspective: 1000px;
     perspective: 1000px;
     width: 140px; height: 140px;
     margin: 15px auto;
@@ -314,21 +316,28 @@ input:focus { outline: none; border-color: #61dafb; }
 .coin {
     width: 100%; height: 100%;
     position: relative;
+    -webkit-transform-style: preserve-3d;
     transform-style: preserve-3d;
+    -webkit-transition: -webkit-transform 3s cubic-bezier(0.1, 0.8, 0.1, 1);
     transition: transform 3s cubic-bezier(0.1, 0.8, 0.1, 1);
 }
 .coin .side {
     position: absolute; width: 100%; height: 100%;
-    border-radius: 50%; backface-visibility: hidden;
+    border-radius: 50%; 
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
     display: flex; justify-content: center; align-items: center;
     font-weight: bold; font-size: 1.4rem; color: black;
     border: 6px solid #B58A00;
 }
 .coin .heads {
     background: radial-gradient(circle, #FFE082 0%, #FFC400 100%);
+    -webkit-transform: rotateY(0deg);
+    transform: rotateY(0deg);
 }
 .coin .tails {
     background: radial-gradient(circle, #FFE082 0%, #FF9100 100%);
+    -webkit-transform: rotateY(180deg);
     transform: rotateY(180deg);
 }
 
@@ -343,7 +352,7 @@ input:focus { outline: none; border-color: #61dafb; }
     box-shadow: 0 0 15px rgba(255, 196, 0, 0.4);
 }
 
-/* ================= СТИЛИ ВЕЗДЕ МИНЫ (MINES) ================= */
+/* ================= СТИЛИ ДЛЯ ВЕЗДЕ МИНЫ ================= */
 .mines-grid {
     display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
     width: 100%; max-width: 340px; aspect-ratio: 1 / 1;
@@ -370,19 +379,80 @@ input:focus { outline: none; border-color: #61dafb; }
 .mines-stats {
     display: flex; justify-content: space-between; background: #252525;
     padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.95rem;
+    width: 100%; max-width: 340px;
 }
-.mines-action-buttons { display: flex; flex-direction: column; gap: 10px; }
-#minesCashoutBtn {
+.mines-action-buttons { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+#minesCashoutBtn, #impCashoutBtn {
     background: #FF9100; color: black; font-weight: bold; font-size: 1.15rem;
     padding: 15px; border-radius: 10px; cursor: pointer;
 }
-#minesCashoutBtn:disabled { background: #333; color: #666; cursor: not-allowed; }
+#minesCashoutBtn:disabled, #impCashoutBtn:disabled { background: #333; color: #666; cursor: not-allowed; }
 
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20%, 60% { transform: translateX(-4px); }
     40%, 80% { transform: translateX(4px); }
 }
+
+/* ================= СТИЛИ ДЛЯ НЕВОЗМОЖНОЙ МИНЫ (БАШНЯ) ================= */
+.imp-rows-container {
+    display: flex;
+    flex-direction: column-reverse; /* Первый ряд снизу, шестой сверху */
+    gap: 10px;
+    width: 100%;
+    max-width: 360px;
+    background: #1a1a1a;
+    padding: 15px;
+    border-radius: 16px;
+    border: 3px solid #333;
+    margin-bottom: 15px;
+}
+
+.imp-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 8px;
+    transition: all 0.3s;
+    position: relative;
+    background: rgba(255,255,255,0.02);
+}
+
+.imp-row.locked { opacity: 0.25; pointer-events: none; }
+.imp-row.active { background: rgba(0, 229, 255, 0.08); border: 1px dashed #00E5FF; opacity: 1; }
+.imp-row.passed { opacity: 0.7; pointer-events: none; border: 1px solid rgba(0, 230, 118, 0.3); }
+
+.imp-cell {
+    flex: 1;
+    height: 44px;
+    background: #2e2e2e;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s;
+    padding: 0;
+}
+.imp-cell:hover:not(:disabled) { background: #444; transform: scale(1.05); }
+
+.row-multiplier {
+    position: absolute;
+    left: -48px;
+    width: 42px;
+    text-align: right;
+    font-size: 0.85rem;
+    color: #00E676;
+    font-weight: bold;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.imp-cell.win { background: #00E676 !important; color: black; }
+.imp-cell.lose { background: #FF1744 !important; color: white; }
 
 /* Модальные окна */
 .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); }
@@ -403,67 +473,3 @@ input:focus { outline: none; border-color: #61dafb; }
 .admin-btns { display: flex; gap: 10px; margin-top: 8px; }
 .admin-approve-btn { background: #00E676; color: black; font-weight: bold;}
 .admin-decline-btn { background: #ff1744; color: white; font-weight: bold;}
-/* Новая карточка в лобби */
-.card-imp-mines { border-top: 5px solid #FF1744; }
-.mini-imp-mine {
-    width: 26px; height: 26px; background: #FF1744; border-radius: 4px; position: relative;
-}
-.mini-imp-mine::before { content: '▲'; position: absolute; top: 3px; left: 6px; font-size: 14px; color: black; }
-
-/* Стили для Невозможной мины */
-.imp-rows-container {
-    display: flex;
-    flex-direction: column; /* Ряды сверху вниз */
-    gap: 10px;
-    width: 100%;
-    max-width: 360px;
-    background: #1a1a1a;
-    padding: 15px;
-    border-radius: 16px;
-    border: 2px solid #333;
-    margin-bottom: 15px;
-}
-
-.imp-row {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    padding: 5px;
-    border-radius: 8px;
-    transition: background 0.3s;
-    position: relative;
-}
-
-.imp-row.active { background: rgba(0, 229, 255, 0.1); border: 1px solid #00E5FF; }
-.imp-row.locked { opacity: 0.4; pointer-events: none; }
-.imp-row.passed { opacity: 0.8; pointer-events: none; border: 1px solid #00E676; }
-
-.imp-cell {
-    flex: 1;
-    aspect-ratio: 1/1;
-    background: #2e2e2e;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 1.2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.1s;
-}
-.imp-cell:hover:not(:disabled) { background: #444; transform: scale(1.05); }
-
-.row-multiplier {
-    position: absolute;
-    left: -50px;
-    width: 45px;
-    text-align: right;
-    font-size: 0.8rem;
-    color: #00E676;
-    font-weight: bold;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.imp-cell.win { background: #00E676 !important; color: black; }
-.imp-cell.lose { background: #FF1744 !important; color: white; }

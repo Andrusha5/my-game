@@ -2,19 +2,18 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=27">
-    
-    <!-- Подключаем Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <link rel="stylesheet" href="style.css?v=29">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
 
-    <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+    <!-- Верхняя панель (Баланс и Имя) -->
     <div id="headerBar">
-        <span id="userWelcome">Вход...</span>
+        <div id="userWelcome">Загрузка...</div>
         <button id="balanceBtn" onclick="openDepositModal()">Баланс: <span id="myBalance">0</span> ₽</button>
     </div>
 
@@ -22,276 +21,236 @@
     <div id="lobbyScreen" class="screen-container">
         <h1 class="lobby-title">Выбор игры</h1>
         <div class="lobby-grid">
-
-            <!-- Игра 1: Игра в кальмара -->
-            <button class="lobby-card card-squid" onclick="showScreen('multiplayerGameScreen')">
-                <div class="card-icon">
-                    <div class="mini-square-grid"></div>
-                </div>
+            
+            <div class="lobby-card card-squid" onclick="showScreen('multiplayerGameScreen')">
+                <div class="card-icon"><div class="mini-square-grid"></div></div>
                 <div class="card-info">
-                    <span class="card-name">Игра в кальмара</span>
-                    <span class="card-desc">Мультиплеер • Квадратное поле</span>
+                    <span class="card-name">Игра в Кальмара</span>
+                    <span class="card-desc">Мультиплеер онлайн</span>
                 </div>
-            </button>
+            </div>
 
-            <!-- Игра 2: Невозможное колесо -->
-            <button class="lobby-card card-wheel" onclick="showScreen('singleplayerGameScreen')">
-                <div class="card-icon">
-                    <div class="mini-wheel"></div>
-                </div>
+            <div class="lobby-card card-wheel" onclick="showScreen('singleplayerGameScreen')">
+                <div class="card-icon"><div class="mini-wheel"></div></div>
                 <div class="card-info">
                     <span class="card-name">Невозможное колесо</span>
-                    <span class="card-desc">Одиночная • Шансы на выбор</span>
+                    <span class="card-desc">Выбери свой шанс</span>
                 </div>
-            </button>
+            </div>
 
-            <!-- Игра 3: Всегда Голубь -->
-            <button class="lobby-card card-coin" onclick="showScreen('coinGameScreen')">
-                <div class="card-icon">
-                    <div class="mini-coin"></div>
-                </div>
+            <div class="lobby-card card-coin" onclick="showScreen('coinGameScreen')">
+                <div class="card-icon"><div class="mini-coin"></div></div>
                 <div class="card-info">
                     <span class="card-name">Всегда Голубь</span>
-                    <span class="card-desc">Одиночная • Орел или Решка</span>
+                    <span class="card-desc">Орел или Решка</span>
                 </div>
-            </button>
+            </div>
 
-            <!-- Игра 4: Везде мины -->
-
-
-<button class="lobby-card card-mines" onclick="showScreen('minesGameScreen')">
-                <div class="card-icon">
-                    <div class="mini-mine"></div>
-                </div>
+            <div class="lobby-card card-mines" onclick="showScreen('minesGameScreen')">
+                <div class="card-icon"><div class="mini-mine"></div></div>
                 <div class="card-info">
-                    <span class="card-name">Везде мины</span>
-                    <span class="card-desc">Одиночная • Поле 5х5 • 3 мины</span>
+                    <span class="card-name">Везде Мины</span>
+                    <span class="card-desc">Найди алмазы</span>
                 </div>
-                <!-- В блок .lobby-grid добавь: -->
+            </div>
+
+            <!-- НОВАЯ ИГРА -->
+
+
 <div class="lobby-card card-imp-mines" onclick="showScreen('impMinesGameScreen')">
-    <div class="card-icon"><div class="mini-imp-mine"></div></div>
-    <div class="card-info">
-        <span class="card-name">Невозможная мина</span>
-        <span class="card-desc">6 уровней сложности</span>
-    </div>
-</div>
-
-<!-- НОВЫЙ ЭКРАН ИГРЫ (Добавь в конец body перед скриптами) -->
-<div id="impMinesGameScreen" class="screen-container" style="display:none;">
-    <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В меню</button>
-    
-    <div class="mines-layout">
-        <h2 class="game-headline" style="color:#FF1744">Невозможная мина</h2>
-        <p class="game-subline">Пройди все ряды до 15x</p>
-
-        <!-- Игровое поле рядами -->
-        <div id="impMinesRowsContainer" class="imp-rows-container">
-            <!-- Ряды генерируются через JS (от 6-го к 1-му) -->
-        </div>
-
-        <div class="mines-controls">
-            <div class="sp-input-group">
-                <label>Ваша ставка:</label>
-                <input type="number" id="impBetInput" value="10" min="10">
+                <div class="card-icon"><div class="mini-imp-mine"></div></div>
+                <div class="card-info">
+                    <span class="card-name">Невозможная мина</span>
+                    <span class="card-desc">Башня из 6 рядов</span>
+                </div>
             </div>
-            
-            <div id="impMessage">Начните игру</div>
-            
-            <div class="mines-action-buttons">
-                <button id="impStartBtn" onclick="startImpMines()">Играть</button>
-                <button id="impCashoutBtn" onclick="cashoutImpMines()" disabled>Забрать 0 ₽</button>
-            </div>
-        </div>
-    </div>
-</div>
-            </button>
+
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 2: ИГРА В КАЛЬМАРА (Мультиплеер) ================= -->
-    <div id="multiplayerGameScreen" class="screen-container" style="display: none;">
-        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В меню</button>
-        
+    <!-- ================= ЭКРАН 2: МУЛЬТИПЛЕЕР (КАЛЬМАР) ================= -->
+    <div id="multiplayerGameScreen" class="screen-container" style="display:none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div id="ui">
-            <input type="text" id="playerNameInput" placeholder="Имя игрока">
-            <input type="number" id="betAmountInput" placeholder="Ставка (мин. 10₽)" min="10">
+            <input type="text" id="playerNameInput" placeholder="Ваше имя" maxlength="15">
+            <input type="number" id="betAmountInput" placeholder="Ставка (₽)" min="10">
             <button id="placeBetButton">Сделать ставку</button>
             
-            <div id="statusInfo">
-                <p>Общий Банк: <span id="totalBank">0</span> ₽</p>
-            </div>
+            <div id="statusInfo">Банк игры: <span id="totalBank">0</span> ₽</div>
             <div id="gameMessage">Ждем ставки...</div>
-        </div>
+            
+            <div id="gameAreaWrapper">
+                <div id="bettingTimer">15</div>
+                <div id="ball"></div>
+                <canvas id="gameCanvas" width="400" height="400"></canvas>
+            </div>
 
-        <div id="gameAreaWrapper">
-            <canvas id="gameCanvas" width="400" height="400"></canvas>
-            <span id="bettingTimer">15с</span>
-            <div id="ball"></div>
-        </div>
-
-        <!-- Переключатель вкладок: Ставки / История -->
-        <div class="multi-tabs">
-            <button id="tabBetsBtn" class="tab-btn active" onclick="switchMultiTab('bets')">Текущие ставки</button>
-            <button id="tabHistoryBtn" class="tab-btn" onclick="switchMultiTab('history')">История побед</button>
-        </div>
-
-        <div id="betList">
-            <div class="bet-placeholder">Пока нет ставок...</div>
-        </div>
-
-        <div id="historyList" style="display: none;">
-            <div class="bet-placeholder">История пуста...</div>
+            <!-- Вкладки ставок/истории -->
+            <div class="multi-tabs">
+                <button id="tabBetsBtn" class="tab-btn active" onclick="switchMultiTab('bets')">Ставки</button>
+                <button id="tabHistoryBtn" class="tab-btn" onclick="switchMultiTab('history')">История</button>
+            </div>
+            
+            <div id="betList">
+                <div class="bet-placeholder">Ставок еще нет</div>
+            </div>
+            <div id="historyList" style="display: none;">
+                <div class="bet-placeholder">История игр пуста</div>
+            </div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 3: НЕВОЗМОЖНОЕ КОЛЕСО (Одиночная) ================= -->
-    <div id="singleplayerGameScreen" class="screen-container" style="display: none;">
+    <!-- ================= ЭКРАН 3: НЕВОЗМОЖНОЕ КОЛЕСО ================= -->
+    <div id="singleplayerGameScreen" class="screen-container" style="display:none;">
 
 
-<button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В меню</button>
-
+<button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="sp-layout">
             <div class="sp-wheel-container">
                 <div class="sp-pointer"></div>
                 <div id="spWheel">
-                    <div id="spWheelText" class="sp-wheel-label">ВЫ</div>
+                    <div id="spWheelText" class="sp-wheel-label">WIN</div>
                 </div>
             </div>
-
             <div class="sp-controls">
-                <h2 class="sp-title">Невозможное колесо</h2>
-                
+                <h3 class="sp-title">Настройки шанса</h3>
+                <div class="sp-percentage-label">Выберите вероятность выигрыша:</div>
+                <div class="sp-percent-grid">
+                    <button class="sp-pct-btn" onclick="selectSpPercent(75)">75% <span class="btn-mult">1.2x</span></button>
+                    <button class="sp-pct-btn active" onclick="selectSpPercent(50)">50% <span class="btn-mult">1.4x</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(33)">33% <span class="btn-mult">1.55x</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(25)">25% <span class="btn-mult">1.8x</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(10)">10% <span class="btn-mult">2.2x</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(1)">1% <span class="btn-mult">33.0x</span></button>
+                </div>
                 <div class="sp-input-group">
                     <label for="spBetInput">Сумма ставки (₽):</label>
-                    <input type="number" id="spBetInput" placeholder="Ставка (мин. 10₽)" min="10" value="10">
-                </div>
 
-                <div class="sp-percentage-label">Ваш шанс на победу:</div>
-                <div class="sp-percent-grid">
-                    <button class="sp-pct-btn" onclick="selectSpPercent(1)">1% <span class="btn-mult">x33.0</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(10)">10% <span class="btn-mult">x2.2</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(25)">25% <span class="btn-mult">x1.8</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(33)">33% <span class="btn-mult">x1.55</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(50)" class="active">50% <span class="btn-mult">x1.4</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(75)">75% <span class="btn-mult">x1.2</span></button>
-                </div>
 
+<input type="number" id="spBetInput" value="10" min="10">
+                </div>
                 <div class="sp-summary">
                     <p>Шанс: <strong id="summaryChance">50%</strong></p>
-                    <p>Возможный выигрыш: <strong id="summaryWin" class="win-color">14 ₽</strong></p>
+                    <p>Выплата: <strong id="summaryWin" class="win-color">14 ₽</strong></p>
                 </div>
-
-                <button id="spSpinBtn" onclick="spinSingleplayerWheel()">Запустить колесо</button>
-                <div id="spMessage">Выберите ставку и крутите!</div>
+                <button id="spSpinBtn" onclick="spinSingleplayerWheel()">Крутить колесо</button>
+                <div id="spMessage"></div>
             </div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 4: ВСЕГДА ГОЛУБЬ (Монетка) ================= -->
-    <div id="coinGameScreen" class="screen-container" style="display: none;">
-        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В меню</button>
-
+    <!-- ================= ЭКРАН 4: ВСЕГДА ГОЛУБЬ ================= -->
+    <div id="coinGameScreen" class="screen-container" style="display:none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="coin-layout">
             <h2 class="game-headline">Всегда Голубь</h2>
-            <p class="game-subline">Умножение ставки в <span class="win-color">1.5 раза</span> при угадывании стороны</p>
-
-            <!-- 3D Монетка -->
+            <p class="game-subline">Коэффициент выигрыша: 1.5x</p>
             <div class="coin-container">
                 <div id="coin3d" class="coin">
-                    <div class="side heads">Орел</div>
-                    <div class="side tails">Решка</div>
+                    <div class="side heads">ОРЕЛ</div>
+                    <div class="side tails">РЕШКА</div>
                 </div>
             </div>
-
             <div class="coin-controls">
-                <div class="sp-input-group">
-                    <label for="coinBetInput">Сумма ставки (₽):</label>
-                    <input type="number" id="coinBetInput" placeholder="Ставка (мин. 10₽)" min="10" value="10">
-                </div>
-
                 <div class="coin-choice-grid">
                     <button id="btnCoinHeads" class="coin-choice-btn active" onclick="selectCoinChoice('heads')">Орел</button>
                     <button id="btnCoinTails" class="coin-choice-btn" onclick="selectCoinChoice('tails')">Решка</button>
                 </div>
-
-                <button id="coinStartBtn" onclick="playCoinFlip()">Начать бросок</button>
-                <div id="coinMessage">Сделайте выбор и нажмите начать!</div>
+                <div class="sp-input-group">
+                    <label>Сумма ставки (₽):</label>
+                    <input type="number" id="coinBetInput" value="10" min="10">
+                </div>
+                <button id="coinStartBtn" onclick="playCoinFlip()">Бросить монетку</button>
+                <div id="coinMessage">Выберите сторону и ставку</div>
             </div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 5: ВЕЗДЕ МИНЫ (Мины 5х5) ================= -->
-    <div id="minesGameScreen" class="screen-container" style="display: none;">
-        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В меню</button>
-
+    <!-- ================= ЭКРАН 5: ВЕЗДЕ МИНЫ ================= -->
+    <div id="minesGameScreen" class="screen-container" style="display:none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="mines-layout">
-            <h2 class="game-headline">Везде мины</h2>
-            <p class="game-subline">Поле 5×5 • На поле спрятано <span style="color:#ff1744; font-weight: bold;">ровно 3 мины</span></p>
-
-            <!-- Поле 5х5 -->
-            <div id="minesGrid" class="mines-grid">
-                <!-- 25 ячеек будут сгенерированы из JS -->
+            <h2 class="game-headline">Везде Мины</h2>
+            <p class="game-subline">Всего на поле 3 мины</p>
+            <div class="mines-stats">
+                <span>Мин: 3</span>
+                <span>Открыто клеток: <strong id="minesOpenedCount">0/22</strong></span>
+                <span>Множитель: <strong id="minesCurrentMultiplier" class="win-color">1.00x</strong></span>
             </div>
-
+            <div id="minesGrid" class="mines-grid"></div>
             <div class="mines-controls">
                 <div class="sp-input-group">
-                    <label for="minesBetInput">Сумма ставки (₽):</label>
-                    <input type="number" id="minesBetInput" placeholder="Ставка (мин. 10₽)" min="10" value="10">
+                    <label>Сумма ставки (₽):</label>
+                    <input type="number" id="minesBetInput" value="10" min="10">
                 </div>
-
-                <div class="mines-stats">
-                    <div>Открыто клеток: <strong id="minesOpenedCount">0/22</strong></div>
-                    <div>Текущий множитель: <strong id="minesCurrentMultiplier" class="win-color">0.90x</strong></div>
-                </div>
-
+                <div id="minesMessage">Выберите ставку и начните раунд</div>
                 <div class="mines-action-buttons">
-                    <button id="minesStartBtn" onclick="startMinesRound()">Начать игру</button>
-                    <button id="minesCashoutBtn" disabled onclick="cashoutMines()"\Забрать выигрыш (<span id="minesCashoutValue">0</span> ₽)</button>
+                    <button id="minesStartBtn" onclick="startMinesRound()">Начать раунд</button>
+                    <button id="minesCashoutBtn" onclick="cashoutMines()" disabled>Забрать 0 ₽</button>
                 </div>
-
-                <div id="minesMessage">Введите ставку и нажмите Начать игру!</div>
+                <!-- Скрытый холдер для совместимости со старыми функциями -->
+                <span id="minesCashoutValue" style="display:none;">0</span>
             </div>
         </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО ПОПОЛНЕНИЯ БАЛАНСА -->
+    <!-- ================= ЭКРАН 6: НЕВОЗМОЖНАЯ МИНА (НОВАЯ ИГРА) ================= -->
+    <div id="impMinesGameScreen" class="screen-container" style="display:none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
+        <div class="mines-layout">
+            <h2 class="game-headline" style="color:#FF1744">Невозможная мина</h2>
+            <p class="game-subline">Пройди 6 рядов до вершины (15x)</p>
+            
+            <!-- Сетка башни (генерация рядов снизу вверх) -->
+            <div id="impMinesRowsContainer" class="imp-rows-container"></div>
+            
+            <div class="mines-controls">
+                <div class="sp-input-group">
+                    <label>Сумма ставки (₽):</label>
+                    <input type="number" id="impBetInput" value="10" min="10">
+                </div>
+                <div id="impMessage">Сделайте ставку и нажмите играть</div>
+                <div class="mines-action-buttons">
+                    <button id="impStartBtn" onclick="startImpMines()">Играть</button>
+                    <button id="impCashoutBtn" onclick="cashoutImpMines()" disabled>Забрать 0 ₽</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= МОДАЛКИ И АДМИНКА ================= -->
     <div id="depositModal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeDepositModal()">&times;</span>
-            <h2>Пополнение баланса</h2>
-            
             <div id="depositStep1">
-                <p>Введите сумму пополнения (в ₽):</p>
-                <input type="number" id="depositAmountInput" placeholder="Сумма" min="10">
+                <h2>Пополнение баланса</h2>
+                <input type="number" id="depositAmountInput" placeholder="Сумма пополнения (₽)" min="10">
                 <button onclick="goToDepositStep2()">Далее</button>
             </div>
-
-            <div id="depositStep2" style="display: none;">
-                <p>Переведите <strong id="reqAmount">0</strong> ₽ по реквизитам ниже:</p>
+            <div id="depositStep2" style="display:none;">
+                <h2>Переведите <span id="reqAmount">0</span> ₽</h2>
                 <div class="requisites-box">
-                    <p>💳Сбербанк:</p>
-                    <code>0000 0000 0000 0000</code>
-                    <p>Получатель: Павел Дуров</p>
+                    <p>На карту / СБП:</p>
+                    <code>+7 (999) 123-45-67</code>
+                    <p class="warning-text">Переводите точную сумму одним платежом!</p>
                 </div>
-                <p class="warning-text">После перевода обязательно нажмите кнопку ниже!</p>
-                <button id="confirmPaidBtn" onclick="sendDepositRequest()">Я перевел, подтверждаю</button>
+                <button onclick="sendDepositRequest()">Я оплатил</button>
             </div>
-
-            <div id="depositStep3" style="display: none;">
-                <p class="success-text">⏳ Заявка отправлена администратору. Ожидайте зачисления средств!</p>
+            <div id="depositStep3" style="display:none;">
+                <h2 class="success-text">Заявка отправлена!</h2>
+                <p>Ожидайте подтверждения администратором.</p>
                 <button onclick="closeDepositModal()">Закрыть</button>
             </div>
         </div>
     </div>
 
-    <!-- СЕКРЕТНАЯ АДМИН ПАНЕЛЬ -->
     <div id="adminPanel" style="display: none;">
         <h2>Панель администратора</h2>
         <div id="adminRequestsList">
-            <p class="no-reqs">Нет активных заявок на пополнение</p>
+            <p class="no-reqs">Нет активных заявок</p>
         </div>
     </div>
 
-    <script src="script.js?v=27"></script>
+    <script src="script.js?v=29"></script>
 </body>
 </html>
