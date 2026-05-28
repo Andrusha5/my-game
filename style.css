@@ -403,3 +403,67 @@ input:focus { outline: none; border-color: #61dafb; }
 .admin-btns { display: flex; gap: 10px; margin-top: 8px; }
 .admin-approve-btn { background: #00E676; color: black; font-weight: bold;}
 .admin-decline-btn { background: #ff1744; color: white; font-weight: bold;}
+/* Новая карточка в лобби */
+.card-imp-mines { border-top: 5px solid #FF1744; }
+.mini-imp-mine {
+    width: 26px; height: 26px; background: #FF1744; border-radius: 4px; position: relative;
+}
+.mini-imp-mine::before { content: '▲'; position: absolute; top: 3px; left: 6px; font-size: 14px; color: black; }
+
+/* Стили для Невозможной мины */
+.imp-rows-container {
+    display: flex;
+    flex-direction: column; /* Ряды сверху вниз */
+    gap: 10px;
+    width: 100%;
+    max-width: 360px;
+    background: #1a1a1a;
+    padding: 15px;
+    border-radius: 16px;
+    border: 2px solid #333;
+    margin-bottom: 15px;
+}
+
+.imp-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 5px;
+    border-radius: 8px;
+    transition: background 0.3s;
+    position: relative;
+}
+
+.imp-row.active { background: rgba(0, 229, 255, 0.1); border: 1px solid #00E5FF; }
+.imp-row.locked { opacity: 0.4; pointer-events: none; }
+.imp-row.passed { opacity: 0.8; pointer-events: none; border: 1px solid #00E676; }
+
+.imp-cell {
+    flex: 1;
+    aspect-ratio: 1/1;
+    background: #2e2e2e;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s;
+}
+.imp-cell:hover:not(:disabled) { background: #444; transform: scale(1.05); }
+
+.row-multiplier {
+    position: absolute;
+    left: -50px;
+    width: 45px;
+    text-align: right;
+    font-size: 0.8rem;
+    color: #00E676;
+    font-weight: bold;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.imp-cell.win { background: #00E676 !important; color: black; }
+.imp-cell.lose { background: #FF1744 !important; color: white; }

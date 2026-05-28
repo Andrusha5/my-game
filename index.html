@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=26">
+    <link rel="stylesheet" href="style.css?v=27">
     
     <!-- Подключаем Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -22,6 +22,7 @@
     <div id="lobbyScreen" class="screen-container">
         <h1 class="lobby-title">Выбор игры</h1>
         <div class="lobby-grid">
+
             <!-- Игра 1: Игра в кальмара -->
             <button class="lobby-card card-squid" onclick="showScreen('multiplayerGameScreen')">
                 <div class="card-icon">
@@ -66,6 +67,43 @@
                     <span class="card-name">Везде мины</span>
                     <span class="card-desc">Одиночная • Поле 5х5 • 3 мины</span>
                 </div>
+                <!-- В блок .lobby-grid добавь: -->
+<div class="lobby-card card-imp-mines" onclick="showScreen('impMinesGameScreen')">
+    <div class="card-icon"><div class="mini-imp-mine"></div></div>
+    <div class="card-info">
+        <span class="card-name">Невозможная мина</span>
+        <span class="card-desc">6 уровней сложности</span>
+    </div>
+</div>
+
+<!-- НОВЫЙ ЭКРАН ИГРЫ (Добавь в конец body перед скриптами) -->
+<div id="impMinesGameScreen" class="screen-container" style="display:none;">
+    <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В меню</button>
+    
+    <div class="mines-layout">
+        <h2 class="game-headline" style="color:#FF1744">Невозможная мина</h2>
+        <p class="game-subline">Пройди все ряды до 15x</p>
+
+        <!-- Игровое поле рядами -->
+        <div id="impMinesRowsContainer" class="imp-rows-container">
+            <!-- Ряды генерируются через JS (от 6-го к 1-му) -->
+        </div>
+
+        <div class="mines-controls">
+            <div class="sp-input-group">
+                <label>Ваша ставка:</label>
+                <input type="number" id="impBetInput" value="10" min="10">
+            </div>
+            
+            <div id="impMessage">Начните игру</div>
+            
+            <div class="mines-action-buttons">
+                <button id="impStartBtn" onclick="startImpMines()">Играть</button>
+                <button id="impCashoutBtn" onclick="cashoutImpMines()" disabled>Забрать 0 ₽</button>
+            </div>
+        </div>
+    </div>
+</div>
             </button>
         </div>
     </div>
@@ -254,6 +292,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=26"></script>
+    <script src="script.js?v=27"></script>
 </body>
 </html>

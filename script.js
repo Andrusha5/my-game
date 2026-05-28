@@ -18,6 +18,205 @@ if (!myPlayerId) {
     myPlayerId = `player_${Math.random().toString(36).slice(2, 11)}`;
     localStorage.setItem('roulette_player_id', myPlayerId);
 }
+// ======= ДОБАВИТЬ В ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =======
+let impGameActive = false;
+let impCurrentRow = 0; // 0 - 5
+let impBet = 0;
+let impMinesData = [
+    { cells: 5, mines: 1, mult: 1.2 },  // Ряд 1
+    { cells: 5, mines: 1, mult: 1.5 },  // Ряд 2
+    { cells: 5, mines: 2, mult: 2.5 },  // Ряд 3
+    { cells: 4, mines: 1, mult: 5.0 },  // Ряд 4
+    { cells: 3, mines: 1, mult: 9.0 },  // Ряд 5
+    { cells: 2, mines: 1, mult: 15.0 }  // Ряд 6
+];
+let impBoard = []; // Тут будем хранить мины для каждого ряда
+
+// ======= ИСПРАВЛЕНИЕ: ВЕЗДЕ МИНЫ (Обновление кнопки) =======
+function updateMinesSummary() {
+    const betInput = document.getElementById('minesBetInput');
+    const cashoutVal = document.getElementById('minesCashoutValue');
+    const cashoutBtn = document.getElementById('minesCashoutBtn');
+    if (!betInput || !cashoutVal || !cashoutBtn) return;
+
+    const bet = parseInt(betInput.value) || 0;
+    
+    if (!minesGameActive) {
+        cashoutVal.textContent = '0';
+        cashoutBtn.textContent = 'Забрать 0 ₽';
+        return;
+    }
+
+    const currentMult = MINES_MULTIPLIERS[minesOpened.length];
+    const currentWin = Math.floor(minesCurrentBet * currentMult);
+    
+    cashoutVal.textContent = currentWin;
+    // ТЕПЕРЬ ТЕКСТ НА КНОПКЕ ОБНОВЛЯЕТСЯ
+    cashoutBtn.textContent = `Забрать ${currentWin} ₽`;
+}
+
+// ======= ИГРА: НЕВОЗМОЖНАЯ МИНА =======
+
+function initImpMinesUI() {
+    const container = document.getElementById('impMinesRowsContainer');
+    container.innerHTML = '';
+
+    // Генерируем ряды сверху вниз (от 6-го к 1-му визуально)
+    for (let i = 5; i >= 0; i--) {
+        const rowData = impMinesData[i];
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'imp-row locked';
+        rowDiv.id = `imp_row_${i}`;
+
+        const multLabel = document.createElement('div');
+        multLabel.className = 'row-multiplier';
+        multLabel.textContent = rowData.mult + 'x';
+        rowDiv.appendChild(multLabel);
+
+        for (let j = 0; j < rowData.cells; j++) {
+            const btn = document.createElement('button');
+            btn.className = 'imp-cell';
+            btn.id = `imp_cell_${i}_${j}`;
+            btn.onclick = () => clickImpCell(i, j);
+            rowDiv.appendChild(btn);
+        }
+        container.appendChild(rowDiv);
+    }
+}
+
+// Вызываем при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+    initImpMinesUI();
+    // ... остальной твой код инициализации ...
+});
+
+window.startImpMines = function() {
+    if (impGameActive) return;
+
+    const betInput = document.getElementById('impBetInput');
+    const bet = parseInt(betInput.value) || 0;
+    const myBalance = players[myPlayerId]?.balance || 0;
+
+    if (bet < 10 || bet > myBalance) {
+        alert("Некорректная ставка!");
+        return;
+    }
+
+    db.ref(`players/${myPlayerId}/balance`).transaction(c => (c || 0) - bet, (err, committed) => {
+        if (committed) {
+            impBet = bet;
+            impGameActive = true;
+            impCurrentRow = 0;
+            impBoard = [];
+
+            // Генерируем мины заранее для всех рядов
+            for (let i = 0; i < 6; i++) {
+                let rowMines = new Array(impMinesData[i].cells).fill(false);
+                let placed = 0;
+                while (placed < impMinesData[i].mines) {
+                    let r = Math.floor(Math.random() * rowMines.length);
+                    if (!rowMines[r]) { rowMines[r] = true; placed++; }
+                }
+                impBoard.push(rowMines);
+            }
+
+            // UI
+            document.getElementById('impStartBtn').disabled = true;
+            document.getElementById('impCashoutBtn').disabled = true;
+            document.getElementById('impCashoutBtn').textContent = `Забрать 0 ₽`;
+            document.getElementById('impMessage').textContent = "Удачи! Начни с первого ряда";
+            document.getElementById('impMessage').style.color = "#00E5FF";
+
+            // Обновляем визуально ряды
+            for (let i = 0; i < 6; i++) {
+                const rDiv = document.getElementById(`imp_row_${i}`);
+                rDiv.className = (i === 0) ? 'imp-row active' : 'imp-row locked';
+                // Чистим ячейки
+                Array.from(rDiv.getElementsByClassName('imp-cell')).forEach(c => {
+                    c.className = 'imp-cell';
+                    c.textContent = '';
+                });
+            }
+        }
+    });
+}
+
+function clickImpCell(rowIdx, cellIdx) {
+    if (!impGameActive || rowIdx !== impCurrentRow) return;
+
+    const cellBtn = document.getElementById(`imp_cell_${rowIdx}_${cellIdx}`);
+    const isMine = impBoard[rowIdx][cellIdx];
+
+    if (isMine) {
+        cellBtn.classList.add('lose');
+        cellBtn.textContent = '💣';
+        endImpGame(false);
+    } else {
+        cellBtn.classList.add('win');
+        cellBtn.textContent = '💎';
+        
+        const currentMult = impMinesData[rowIdx].mult;
+        const currentWin = Math.floor(impBet * currentMult);
+        
+        document.getElementById('impCashoutBtn').disabled = false;
+        document.getElementById('impCashoutBtn').textContent = `Забрать ${currentWin} ₽`;
+        
+        if (rowIdx < 5) {
+            // Переход на следующий ряд
+            document.getElementById(`imp_row_${rowIdx}`).className = 'imp-row passed';
+            impCurrentRow++;
+            document.getElementById(`imp_row_${impCurrentRow}`).className = 'imp-row active';
+            document.getElementById('impMessage').textContent = `Ряд ${rowIdx + 1} пройден!`;
+        } else {
+            // Победа во всей игре
+            endImpGame(true);
+        }
+    }
+}
+
+window.cashoutImpMines = function() {
+    if (!impGameActive) return;
+    endImpGame(true);
+}
+
+function endImpGame(isWin) {
+    impGameActive = false;
+    const currentWin = isWin ? Math.floor(impBet * impMinesData[impCurrentRow - (isWin && impCurrentRow < 5 ? 1 : 0)].mult) : 0;
+    
+    // Если выиграл последний ряд, берем именно его коэф
+    let finalMult = isWin ? impMinesData[impCurrentRow].mult : 0;
+    // Но если нажали "Забрать" раньше, берем коэф ПРОЙДЕННОГО ряда
+    if (isWin && impCurrentRow > 0 && document.getElementById(`imp_row_${impCurrentRow}`).classList.contains('active')) {
+        finalMult = impMinesData[impCurrentRow-1].mult;
+    }
+    
+    const finalWin = Math.floor(impBet * finalMult);
+
+    if (isWin && finalWin > 0) {
+        db.ref(`players/${myPlayerId}/balance`).transaction(c => (c || 0) + finalWin);
+        document.getElementById('impMessage').textContent = `Победа! +${finalWin} ₽`;
+        document.getElementById('impMessage').style.color = "#00E676";
+    } else if (!isWin) {
+        document.getElementById('impMessage').textContent = `Взрыв! Ставка проиграна`;
+        document.getElementById('impMessage').style.color = "#FF1744";
+    }
+
+    // Вскрываем все мины
+    for (let i = 0; i < 6; i++) {
+        document.getElementById(`imp_row_${i}`).classList.remove('locked', 'active');
+        impBoard[i].forEach((m, cellIdx) => {
+            if (m) {
+                const c = document.getElementById(`imp_cell_${i}_${cellIdx}`);
+                if (!c.classList.contains('lose')) c.textContent = '💣';
+            }
+        });
+    }
+
+    document.getElementById('impStartBtn').disabled = false;
+    document.getElementById('impCashoutBtn').disabled = true;
+}
+
+
 
 let players = {};         
 let gameState = {};       
