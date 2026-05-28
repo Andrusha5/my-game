@@ -395,9 +395,10 @@ input:focus { outline: none; border-color: #61dafb; }
 }
 
 /* ================= СТИЛИ ДЛЯ НЕВОЗМОЖНОЙ МИНЫ (БАШНЯ) ================= */
+/* Находим и заменяем этот блок: */
 .imp-rows-container {
     display: flex;
-    flex-direction: column-reverse; /* Первый ряд снизу, шестой сверху */
+    flex-direction: column; /* Изменили на column, чтобы 1-й ряд был внизу, а 6-й вверху */
     gap: 10px;
     width: 100%;
     max-width: 360px;
@@ -407,10 +408,11 @@ input:focus { outline: none; border-color: #61dafb; }
     border: 3px solid #333;
     margin-bottom: 15px;
 }
-
+/* Находим и заменяем этот блок: */
 .imp-row {
     display: flex;
     justify-content: center;
+    align-items: center; /* Центрируем элементы ряда по вертикали */
     gap: 8px;
     padding: 6px;
     border-radius: 8px;
@@ -439,16 +441,17 @@ input:focus { outline: none; border-color: #61dafb; }
 }
 .imp-cell:hover:not(:disabled) { background: #444; transform: scale(1.05); }
 
+/* Находим и заменяем этот блок (убрали абсолютное позиционирование): */
 .row-multiplier {
-    position: absolute;
-    left: -48px;
-    width: 42px;
-    text-align: right;
-    font-size: 0.85rem;
+    width: 90px; /* Фиксированная ширина для красивого выравнивания */
+    text-align: left;
+    font-size: 0.8rem;
     color: #00E676;
     font-weight: bold;
-    top: 50%;
-    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column; /* Текст в две строки: сверху коэфф. и мины, снизу сумма */
+    align-items: flex-start;
+    line-height: 1.3;
 }
 
 .imp-cell.win { background: #00E676 !important; color: black; }

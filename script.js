@@ -203,6 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
     selectSpPercent(50);
     renderMinesGrid();
     initImpMinesUI();
+
+    // Отслеживаем изменение ставки в "Невозможной мине" для обновления надписей
+    const impBetInput = document.getElementById('impBetInput');
+    if (impBetInput) {
+        impBetInput.addEventListener('input', updateImpMinesLabels);
+    }
 });
 
 // Вкладки мультиплеера
@@ -497,17 +503,18 @@ function initImpMinesUI() {
     if (!container) return;
     container.innerHTML = '';
 
-    // Генерируем 6 рядов (от 5 индекса вниз до 0)
+    // Генерируем 6 рядов (от 5-го к 0-му визуально сверху вниз)
+    // 5-й ряд будет самым верхним, а 0-й — самым нижним (начальным)
     for (let i = 5; i >= 0; i--) {
         const rowData = impMinesData[i];
         const rowDiv = document.createElement('div');
         rowDiv.className = 'imp-row locked';
         rowDiv.id = `imp_row_${i}`;
 
-        // Множитель слева от ряда
+        // Создаем блок информации слева от ячеек
         const multLabel = document.createElement('div');
         multLabel.className = 'row-multiplier';
-        multLabel.textContent = rowData.mult + 'x';
+        multLabel.id = `imp_label_${i}`; // ID для динамического изменения текста
         rowDiv.appendChild(multLabel);
 
         // Квадратики ряда
@@ -520,7 +527,30 @@ function initImpMinesUI() {
         }
         container.appendChild(rowDiv);
     }
+    // Рассчитываем и выводим суммы первый раз при загрузке
+    updateImpMinesLabels();
 }
+
+
+function updateImpMinesLabels() {
+    const betInput = document.getElementById('impBetInput');
+    if (!betInput) return;
+    const bet = parseInt(betInput.value) || 0;
+
+    for (let i = 0; i < 6; i++) {
+        const label = document.getElementById(`imp_label_${i}`);
+        if (label) {
+            const rowData = impMinesData[i];
+            const possibleWin = Math.floor(bet * rowData.mult);
+            // Форматируем текст: Множитель + Кол-во мин на первой строчке, Сумма выигрыша на второй
+            label.innerHTML = `
+                <span style="color:#00E676;">x${rowData.mult} <span style="color:#ff1744;">💣${rowData.mines}</span></span>
+                <span style="color:#FFC400; font-size:0.75rem;">+${possibleWin} ₽</span>
+            `;
+        }
+    }
+}
+
 
 window.startImpMines = function() {
     if (impGameActive) return;

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=29">
+    <link rel="stylesheet" href="style.css?v=30">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -60,7 +60,7 @@
 <div class="lobby-card card-imp-mines" onclick="showScreen('impMinesGameScreen')">
                 <div class="card-icon"><div class="mini-imp-mine"></div></div>
                 <div class="card-info">
-                    <span class="card-name">Невозможная мина</span>
+                    <span class="card-name">Невозможная башня</span>
                     <span class="card-desc">Башня из 6 рядов</span>
                 </div>
             </div>
@@ -198,7 +198,7 @@
     <div id="impMinesGameScreen" class="screen-container" style="display:none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="mines-layout">
-            <h2 class="game-headline" style="color:#FF1744">Невозможная мина</h2>
+            <h2 class="game-headline" style="color:#FF1744">Невозможная башня</h2>
             <p class="game-subline">Пройди 6 рядов до вершины (15x)</p>
             
             <!-- Сетка башни (генерация рядов снизу вверх) -->
@@ -251,6 +251,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=29"></script>
+    <script src="script.js?v=30"></script>
 </body>
 </html>
