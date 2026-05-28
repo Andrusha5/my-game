@@ -8,7 +8,6 @@ const firebaseConfig = {
   messagingSenderId: "856460439104",
   appId: "1:856460439104:web:0e386cc2afca3b655af9a5"
 };
-
 // Инициализируем Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -48,7 +47,6 @@ const DISTINCT_COLORS = [
     '#00a0ea',    
 ];
 
-
 // Переменные «Невозможного колеса»
 let spSelectedPercent = 50;  
 let spTotalRotation = 0;     
@@ -62,10 +60,10 @@ const SP_RULES = {
     10: { mult: 2.2, label: 'x2.2' },
     1:  { mult: 33.0, label: 'x33.0' }
 };
-
 // Переменные «Всегда Голубь» (Монетка)
 let coinChoice = 'heads'; // 'heads' или 'tails'
 let coinIsSpinning = false;
+let coinRotationY = 0; // Накопительный угол для бесконечного плавного вращения
 
 // Переменные «Везде мины»
 let minesGameActive = false;
@@ -75,9 +73,9 @@ let minesCurrentBet = 0;
 
 // Массив мультипликаторов для 3 мин из 25 клеток (всего 22 безопасные)
 const MINES_MULTIPLIERS = [
-    0.90, 1.00, 1.11, 1.33, 1.50, 1.86, 2.00, 2.75, 3.33, 4.00, 
-    5.55, 6.15, 6.99, 8.99, 12.65, 15.33, 22.65, 33.33, 49.75, 
-    67.00, 133.33, 555.55, 999.67
+    0.90, 1.00, 1.15, 1.33, 1.67, 2.00, 2.45, 2.89, 3.33, 4.25, 
+    4.99, 5.85, 7.33, 9.99, 12.33, 15.67, 22.65, 33.33, 47.75, 
+    77.77, 333.33, 555.55, 999.99
 ];
 
 // DOM элементы
@@ -216,7 +214,7 @@ function renderHistory(historyData) {
     const list = Object.values(historyData).reverse(); // Показываем последние сверху
 
     if (list.length === 0) {
-        historyList.innerHTML = '<div class="bet-placeholder">История побед пуста...</div>';
+        historyList.innerHTML = '<div class="bet-placeholder">История пуста...</div>';
         return;
     }
 
@@ -249,7 +247,6 @@ window.playCoinFlip = function() {
     if (coinIsSpinning) return;
 
     const betInput = document.getElementById('coinBetInput');
-    const message = document.getElementById('coinMessage');
     const coinEl = document.getElementById('coin3d');
     
     const bet = parseInt(betInput.value) || 0;
@@ -267,8 +264,8 @@ window.playCoinFlip = function() {
 
     coinIsSpinning = true;
     betInput.disabled = true;
-    message.textContent = 'Монетка летит...';
-    message.style.color = '#FFC400';
+    document.getElementById('coinMessage').textContent = 'Монетка летит...';
+    document.getElementById('coinMessage').style.color = '#FFC400';
 
     // Списание баланса
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
@@ -278,11 +275,16 @@ window.playCoinFlip = function() {
             // Определяем исход (50% орел, 50% решка)
             const result = Math.random() < 0.5 ? 'heads' : 'tails';
             
-            // Расчет углов анимации (несколько полных кувырков)
-            const spins = 10; 
-            const targetRotation = result === 'heads' ? (spins * 360) : (spins * 360 + 180);
+            // Расчет углов анимации (накопительный, чтобы всегда крутилась вперед)
+            const randomAngle = result === 'heads' ? 0 : 180;
+            const currentAngle = coinRotationY % 360;
+            let diff = randomAngle - currentAngle;
+            if (diff <= 0) {
+                diff += 360;
+            }
+            coinRotationY += diff + 3600; // 10 полных оборотов + угол исхода
             
-            coinEl.style.transform = `rotateY(${targetRotation}deg)`;
+            coinEl.style.transform = `rotateY(${coinRotationY}deg)`;
 
             setTimeout(() => {
                 const won = coinChoice === result;
@@ -291,18 +293,18 @@ window.playCoinFlip = function() {
                     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
                         return (current || 0) + prize;
                     });
-                    message.innerHTML = `🎉 Вы угадали! Монетка выпала: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. Выигрыш: <span class="win-color">+${prize} ₽</span>`;
+                    document.getElementById('coinMessage').innerHTML = `🎉 Вы угадали! Монетка выпала: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. Выигрыш: <span class="win-color">+${prize} ₽</span>`;
                 } else {
-                    message.innerHTML = `🔴 Не угадали! Монетка выпала: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. <span style="color:#ff1744">-${bet} ₽</span>`;
+                    document.getElementById('coinMessage').innerHTML = `🔴 Не угадали! Монетка выпала: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. <span style="color:#ff1744">-${bet} ₽</span>`;
                 }
                 
                 coinIsSpinning = false;
                 betInput.disabled = false;
-            }, 3000); // Время анимации
+            }, 3000); // Время анимации броска
         } else {
             coinIsSpinning = false;
             betInput.disabled = false;
-            message.textContent = 'Ошибка транзакции. Попробуйте еще раз.';
+            document.getElementById('coinMessage').textContent = 'Ошибка транзакции. Попробуйте еще раз.';
         }
     });
 }
@@ -318,7 +320,7 @@ function renderMinesGrid() {
         const cell = document.createElement('button');
         cell.className = 'mine-cell';
         cell.id = `mine_cell_${i}`;
-        cell.disabled = true; // Отключены до нажатия "Начать"
+        cell.disabled = true; // Отключены по умолчанию, пока не нажали кнопку "Начать"
         cell.onclick = () => clickMineCell(i);
         grid.appendChild(cell);
     }
@@ -345,7 +347,6 @@ window.startMinesRound = function() {
     if (minesGameActive) return;
 
     const betInput = document.getElementById('minesBetInput');
-    constmessage = document.getElementById('minesMessage');
     const startBtn = document.getElementById('minesStartBtn');
     const cashoutBtn = document.getElementById('minesCashoutBtn');
 
@@ -386,8 +387,8 @@ window.startMinesRound = function() {
             startBtn.disabled = true;
             betInput.disabled = true;
             cashoutBtn.disabled = false;
-            message.textContent = 'Раунд начался! Выбирайте ячейки.';
-            message.style.color = '#00E5FF';
+            document.getElementById('minesMessage').textContent = 'Раунд начался! Выбирайте ячейки.';
+            document.getElementById('minesMessage').style.color = '#00E5FF';
 
             // Разблокировка ячеек
             for (let i = 0; i < 25; i++) {
@@ -429,7 +430,7 @@ function clickMineCell(index) {
         document.getElementById('minesCurrentMultiplier').textContent = `${newMultiplier.toFixed(2)}x`;
         updateMinesSummary();
 
-        // Если угадал все 22 клетки
+        // Если угадал все 22 безопасные клетки
         if (minesOpened.length === 22) {
             endMinesGame(true);
         }
@@ -446,7 +447,6 @@ function endMinesGame(isWin) {
     const startBtn = document.getElementById('minesStartBtn');
     const cashoutBtn = document.getElementById('minesCashoutBtn');
     const betInput = document.getElementById('minesBetInput');
-    const message = document.getElementById('minesMessage');
 
     startBtn.disabled = false;
     betInput.disabled = false;
@@ -466,9 +466,7 @@ function endMinesGame(isWin) {
             if (!cell.classList.contains('safe')) {
                 cell.textContent = '💎';
             }
-
-
-}
+        }
     }
 
     if (isWin) {
@@ -479,9 +477,9 @@ function endMinesGame(isWin) {
             return (current || 0) + winnings;
         });
 
-        message.innerHTML = `🎉 Победа! Вы забрали <span class="win-color">${winnings} ₽</span> (${mult.toFixed(2)}x)`;
+        document.getElementById('minesMessage').innerHTML = `🎉 Победа! Вы забрали <span class="win-color">${winnings} ₽</span> (${mult.toFixed(2)}x)`;
     } else {
-        message.innerHTML = `💥 Бабах! Наступили на мину. Ставка <span style="color:#ff1744">${minesCurrentBet} ₽</span> сгорела.`;
+        document.getElementById('minesMessage').innerHTML = `💥 Бабах! Наступили на мину. Ставка <span style="color:#ff1744">${minesCurrentBet} ₽</span> сгорела.`;
     }
 }
 
@@ -564,7 +562,6 @@ window.spinSingleplayerWheel = function() {
     if (spIsSpinning) return;
 
     const betInput = document.getElementById('spBetInput');
-    const message = document.getElementById('spMessage');
     const spinBtn = document.getElementById('spSpinBtn');
     
     const bet = parseInt(betInput.value) || 0;
@@ -583,8 +580,8 @@ window.spinSingleplayerWheel = function() {
     spIsSpinning = true;
     spinBtn.disabled = true;
     betInput.disabled = true;
-    message.textContent = 'Колесо вращается...';
-    message.style.color = '#00E5FF';
+    document.getElementById('spMessage').textContent = 'Колесо вращается...';
+    document.getElementById('spMessage').style.color = '#00E5FF';
 
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
         return (current || 0) - bet;
@@ -603,13 +600,12 @@ window.spinSingleplayerWheel = function() {
             spIsSpinning = false;
             spinBtn.disabled = false;
             betInput.disabled = false;
-            message.textContent = 'Ошибка транзакции. Повторите запуск.';
+            document.getElementById('spMessage').textContent = 'Ошибка транзакции. Повторите запуск.';
         }
     });
 };
 
 function evaluateSpResult(stoppedAngle, bet) {
-    const message = document.getElementById('spMessage');
     const spinBtn = document.getElementById('spSpinBtn');
     const betInput = document.getElementById('spBetInput');
 
@@ -627,9 +623,9 @@ function evaluateSpResult(stoppedAngle, bet) {
             return (current || 0) + prize;
         });
 
-        message.innerHTML = `🎉 ВЫ ПОБЕДИЛИ! Получено: <span style="color:#00E676">+${prize} ₽</span>`;
+        document.getElementById('spMessage').innerHTML = `🎉 ВЫ ПОБЕДИЛИ! Получено: <span style="color:#00E676">+${prize} ₽</span>`;
     } else {
-        message.innerHTML = `🔴 ВЫ ПРОИГРАЛИ! <span style="color:#ff1744">-${bet} ₽</span>`;
+        document.getElementById('spMessage').innerHTML = `🔴 ВЫ ПРОИГРАЛИ! <span style="color:#ff1744">-${bet} ₽</span>`;
     }
 
     spIsSpinning = false;
@@ -955,7 +951,8 @@ function resetRoomForNextRound() {
                 totalBet: 0,
                 balance: players[id].balance || 0
             };
-            colorIndex++;
+
+colorIndex++;
         }
     }
 
