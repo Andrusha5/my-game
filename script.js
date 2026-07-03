@@ -79,20 +79,27 @@ const MINES_MULTIPLIERS = [
     76.00, 134.00, 275.00, 750.00
 ];
 
-// Переменные «Невозможная мина» (Новая игра)
+// Переменные «Невозможная башня» (Башня)
 let impGameActive = false;
 let impCurrentRow = 0; 
 let impBet = 0;
 let impBoard = []; 
 
 const impMinesData = [
-    { cells: 5, mines: 1, mult: 1.2 },  // Ряд 1 (0.9x - 1.2x стартовый)
-    { cells: 5, mines: 1, mult: 1.6 },  // Ряд 2
-    { cells: 5, mines: 2, mult: 2.5 },  // Ряд 3
-    { cells: 4, mines: 1, mult: 4.5 },  // Ряд 4
-    { cells: 3, mines: 1, mult: 8.0 },  // Ряд 5
-    { cells: 2, mines: 1, mult: 15.0 }  // Ряд 6 (Максимум 15x)
+    { cells: 5, mines: 1, mult: 1.2 },  
+    { cells: 5, mines: 1, mult: 1.6 },  
+    { cells: 5, mines: 2, mult: 2.5 },  
+    { cells: 4, mines: 1, mult: 4.5 },  
+    { cells: 3, mines: 1, mult: 8.0 },  
+    { cells: 2, mines: 1, mult: 15.0 }  
 ];
+
+// ======= ПЕРЕМЕННЫЕ ИГРЫ "ВЗЛЕТ РАКЕТЫ" =======
+let rocketGameActive = false; // Ставил ли локальный игрок ставку в этом раунде
+let rocketMyBet = 0;         // Сумма ставки локального игрока
+let rocketIsCashed = false;   // Забрал ли локальный игрок выигрыш
+let rocketState = { status: 'betting', timerEnd: 0 };
+let rocketLoopId = null;
 
 // DOM элементы
 let bettingTimerDisplay, totalBankDisplay, gameCanvas, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, historyList, gameMessage;
@@ -113,6 +120,7 @@ window.showScreen = function(screenId) {
     document.getElementById('coinGameScreen').style.display = 'none';
     document.getElementById('minesGameScreen').style.display = 'none';
     document.getElementById('impMinesGameScreen').style.display = 'none';
+    document.getElementById('rocketGameScreen').style.display = 'none';
     
     document.getElementById(screenId).style.display = 'flex';
 };
@@ -200,11 +208,24 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistory(snapshot.val() || {});
     });
 
+    // ======= СЛУШАТЕЛИ ДЛЯ РАКЕТЫ =======
+    db.ref('rocketState').on('value', (snapshot) => {
+        rocketState = snapshot.val() || { status: 'betting', timerEnd: 0 };
+        syncRocketState();
+    });
+
+    db.ref('rocketBets').on('value', (snapshot) => {
+        renderRocketBets(snapshot.val() || {});
+    });
+
+    db.ref('rocketHistory').on('value', (snapshot) => {
+        renderRocketHistory(snapshot.val() || []);
+    });
+
     selectSpPercent(50);
     renderMinesGrid();
     initImpMinesUI();
 
-    // Отслеживаем изменение ставки в "Невозможной мине" для обновления надписей
     const impBetInput = document.getElementById('impBetInput');
     if (impBetInput) {
         impBetInput.addEventListener('input', updateImpMinesLabels);
@@ -328,7 +349,7 @@ window.playCoinFlip = function() {
     });
 }
 
-// ======= ИГРА 2: ВЕЗДЕ МИНЫ (ОБНОВЛЕННАЯ СУММА В РЕАЛЬНОМ ВРЕМЕНИ) =======
+// ======= ИГРА 2: ВЕЗДЕ МИНЫ =======
 
 function renderMinesGrid() {
     const grid = document.getElementById('minesGrid');
@@ -360,7 +381,6 @@ function updateMinesSummary() {
     const currentWin = Math.floor(minesCurrentBet * currentMult);
     
     cashoutVal.textContent = currentWin;
-    // ТЕПЕРЬ ТЕКСТ НА КНОПКЕ ОБНОВЛЯЕТСЯ В РЕАЛЬНОМ ВРЕМЕНИ СУММОЙ!
     cashoutBtn.textContent = `Забрать ${currentWin} ₽`;
 }
 
@@ -496,28 +516,24 @@ function endMinesGame(isWin) {
     }
 }
 
-// ======= ИГРА 3: НЕВОЗМОЖНАЯ МИНА (НОВАЯ СУПЕР ИГРА) =======
+// ======= ИГРА 3: НЕВОЗМОЖНАЯ БАШНЯ =======
 
 function initImpMinesUI() {
     const container = document.getElementById('impMinesRowsContainer');
     if (!container) return;
     container.innerHTML = '';
 
-    // Генерируем 6 рядов (от 5-го к 0-му визуально сверху вниз)
-    // 5-й ряд будет самым верхним, а 0-й — самым нижним (начальным)
     for (let i = 5; i >= 0; i--) {
         const rowData = impMinesData[i];
         const rowDiv = document.createElement('div');
         rowDiv.className = 'imp-row locked';
         rowDiv.id = `imp_row_${i}`;
 
-        // Создаем блок информации слева от ячеек
         const multLabel = document.createElement('div');
         multLabel.className = 'row-multiplier';
-        multLabel.id = `imp_label_${i}`; // ID для динамического изменения текста
+        multLabel.id = `imp_label_${i}`; 
         rowDiv.appendChild(multLabel);
 
-        // Квадратики ряда
         for (let j = 0; j < rowData.cells; j++) {
             const btn = document.createElement('button');
             btn.className = 'imp-cell';
@@ -527,10 +543,8 @@ function initImpMinesUI() {
         }
         container.appendChild(rowDiv);
     }
-    // Рассчитываем и выводим суммы первый раз при загрузке
     updateImpMinesLabels();
 }
-
 
 function updateImpMinesLabels() {
     const betInput = document.getElementById('impBetInput');
@@ -542,7 +556,6 @@ function updateImpMinesLabels() {
         if (label) {
             const rowData = impMinesData[i];
             const possibleWin = Math.floor(bet * rowData.mult);
-            // Форматируем текст: Множитель + Кол-во мин на первой строчке, Сумма выигрыша на второй
             label.innerHTML = `
                 <span style="color:#00E676;">x${rowData.mult} <span style="color:#ff1744;">💣${rowData.mines}</span></span>
                 <span style="color:#FFC400; font-size:0.75rem;">+${possibleWin} ₽</span>
@@ -550,7 +563,6 @@ function updateImpMinesLabels() {
         }
     }
 }
-
 
 window.startImpMines = function() {
     if (impGameActive) return;
@@ -581,7 +593,6 @@ window.startImpMines = function() {
             impCurrentRow = 0;
             impBoard = [];
 
-            // Генерация скрытых мин для каждого ряда
             for (let i = 0; i < 6; i++) {
                 const rowConf = impMinesData[i];
                 let rowMines = new Array(rowConf.cells).fill(false);
@@ -598,22 +609,17 @@ window.startImpMines = function() {
 
             startBtn.disabled = true;
             betInput.disabled = true;
-            cashoutBtn.disabled = true; // Сначала угадай 1 ряд
+            cashoutBtn.disabled = true; 
             cashoutBtn.textContent = 'Забрать 0 ₽';
             impMsg.textContent = 'Начните с первого ряда (самый нижний)!';
             impMsg.style.color = '#00E5FF';
 
-            // Настройка анимации рядов
             for (let i = 0; i < 6; i++) {
                 const rDiv = document.getElementById(`imp_row_${i}`);
                 rDiv.className = (i === 0) ? 'imp-row active' : 'imp-row locked';
                 
-                // Чистим ячейки
                 Array.from(rDiv.getElementsByClassName('imp-cell')).forEach(c => {
-                    c.
-
-
-className = 'imp-cell';
+                    c.className = 'imp-cell'; 
                     c.textContent = '';
                 });
             }
@@ -644,14 +650,12 @@ function clickImpCell(rowIdx, cellIdx) {
         cashoutBtn.textContent = `Забрать ${currentWin} ₽`;
 
         if (rowIdx < 5) {
-            // Переход на следующий уровень
             document.getElementById(`imp_row_${rowIdx}`).className = 'imp-row passed';
             impCurrentRow++;
             document.getElementById(`imp_row_${impCurrentRow}`).className = 'imp-row active';
             impMsg.textContent = `Ряд ${rowIdx + 1} пройден! Поднимайтесь выше.`;
             impMsg.style.color = '#00E676';
         } else {
-            // Идеальное прохождение башни
             endImpGame(true);
         }
     }
@@ -673,14 +677,14 @@ function endImpGame(isWin) {
     betInput.disabled = false;
     cashoutBtn.disabled = true;
 
-    // Рассчитываем коэффициент выигрыша
     let finalMult = 0;
     if (isWin) {
-        // Если дошел до конца
-        if (impCurrentRow === 5 && !document.getElementById('imp_row_5').classList.contains('active')) {
-            finalMult = impMinesData[5].mult;
+        const row5Cells = document.getElementById('imp_row_5') ? Array.from(document.getElementById('imp_row_5').getElementsByClassName('imp-cell')) : [];
+        const finishedLastRow = row5Cells.some(c => c.classList.contains('win'));
+
+        if (finishedLastRow) {
+            finalMult = impMinesData[5].mult; 
         } else if (impCurrentRow > 0) {
-            // Если забрал раньше
             finalMult = impMinesData[impCurrentRow - 1].mult;
         }
     }
@@ -691,12 +695,11 @@ function endImpGame(isWin) {
         db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
             return (current || 0) + winnings;
         });
-        impMsg.innerHTML = `🎉 ПОБЕДА! Вы поднялись на вершину и забрали <span class="win-color">${winnings} ₽</span>`;
+        impMsg.innerHTML = `🎉 ПОБЕДА! Вы забрали <span class="win-color">${winnings} ₽</span>`;
     } else if (!isWin) {
         impMsg.innerHTML = `💥 ВЗРЫВ! Ваша ставка <span style="color:#ff1744">${impBet} ₽</span> сгорела.`;
     }
 
-    // Показываем скрытые мины во всех строках
     for (let i = 0; i < 6; i++) {
         document.getElementById(`imp_row_${i}`).classList.remove('locked', 'active');
         impBoard[i].forEach((isMine, cellIdx) => {
@@ -859,10 +862,7 @@ function placeBet() {
         return;
     }
 
-    const myData = players[myPlayerId] ||
-
-
-{ balance: 0 };
+    const myData = players[myPlayerId] || { balance: 0 };
     const myCurrentBalance = myData.balance || 0;
 
     if (amount > myCurrentBalance) {
@@ -968,6 +968,8 @@ function stopLocalTimer() {
 }
 
 function checkHostTimerLogic() {
+    checkHostRocketLogic(); // Дополнительно вызываем проверку хоста для Ракеты
+
     if (!isHost()) return;
 
     const activePlayers = Object.values(players).filter(p => p.totalBet > 0);
@@ -977,9 +979,7 @@ function checkHostTimerLogic() {
     if (status === 'betting' && gameState.timerEnd > 0 && now >= gameState.timerEnd) {
         triggerRoundStart();
         return;
-
-
-}
+    }
 
     if (status === 'betting' && activePlayers.length >= 2 && (!gameState.timerEnd || gameState.timerEnd === 0)) {
         db.ref('gameState').update({
@@ -1111,9 +1111,7 @@ function determineAndPublishWinner() {
         finalPrize = Math.floor(finalPrize); 
 
         db.ref(`players/${winner.id}/balance`).transaction((current) => {
-
-
-return (current || 0) + finalPrize;
+            return (current || 0) + finalPrize;
         });
 
         const chancePct = ((winner.totalBet / totalBank) * 100).toFixed(0);
@@ -1250,6 +1248,448 @@ function renderWheelSections() {
     ctx.restore();
 }
 
+// ======= ИГРА 6: ВЗЛЕТ РАКЕТЫ (ЛОГИКА MULTIPLAYER CRASH) =======
+
+// Синхронизация состояния ракеты из Firebase
+function syncRocketState() {
+    const status = rocketState.status || 'betting';
+    const timerOverlay = document.getElementById('rocketTimerOverlay');
+    const rocketActor = document.getElementById('rocketActor');
+    const multDisp = document.getElementById('rocketMultiplierDisplay');
+    const explosion = document.getElementById('rocketExplosion');
+    const msg = document.getElementById('rocketMessage');
+
+    const betBtn = document.getElementById('rocketBetBtn');
+    const cashoutBtn = document.getElementById('rocketCashoutBtn');
+    const betInput = document.getElementById('rocketBetInput');
+
+    const stars = document.querySelector('.stars-container');
+
+    if (status === 'betting') {
+        if (rocketLoopId) {
+            cancelAnimationFrame(rocketLoopId);
+            rocketLoopId = null;
+        }
+
+        // Подготовка UI перед взлетом
+        if (explosion) explosion.style.display = 'none';
+        if (rocketActor) {
+            rocketActor.style.display = 'block';
+            rocketActor.style.bottom = '20px';
+            rocketActor.style.transform = 'none';
+        }
+        if (multDisp) multDisp.style.display = 'none';
+        if (timerOverlay) timerOverlay.style.display = 'block';
+        if (stars) stars.style.animationDuration = '3s';
+
+        // Кнопки управления в фазе ожидания
+        if (betInput) betInput.disabled = false;
+        if (betBtn) betBtn.disabled = rocketGameActive; // Блокируем кнопку, если ставка уже сделана
+        if (cashoutBtn) {
+            cashoutBtn.disabled = true;
+            cashoutBtn.textContent = 'Забрать 0 ₽';
+        }
+
+        if (rocketState.timerEnd && rocketState.timerEnd > 0) {
+            startRocketBettingTimer(rocketState.timerEnd);
+        } else {
+            if (timerOverlay) timerOverlay.textContent = '10';
+            if (msg) msg.textContent = 'Ожидание игроков...';
+        }
+    } 
+    else if (status === 'flying') {
+        if (timerOverlay) timerOverlay.style.display = 'none';
+        if (explosion) explosion.style.display = 'none';
+        if (rocketActor) rocketActor.style.display = 'block';
+
+        if (betBtn) betBtn.disabled = true;
+        if (betInput) betInput.disabled = true;
+
+        if (msg) {
+            msg.textContent = 'Ракета летит вверх!';
+            msg.style.color = '#00E5FF';
+        }
+
+        // Запуск локального анимированного цикла полета
+        startRocketFlightAnimation(rocketState.launchTime);
+    } 
+    else if (status === 'crashed') {
+        if (rocketLoopId) {
+            cancelAnimationFrame(rocketLoopId);
+            rocketLoopId = null;
+        }
+
+        if (timerOverlay) timerOverlay.style.display = 'none';
+        if (rocketActor) rocketActor.style.display = 'none';
+        if (explosion) explosion.style.display = 'block';
+
+        if (multDisp) {
+            multDisp.style.display = 'block';
+            multDisp.textContent = `${rocketState.crashMult.toFixed(2)}x`;
+            multDisp.style.color = '#ff1744';
+            multDisp.style.textShadow = '0 0 20px rgba(255, 23, 68, 0.8)';
+        }
+
+        if (betBtn) betBtn.disabled = true;
+        if (cashoutBtn) {
+            cashoutBtn.disabled = true;
+            cashoutBtn.textContent = 'ВЗРЫВ!';
+        }
+
+        if (msg) {
+            msg.innerHTML = `💥 Ракета взорвалась на <span style="color:#ff1744; font-weight:bold;">${rocketState.crashMult.toFixed(2)}x</span>`;
+        }
+
+        // Сброс локального статуса раунда
+        rocketGameActive = false;
+        rocketMyBet = 0;
+        rocketIsCashed = false;
+    }
+}
+
+// Таймер обратного отсчета фазы ставок
+function startRocketBettingTimer(timerEnd) {
+    const timerOverlay = document.getElementById('rocketTimerOverlay');
+    const msg = document.getElementById('rocketMessage');
+
+    const interval = setInterval(() => {
+        const now = getServerTime();
+        const timeLeft = Math.max(0, (timerEnd - now) / 1000);
+        
+        if (timerOverlay) timerOverlay.textContent = timeLeft.toFixed(1);
+
+        if (rocketState.status !== 'betting') {
+            clearInterval(interval);
+            return;
+        }
+
+        if (msg && !rocketGameActive) {
+            msg.textContent = `Успейте поставить! До старта: ${timeLeft.toFixed(1)}с`;
+            msg.style.color = '#D500F9';
+        }
+
+        if (timeLeft <= 0) {
+            clearInterval(interval);
+            if (isHost() && rocketState.status === 'betting') {
+                launchRocket();
+            }
+        }
+    }, 100);
+}
+
+// Запуск ракетного рендеринга полета и набора высоты
+function startRocketFlightAnimation(launchTime) {
+    const stars = document.querySelector('.stars-container');
+    const rocketActor = document.getElementById('rocketActor');
+    const multDisp = document.getElementById('rocketMultiplierDisplay');
+    const cashoutBtn = document.getElementById('rocketCashoutBtn');
+
+    if (multDisp) multDisp.style.display = 'block';
+
+    function tick() {
+        const now = getServerTime();
+        const elapsed = (now - launchTime) / 1000;
+        
+        if (elapsed < 0) {
+            rocketLoopId = requestAnimationFrame(tick);
+            return;
+        }
+
+        // Детерминированная формула роста коэффициента для идеальной синхронизации
+        const currentMult = Math.exp(elapsed * 0.07);
+
+        if (multDisp && rocketState.status === 'flying') {
+            multDisp.textContent = `${currentMult.toFixed(2)}x`;
+            multDisp.style.color = '#00FF88';
+            multDisp.style.textShadow = '0 0 20px rgba(0, 255, 136, 0.8)';
+        }
+
+        // Визуальный полет ракеты вверх и легкое дрожание
+        if (rocketActor) {
+            const verticalPos = Math.min(130, 20 + elapsed * 12);
+            const shake = Math.sin(now * 0.1) * 3;
+            rocketActor.style.bottom = `${verticalPos}px`;
+            rocketActor.style.transform = `translateX(${shake}px) rotate(${Math.sin(now * 0.05) * 4}deg)`;
+        }
+
+        // Ускорение полета звездного неба по мере набора скорости
+        if (stars) {
+            const animSpeed = Math.max(0.15, 3 / (1 + elapsed * 0.15));
+            stars.style.animationDuration = `${animSpeed}s`;
+        }
+
+        // Живой апдейт суммы на кнопке локального обналичивания
+        if (rocketGameActive && !rocketIsCashed && cashoutBtn && rocketState.status === 'flying') {
+            const potentialWin = Math.floor(rocketMyBet * currentMult);
+            cashoutBtn.disabled = false;
+            cashoutBtn.textContent = `Забрать ${potentialWin} ₽`;
+        }
+
+        if (rocketState.status === 'flying') {
+            rocketLoopId = requestAnimationFrame(tick);
+        }
+    }
+    rocketLoopId = requestAnimationFrame(tick);
+}
+
+// Размещение ставки на Ракету
+window.placeRocketBet = function() {
+    if (rocketState.status !== 'betting') {
+        alert('Раунд уже идет! Дождитесь следующего раунда.');
+        return;
+    }
+    if (rocketGameActive) return;
+
+    const betInput = document.getElementById('rocketBetInput');
+    const amount = parseInt(betInput.value) || 0;
+    const balance = players[myPlayerId]?.balance || 0;
+
+    if (isNaN(amount) || amount < 5) {
+        alert('Минимальная ставка в Ракете — 5 ₽!');
+        return;
+    }
+    if (amount > balance) {
+        alert('Недостаточно средств на балансе!');
+        return;
+    }
+
+    const betBtn = document.getElementById('rocketBetBtn');
+    if (betBtn) betBtn.disabled = true;
+
+    db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+        return (current || 0) - amount;
+    }, (error, committed) => {
+        if (committed) {
+            rocketGameActive = true;
+            rocketMyBet = amount;
+            rocketIsCashed = false;
+
+            const myData = players[myPlayerId] || { name: 'Игрок', color: '#BA68C8' };
+            db.ref(`rocketBets/${myPlayerId}`).set({
+                name: myData.name || "Игрок",
+                betAmount: amount,
+                cashoutMult: 0,
+                status: 'active',
+                color: myData.color || '#BA68C8'
+            });
+
+            const msg = document.getElementById('rocketMessage');
+            if (msg) {
+                msg.textContent = 'Ставка принята! Ждем старта...';
+                msg.style.color = '#00FF88';
+            }
+        } else {
+            if (betBtn) betBtn.disabled = false;
+            alert('Ошибка выполнения транзакции.');
+        }
+    });
+}
+
+// Забрать выигрыш во время полета ракеты
+window.cashoutRocket = function() {
+    if (!rocketGameActive || rocketIsCashed || rocketState.status !== 'flying') return;
+
+    const now = getServerTime();
+    const elapsed = (now - rocketState.launchTime) / 1000;
+    const currentMult = parseFloat(Math.exp(elapsed * 0.07).toFixed(2));
+
+    if (currentMult >= rocketState.crashMult) {
+        alert('Не успели! Ракета уже взорвалась.');
+        return;
+    }
+
+    rocketIsCashed = true;
+    const cashoutBtn = document.getElementById('rocketCashoutBtn');
+    if (cashoutBtn) cashoutBtn.disabled = true;
+
+    const winnings = Math.floor(rocketMyBet * currentMult);
+
+    db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+        return (current || 0) + winnings;
+    }, (error, committed) => {
+        if (committed) {
+            db.ref(`rocketBets/${myPlayerId}`).update({
+                status: 'cashed',
+                cashoutMult: currentMult
+            });
+
+            const msg = document.getElementById('rocketMessage');
+            if (msg) {
+                msg.innerHTML = `🎉 Забрали <span class="win-color">+${winnings} ₽</span> (на x${currentMult})`;
+                msg.style.color = '#00FF88';
+            }
+        } else {
+            rocketIsCashed = false;
+            if (cashoutBtn) cashoutBtn.disabled = false;
+            alert('Не удалось забрать деньги. Ошибка связи.');
+        }
+    });
+}
+
+// Отрисовка списка ставок игроков текущего раунда
+function renderRocketBets(betsData) {
+    const listContainer = document.getElementById('rocketBetsList');
+    if (!listContainer) return;
+    listContainer.innerHTML = '';
+
+    const list = Object.values(betsData);
+    if (list.length === 0) {
+        listContainer.innerHTML = '<div class="bet-placeholder">Ставок еще нет...</div>';
+        return;
+    }
+
+    list.forEach(b => {
+        const div = document.createElement('div');
+        div.className = 'bet-item';
+        div.style.borderLeft = `4px solid ${b.color}`;
+
+        let statusText = '';
+        if (b.status === 'active') {
+            statusText = '<span style="color:#aaa">В полете...</span>';
+        } else if (b.status === 'cashed') {
+            const winSum = Math.floor(b.betAmount * b.cashoutMult);
+            statusText = `<span style="color:#00E676; font-weight:bold;">Забрал x${b.cashoutMult.toFixed(2)} (+${winSum} ₽)</span>`;
+        } else if (b.status === 'lost') {
+            statusText = `<span style="color:#ff1744; font-weight:bold;">Не успел (Взрыв x${b.cashoutMult.toFixed(2)})</span>`;
+        }
+
+        div.innerHTML = `
+            <div class="avatar" style="background:${b.color}; color:black;">${b.name[0].toUpperCase()}</div>
+            <div class="bet-info">
+                <strong>${b.name}</strong>
+                <span>Ставка: ${b.betAmount} ₽</span>
+            </div>
+            <div class="bet-chance">${statusText}</div>
+        `;
+        listContainer.appendChild(div);
+    });
+}
+
+// Отображение ленты последних 10 улетевших ракет
+function renderRocketHistory(historyList) {
+    const bar = document.getElementById('rocketHistory');
+    if (!bar) return;
+    bar.innerHTML = '';
+
+    if (historyList.length === 0) {
+        bar.innerHTML = '<span class="rocket-hist-empty">История пуста...</span>';
+        return;
+    }
+
+    // Показываем последние коэффициенты справа налево (самый свежий — первый)
+    const reversed = [...historyList].reverse();
+    reversed.forEach(val => {
+        const span = document.createElement('span');
+        span.className = 'rocket-hist-item';
+        
+        if (val < 1.5) span.classList.add('mult-grey');
+        else if (val < 5.0) span.classList.add('mult-green');
+        else if (val < 20.0) span.classList.add('mult-gold');
+        else span.classList.add('mult-cyan');
+
+        span.textContent = `${val.toFixed(2)}x`;
+        bar.appendChild(span);
+    });
+}
+
+// ======= ХОСТ-ЛОГИКА ДЛЯ РАКЕТЫ =======
+function checkHostRocketLogic() {
+    if (!isHost()) return;
+
+    const now = getServerTime();
+    const stateRef = db.ref('rocketState');
+
+    stateRef.once('value').then((snap) => {
+        const current = snap.val() || { status: 'betting', timerEnd: 0 };
+        
+        if (current.status === 'betting') {
+            // Если таймер не задан или сброшен — запускаем фазу ставок на 10 сек
+            if (!current.timerEnd || current.timerEnd === 0) {
+                stateRef.update({
+                    status: 'betting',
+                    timerEnd: now + 10000 
+                });
+            } else if (now >= current.timerEnd) {
+                // Время ожидания истекло — запускаем ракету!
+                // Случайный предел краша в диапазоне от 1.00 до 333.00
+                let randVal = Math.random();
+                let chosenMult = 1.00;
+
+                if (randVal < 0.08) {
+                    chosenMult = 1.00; // 8% мгновенный взрыв (краш на 1.0x)
+                } else {
+                    // Логарифмический взлет (высокие числа выпадают пропорционально реже)
+                    chosenMult = 1.01 + Math.pow(Math.random(), 3) * 331.99;
+                }
+                chosenMult = parseFloat(chosenMult.toFixed(2));
+
+                stateRef.update({
+                    status: 'flying',
+                    launchTime: now,
+                    crashMult: chosenMult,
+                    timerEnd: 0
+                });
+            }
+        } 
+        else if (current.status === 'flying') {
+            const elapsed = (now - current.launchTime) / 1000;
+            const currentMult = Math.exp(elapsed * 0.07);
+
+            if (currentMult >= current.crashMult) {
+                // Ракета взрывается! Переходим в состояние краша
+                stateRef.update({
+                    status: 'crashed',
+                    crashedTime: now
+                });
+
+                // Пишем результат взрыва в глобальную историю
+                db.ref('rocketHistory').once('value', (histSnap) => {
+                    let hList = histSnap.val() || [];
+                    if (!Array.isArray(hList)) hList = [];
+                    hList.push(current.crashMult);
+                    if (hList.length > 10) hList.shift();
+                    db.ref('rocketHistory').set(hList);
+                });
+
+                // Всех игроков, кто не забрал средства в полете, помечаем проигравшими
+                db.ref('rocketBets').once('value', (betsSnap) => {
+                    const bets = betsSnap.val() || {};
+                    for (let pId in bets) {
+                        if (bets[pId].status === 'active') {
+                            db.ref(`rocketBets/${pId}`).update({
+                                status: 'lost',
+                                cashoutMult: current.crashMult
+                            });
+                        }
+                    }
+                });
+            }
+        } 
+        else if (current.status === 'crashed') {
+            // Ожидание 4 секунды в точке взрыва и рестарт комнаты
+            if (now >= (current.crashedTime + 4000)) {
+                db.ref('rocketBets').remove(); // очищаем ставки игроков
+                stateRef.update({
+                    status: 'betting',
+                    timerEnd: now + 10000,
+                    launchTime: 0,
+                    crashMult: 0,
+                    crashedTime: 0
+                });
+            }
+        }
+    });
+}
+
+function launchRocket() {
+    // Внутренний хелпер перехода на взлет
+    db.ref('rocketState').update({
+        status: 'flying',
+        launchTime: getServerTime(),
+        timerEnd: 0
+    });
+}
+
 // ======= ДЕПОЗИТЫ И АДМИНКА =======
 
 window.openDepositModal = function() {
@@ -1362,4 +1802,4 @@ function renderBets() {
         `;
         betList.appendChild(item);
     });
-}
+                          }
