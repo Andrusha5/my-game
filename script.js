@@ -94,7 +94,7 @@ const impMinesData = [
     { cells: 2, mines: 1, mult: 15.0 }  
 ];
 
-// ======= ПЕРЕМЕННЫЕ ИГРЫ "ВЗЛЕТ РАКЕТЫ" =======
+// ======= ИЗОЛИРОВАННЫЕ ПЕРЕМЕННЫЕ ИГРЫ "ВЗЛЕТ РАКЕТЫ V3" =======
 let rocketGameActive = false; 
 let rocketMyBet = 0;         
 let rocketIsCashed = false;   
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('userWelcome').textContent = me.name || "Игрок";
             }
             if (document.getElementById('myBalance')) {
-                // ИСПРАВЛЕНО: Выводим строго не более 3 знаков после запятой
+                // Выводим строго не более 3 знаков после запятой
                 const rawBalance = me.balance || 0;
                 document.getElementById('myBalance').textContent = parseFloat(rawBalance.toFixed(3));
             }
@@ -212,13 +212,13 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistory(snapshot.val() || {});
     });
 
-    // ======= СЛУШАТЕЛИ РАКЕТЫ =======
-    db.ref('rocketState').on('value', (snapshot) => {
+    // ======= СЛУШАТЕЛИ РАКЕТЫ V3 =======
+    db.ref('rocketStateV3').on('value', (snapshot) => {
         rocketState = snapshot.val() || { status: 'betting', timerEnd: 0 };
         syncRocketState();
     });
 
-    db.ref('rocketBets').on('value', (snapshot) => {
+    db.ref('rocketBetsV3').on('value', (snapshot) => {
         const bets = snapshot.val() || {};
         renderRocketBets(bets);
 
@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    db.ref('rocketHistory').on('value', (snapshot) => {
+    db.ref('rocketHistoryV3').on('value', (snapshot) => {
         renderRocketHistory(snapshot.val() || []);
     });
 
@@ -1267,9 +1267,9 @@ function renderWheelSections() {
 }
 
 
-// ======= ИГРА 6: ВЗЛЕТ РАКЕТЫ (МУЛЬТИПЛЕЕР КРАШ С УСКОРЕНИЕМ) =======
+// ======= ИГРА 6: ВЗЛЕТ РАКЕТЫ (МУЛЬТИПЛЕЕР КРАШ С УСКОРЕНИЕМ И НОВОЙ МАТЕМАТИКОЙ) =======
 
-// ИСПРАВЛЕНО: Генератор коэффициентов по ступенчатой реалистичной вероятности
+// НОВЫЙ ЧЕСТНЫЙ ГЕНЕРАТОР МАКСИМАЛЬНО ИНТЕРЕСНЫХ КОЭФФИЦИЕНТОВ
 function generateCrashMultiplier() {
     const rand = Math.random();
     
@@ -1277,25 +1277,25 @@ function generateCrashMultiplier() {
     if (rand < 0.05) {
         return 1.00;
     }
-    // 2. Низкий диапазон (1.01x - 1.30x) -> 25% шанс (границы 0.05 - 0.30)
-    else if (rand < 0.30) {
-        return parseFloat((1.01 + Math.random() * 0.29).toFixed(2));
+    // 2. Низкий диапазон (1.01x - 1.39x) -> 35% шанс (границы 0.05 - 0.40)
+    else if (rand < 0.40) {
+        return parseFloat((1.01 + Math.random() * 0.38).toFixed(2));
     }
-    // 3. Золотая середина (1.30x - 4.00x) -> 50% шанс (границы 0.30 - 0.80)
-    else if (rand < 0.80) {
-        return parseFloat((1.30 + Math.random() * 2.70).toFixed(2));
+    // 3. Золотая середина (1.40x - 4.00x) -> 45% шанс (границы 0.40 - 0.85) - САМАЯ ЧАСТАЯ ЗОНА
+    else if (rand < 0.85) {
+        return parseFloat((1.40 + Math.random() * 2.60).toFixed(2));
     }
-    // 4. Средний диапазон (4.00x - 15.00x) -> 14% шанс (границы 0.80 - 0.94)
-    else if (rand < 0.94) {
-        return parseFloat((4.00 + Math.random() * 11.00).toFixed(2));
+    // 4. Средний диапазон (4.01x - 15.00x) -> 10% шанс (границы 0.85 - 0.95)
+    else if (rand < 0.95) {
+        return parseFloat((4.01 + Math.random() * 10.99).toFixed(2));
     }
-    // 5. Высокий диапазон (15.00x - 50.00x) -> 5% шанс (границы 0.94 - 0.99)
+    // 5. Высокий диапазон (15.01x - 50.00x) -> 4% шанс (границы 0.95 - 0.99)
     else if (rand < 0.99) {
-        return parseFloat((15.00 + Math.random() * 35.00).toFixed(2));
+        return parseFloat((15.01 + Math.random() * 34.99).toFixed(2));
     }
-    // 6. Супер-космос (50.00x - 333.00x) -> 1% шанс (границы 0.99 - 1.00)
+    // 6. Супер-космос (50.01x - 333.00x) -> Исключительный 1% шанс (джекпот)
     else {
-        return parseFloat((50.00 + Math.random() * 283.00).toFixed(2));
+        return parseFloat((50.01 + Math.random() * 282.99).toFixed(2));
     }
 }
 
@@ -1304,13 +1304,13 @@ function getRocketMult(elapsed, crashMult) {
     const t_10 = Math.log(10) / 0.07; // Время в секундах до достижения x10 при обычной скорости (~32.89 сек)
     
     if (crashMult >= 20 && elapsed > t_10) {
-        // Ускоряем показатель роста до 0.22 (быстрее в 3+ раза)
+        // Ускоряем показатель роста до 0.22 (быстрее в 3+ раза!)
         return 10 * Math.exp(0.22 * (elapsed - t_10));
     }
     return Math.exp(elapsed * 0.07);
 }
 
-// Синхронизация состояний из бд Firebase
+// Синхронизация состояний из бд Firebase V3
 function syncRocketState() {
     const status = rocketState ? (rocketState.status || 'betting') : 'betting';
     const timerOverlay = document.getElementById('rocketTimerOverlay');
@@ -1555,7 +1555,7 @@ window.placeRocketBet = function() {
             rocketIsCashed = false;
 
             const myData = players[myPlayerId] || { name: 'Игрок', color: '#BA68C8' };
-            db.ref(`rocketBets/${myPlayerId}`).set({
+            db.ref(`rocketBetsV3/${myPlayerId}`).set({
                 name: myData.name || "Игрок",
                 betAmount: amount,
                 cashoutMult: 0,
@@ -1598,7 +1598,7 @@ window.cashoutRocket = function() {
         return parseFloat(((current || 0) + winnings).toFixed(3));
     }, (error, committed) => {
         if (committed) {
-            db.ref(`rocketBets/${myPlayerId}`).update({
+            db.ref(`rocketBetsV3/${myPlayerId}`).update({
                 status: 'cashed',
                 cashoutMult: currentMult
             });
@@ -1690,7 +1690,7 @@ setInterval(() => {
 
 let lastRocketStateUpdate = 0; 
 
-// Сетевая хост-логика Ракеты
+// Сетевая хост-логика Ракеты V3
 function checkHostRocketLogic() {
     if (!isHost()) return;
 
@@ -1699,7 +1699,7 @@ function checkHostRocketLogic() {
     if (now - lastRocketStateUpdate < 200) return;
 
     const current = rocketState || { status: 'betting', timerEnd: 0 };
-    const stateRef = db.ref('rocketState');
+    const stateRef = db.ref('rocketStateV3');
 
     if (current.status === 'betting') {
         if (!current.timerEnd || current.timerEnd === 0) {
@@ -1711,7 +1711,7 @@ function checkHostRocketLogic() {
         } else if (now >= current.timerEnd) {
             lastRocketStateUpdate = now;
             
-            // ИСПРАВЛЕНО: Вызываем новый генератор честных коэффициентов
+            // Вызываем генератор честных коэффициентов
             const chosenMult = generateCrashMultiplier();
 
             stateRef.set({
@@ -1735,21 +1735,21 @@ function checkHostRocketLogic() {
                 crashedTime: now
             });
 
-            db.ref('rocketHistory').once('value').then((histSnap) => {
+            db.ref('rocketHistoryV3').once('value').then((histSnap) => {
                 let hList = histSnap.val() || [];
                 if (!Array.isArray(hList)) hList = [];
                 hList.push(current.crashMult);
                 if (hList.length > 10) hList.shift();
-                db.ref('rocketHistory').set(hList);
+                db.ref('rocketHistoryV3').set(hList);
             });
 
-            db.ref('rocketBets').once('value').then((betsSnap) => {
+            db.ref('rocketBetsV3').once('value').then((betsSnap) => {
                 const bets = betsSnap.val() || {};
                 const updates = {};
                 for (let pId in bets) {
                     if (bets[pId].status === 'active') {
-                        updates[`rocketBets/${pId}/status`] = 'lost';
-                        updates[`rocketBets/${pId}/cashoutMult`] = current.crashMult;
+                        updates[`rocketBetsV3/${pId}/status`] = 'lost';
+                        updates[`rocketBetsV3/${pId}/cashoutMult`] = current.crashMult;
                     }
                 }
                 if (Object.keys(updates).length > 0) {
@@ -1761,7 +1761,7 @@ function checkHostRocketLogic() {
     else if (current.status === 'crashed') {
         if (current.crashedTime && now >= (current.crashedTime + 4000)) {
             lastRocketStateUpdate = now;
-            db.ref('rocketBets').remove(); 
+            db.ref('rocketBetsV3').remove(); 
             stateRef.set({
                 status: 'betting',
                 timerEnd: now + 10000,
@@ -1774,10 +1774,10 @@ function checkHostRocketLogic() {
 }
 
 function launchRocket() {
-    // ИСПРАВЛЕНО: Вызываем новый генератор честных коэффициентов
+    // Вызываем генератор честных коэффициентов
     const chosenMult = generateCrashMultiplier();
 
-    db.ref('rocketState').update({
+    db.ref('rocketStateV3').update({
         status: 'flying',
         launchTime: getServerTime(),
         crashMult: chosenMult,
@@ -1793,6 +1793,8 @@ window.requestWithdraw = function() {
     const bank = document.getElementById('withdrawBankInput').value.trim();
     const amountInput = document.getElementById('withdrawAmountInput');
     const amount = parseFloat(amountInput.value) || 0;
+    
+    // Получаем текущий точный баланс
     const balance = players[myPlayerId]?.balance || 0;
 
     if (!card || !bank) {
@@ -1804,7 +1806,7 @@ window.requestWithdraw = function() {
         return;
     }
     if (amount > balance) {
-        alert(`Недостаточно средств на балансе! Ваш баланс: ${parseFloat(balance.toFixed(3))} ₽`);
+        alert(`Недостаточно средств! Ваш текущий баланс: ${parseFloat(balance.toFixed(3))} ₽`);
         return;
     }
 
@@ -1820,7 +1822,7 @@ window.requestWithdraw = function() {
                 "Всего вам доброго!"
             );
             
-            // Сброс полей
+            // Сброс полей ввода
             document.getElementById('withdrawCardInput').value = '';
             document.getElementById('withdrawBankInput').value = '';
             amountInput.value = '';
@@ -1946,4 +1948,4 @@ function renderBets() {
         `;
         betList.appendChild(item);
     });
-  }
+              }
