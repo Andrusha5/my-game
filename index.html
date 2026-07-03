@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=35">
+    <link rel="stylesheet" href="style.css?v=36">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -236,10 +236,12 @@
             <!-- Поле с закруглением ровно 7px -->
             <div class="rocket-arena-wrapper">
                 <div class="stars-container"></div>
+                <div class="rocket-grid-overlay"></div>
                 <div id="rocketTimerOverlay" class="rocket-timer-overlay">10</div>
                 
-                <!-- Анимированный узел ракеты с пламенем -->
+                <!-- Анимированный узел ракеты с пламенем и неоновой аурой -->
                 <div id="rocketActor" class="rocket-actor">
+                    <div class="rocket-aura"></div>
                     <span class="rocket-emoji">🚀</span>
                     <div class="rocket-fire"></div>
                 </div>
@@ -256,9 +258,27 @@
 
             <!-- Панель управления ставками -->
             <div class="rocket-controls">
+                
+                <!-- Ставка игрока -->
                 <div class="sp-input-group">
                     <label>Сумма ставки (₽):</label>
                     <input type="number" id="rocketBetInput" value="10" min="5">
+                </div>
+
+                <!-- ФУТУРИСТИЧЕСКИЙ БЛОК АВТОВЫВОДА -->
+                <div class="rocket-auto-panel">
+                    <div class="rocket-auto-header">
+                        <span class="rocket-auto-title">Автовывод средств</span>
+                        <label class="rocket-switch">
+                            <input type="checkbox" id="rocketAutoToggle" onchange="toggleRocketAuto()">
+                            <span class="rocket-slider"></span>
+                        </label>
+                    </div>
+                    <div class="rocket-counter-container" id="rocketAutoControls" style="opacity: 0.5; pointer-events: none;">
+                        <button class="rocket-counter-btn" id="rocketAutoMinus" onclick="changeRocketAutoMult(-0.1)">-</button>
+                        <div class="rocket-counter-value" id="rocketAutoValue">1.5x</div>
+                        <button class="rocket-counter-btn" onclick="changeRocketAutoMult(0.1)">+</button>
+                    </div>
                 </div>
 
                 <!-- Блок растущего выигрыша в реальном времени -->
@@ -346,6 +366,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=35"></script>
+    <script src="script.js?v=36"></script>
 </body>
                 </html>
