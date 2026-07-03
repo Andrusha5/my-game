@@ -699,37 +699,102 @@ input:focus { outline: none; border-color: #61dafb; }
     background: #1e1e1e;
     border: 1px solid #333;
     border-radius: 16px;
-    padding: 20px;
+    padding: 15px;
 }
 
-/* ДИЗАЙН ПАНЕЛИ АВТОВЫВОДА (CYBERPUNK GLASSMORPHISM) */
-.rocket-auto-panel {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 12px 15px;
+/* КРАСИВЫЙ КОМПАКТНЫЙ РЯД СТАВКА + АВТОВЫВОД */
+.rocket-input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
     margin-bottom: 15px;
+}
+.rocket-input-col {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    justify-content: flex-end;
 }
-.rocket-auto-header {
+.rocket-field-label {
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.rocket-input-col input {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    border-radius: 10px;
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Неоновая панель автовывода */
+.rocket-auto-header-compact {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 4px;
 }
-.rocket-auto-title {
-    font-weight: bold;
-    font-size: 0.95rem;
+.rocket-auto-title-compact {
+    font-size: 0.8rem;
     color: #00E5FF;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Капсула счетчика автовывода */
+.rocket-counter-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    padding: 3px;
+    border: 1.5px solid rgba(0, 229, 255, 0.15);
+    height: 42px;
+    transition: all 0.3s;
+}
+.rocket-counter-btn-compact {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #252525;
+    border: 1px solid #3a3a3a;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    padding: 0;
+}
+.rocket-counter-btn-compact:hover:not(:disabled) {
+    background: #333;
+    border-color: #00E5FF;
+    color: #00E5FF;
+}
+.rocket-counter-btn-compact:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+}
+.rocket-counter-value-compact {
+    font-size: 1rem;
+    font-weight: 800;
+    color: white;
+    font-family: monospace;
 }
 
 /* Переключатель Toggle (Неоновый) */
 .rocket-switch {
     position: relative;
     display: inline-block;
-    width: 48px;
-    height: 24px;
+    width: 36px;
+    height: 18px;
 }
 .rocket-switch input {
     opacity: 0;
@@ -742,71 +807,27 @@ input:focus { outline: none; border-color: #61dafb; }
     top: 0; left: 0; right: 0; bottom: 0;
     background-color: #333;
     transition: .3s;
-    border-radius: 24px;
+    border-radius: 18px;
     border: 1px solid #555;
 }
 .rocket-slider:before {
     position: absolute;
     content: "";
-    height: 16px;
-    width: 16px;
-    left: 3px;
-    bottom: 3px;
+    height: 12px;
+    width: 12px;
+    left: 2px;
+    bottom: 2px;
     background-color: white;
     transition: .3s;
     border-radius: 50%;
 }
 .rocket-switch input:checked + .rocket-slider {
     background-color: #00FF88;
-    box-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
     border-color: #00FF88;
 }
 .rocket-switch input:checked + .rocket-slider:before {
-    transform: translateX(24px);
-}
-
-/* Счетчик */
-.rocket-counter-container {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #121212;
-    border-radius: 8px;
-    padding: 4px;
-    border: 1px solid #2a2a2a;
-    transition: opacity 0.3s;
-}
-.rocket-counter-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
-    background: #252525;
-    border: 1px solid #3a3a3a;
-    color: white;
-    font-size: 1.3rem;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-    padding: 0;
-    margin: 0;
-}
-.rocket-counter-btn:hover:not(:disabled) {
-    background: #333;
-    border-color: #00E5FF;
-    color: #00E5FF;
-}
-.rocket-counter-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
-.rocket-counter-value {
-    font-size: 1.15rem;
-    font-weight: 800;
-    color: white;
-    font-family: monospace;
+    transform: translateX(18px);
 }
 
 /* Выигрыш игрока */
@@ -814,11 +835,11 @@ input:focus { outline: none; border-color: #61dafb; }
     background: rgba(0, 230, 118, 0.12);
     border: 1.5px solid #00E676;
     border-radius: 8px;
-    padding: 12px;
-    font-size: 1.25rem;
+    padding: 10px;
+    font-size: 1.15rem;
     font-weight: bold;
     text-align: center;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     width: 100%;
     color: white;
     box-shadow: 0 0 10px rgba(0, 230, 118, 0.2);
@@ -858,7 +879,7 @@ input:focus { outline: none; border-color: #61dafb; }
     box-shadow: 0 4px 15px rgba(255, 145, 0, 0.3);
 }
 #rocketBetBtn:hover:not(:disabled), #rocketCashoutBtn:hover:not(:disabled) { 
-    transform: scale(1.03); 
+    transform: scale(1.02); 
     box-shadow: 0 6px 20px rgba(213, 0, 249, 0.5); 
 }
 #rocketBetBtn:disabled, #rocketCashoutBtn:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; box-shadow: none; }
@@ -881,6 +902,77 @@ input:focus { outline: none; border-color: #61dafb; }
 .rocket-bets-list {
     max-height: 180px;
     overflow-y: auto;
+}
+
+/* ================= СИСТЕМА УВЕДОМЛЕНИЙ НА САЙТЕ ================= */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 10000;
+    pointer-events: none;
+    max-width: 320px;
+    width: 90%;
+}
+.custom-toast {
+    background: rgba(18, 10, 36, 0.95);
+    border: 2px solid #00FF88;
+    box-shadow: 0 0 25px rgba(0, 255, 136, 0.45);
+    border-radius: 14px;
+    padding: 16px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    pointer-events: auto;
+    animation: toastSlideIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+}
+@keyframes toastSlideIn {
+    0% { transform: translateX(120%) scale(0.9); opacity: 0; }
+    100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+.custom-toast.hide {
+    animation: toastSlideOut 0.3s ease-in forwards;
+}
+@keyframes toastSlideOut {
+    0% { transform: translateX(0) scale(1); opacity: 1; }
+    100% { transform: translateX(120%) scale(0.9); opacity: 0; }
+}
+.toast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 4px;
+}
+.toast-title {
+    font-weight: bold;
+    color: #00FF88;
+    font-size: 0.95rem;
+}
+.toast-close-btn {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 1.15rem;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    line-height: 1;
+}
+.toast-close-btn:hover {
+    color: white;
+}
+.toast-body {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #ECEFF1;
 }
 
 /* ================= СТИЛИ ДЛЯ ВЫВОДА СРЕДСТВ ================= */
