@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=30">
+    <link rel="stylesheet" href="style.css?v=31">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -54,14 +54,20 @@
                 </div>
             </div>
 
-            <!-- НОВАЯ ИГРА -->
-
-
-<div class="lobby-card card-imp-mines" onclick="showScreen('impMinesGameScreen')">
+            <div class="lobby-card card-imp-mines" onclick="showScreen('impMinesGameScreen')">
                 <div class="card-icon"><div class="mini-imp-mine"></div></div>
                 <div class="card-info">
                     <span class="card-name">Невозможная башня</span>
                     <span class="card-desc">Башня из 6 рядов</span>
+                </div>
+            </div>
+
+            <!-- НОВАЯ ИГРА: РАКЕТКА -->
+            <div class="lobby-card card-rocket" onclick="showScreen('rocketGameScreen')">
+                <div class="card-icon"><div class="mini-rocket">🚀</div></div>
+                <div class="card-info">
+                    <span class="card-name">Взлет Ракеты</span>
+                    <span class="card-desc">Мультиплеер Краш 333x</span>
                 </div>
             </div>
 
@@ -85,7 +91,6 @@
                 <canvas id="gameCanvas" width="400" height="400"></canvas>
             </div>
 
-            <!-- Вкладки ставок/истории -->
             <div class="multi-tabs">
                 <button id="tabBetsBtn" class="tab-btn active" onclick="switchMultiTab('bets')">Ставки</button>
                 <button id="tabHistoryBtn" class="tab-btn" onclick="switchMultiTab('history')">История</button>
@@ -102,9 +107,7 @@
 
     <!-- ================= ЭКРАН 3: НЕВОЗМОЖНОЕ КОЛЕСО ================= -->
     <div id="singleplayerGameScreen" class="screen-container" style="display:none;">
-
-
-<button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="sp-layout">
             <div class="sp-wheel-container">
                 <div class="sp-pointer"></div>
@@ -125,9 +128,7 @@
                 </div>
                 <div class="sp-input-group">
                     <label for="spBetInput">Сумма ставки (₽):</label>
-
-
-<input type="number" id="spBetInput" value="10" min="10">
+                    <input type="number" id="spBetInput" value="10" min="10">
                 </div>
                 <div class="sp-summary">
                     <p>Шанс: <strong id="summaryChance">50%</strong></p>
@@ -188,20 +189,18 @@
                     <button id="minesStartBtn" onclick="startMinesRound()">Начать раунд</button>
                     <button id="minesCashoutBtn" onclick="cashoutMines()" disabled>Забрать 0 ₽</button>
                 </div>
-                <!-- Скрытый холдер для совместимости со старыми функциями -->
                 <span id="minesCashoutValue" style="display:none;">0</span>
             </div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 6: НЕВОЗМОЖНАЯ МИНА (НОВАЯ ИГРА) ================= -->
+    <!-- ================= ЭКРАН 6: НЕВОЗМОЖНАЯ БАШНЯ ================= -->
     <div id="impMinesGameScreen" class="screen-container" style="display:none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="mines-layout">
             <h2 class="game-headline" style="color:#FF1744">Невозможная башня</h2>
             <p class="game-subline">Пройди 6 рядов до вершины (15x)</p>
             
-            <!-- Сетка башни (генерация рядов снизу вверх) -->
             <div id="impMinesRowsContainer" class="imp-rows-container"></div>
             
             <div class="mines-controls">
@@ -213,6 +212,51 @@
                 <div class="mines-action-buttons">
                     <button id="impStartBtn" onclick="startImpMines()">Играть</button>
                     <button id="impCashoutBtn" onclick="cashoutImpMines()" disabled>Забрать 0 ₽</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= ЭКРАН 7: НОВАЯ ИГРА: ВЗЛЕТ РАКЕТЫ ================= -->
+    <div id="rocketGameScreen" class="screen-container" style="display:none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
+        <div class="rocket-layout">
+            <h2 class="game-headline" style="color:#D500F9">Взлет Ракеты</h2>
+            <p class="game-subline">Заберите ставку до взрыва! Макс выигрыш 333x</p>
+            
+            <!-- Поле полета ракеты (скругление углов ровно 7px) -->
+            <div class="rocket-arena-wrapper">
+                <div class="stars-container"></div>
+                <div id="rocketTimerOverlay" class="rocket-timer-overlay">10</div>
+                <div id="rocketActor" class="rocket-actor">🚀</div>
+                <div id="rocketMultiplierDisplay" class="rocket-mult-display">1.00x</div>
+                <div id="rocketExplosion" class="rocket-explosion">💥</div>
+            </div>
+
+            <!-- Последние 10 коэффициентов прямо под полем -->
+            <div class="rocket-history-label">Последние 10 игр:</div>
+            <div id="rocketHistory" class="rocket-history-bar">
+                <span class="rocket-hist-empty">История пуста...</span>
+            </div>
+
+            <!-- Панель управления -->
+            <div class="rocket-controls">
+                <div class="sp-input-group">
+                    <label>Сумма ставки (₽):</label>
+                    <input type="number" id="rocketBetInput" value="10" min="5">
+                </div>
+                <div id="rocketMessage">Ожидание начала раунда...</div>
+                <div class="rocket-action-buttons">
+                    <button id="rocketBetBtn" onclick="placeRocketBet()">Сделать ставку</button>
+                    <button id="rocketCashoutBtn" onclick="cashoutRocket()" disabled>Забрать 0 ₽</button>
+                </div>
+            </div>
+
+            <!-- Список всех ставок игроков в текущем раунде -->
+            <div class="rocket-bets-container">
+                <h4 class="rocket-bets-title">Участники и ставки:</h4>
+                <div id="rocketBetsList" class="rocket-bets-list">
+                    <div class="bet-placeholder">Ставок еще нет...</div>
                 </div>
             </div>
         </div>
@@ -251,6 +295,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=30"></script>
+    <script src="script.js?v=31"></script>
 </body>
-</html>
+    </html>
