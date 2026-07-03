@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=31">
+    <link rel="stylesheet" href="style.css?v=32">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -62,12 +62,12 @@
                 </div>
             </div>
 
-            <!-- НОВАЯ ИГРА: РАКЕТКА -->
+            <!-- КНОПКА НОВОЙ ИГРЫ В ЛОББИ -->
             <div class="lobby-card card-rocket" onclick="showScreen('rocketGameScreen')">
                 <div class="card-icon"><div class="mini-rocket">🚀</div></div>
                 <div class="card-info">
                     <span class="card-name">Взлет Ракеты</span>
-                    <span class="card-desc">Мультиплеер Краш 333x</span>
+                    <span class="card-desc">Краш онлайн 333x</span>
                 </div>
             </div>
 
@@ -217,14 +217,14 @@
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 7: НОВАЯ ИГРА: ВЗЛЕТ РАКЕТЫ ================= -->
+    <!-- ================= ЭКРАН 7: ВЗЛЕТ РАКЕТЫ ================= -->
     <div id="rocketGameScreen" class="screen-container" style="display:none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="rocket-layout">
             <h2 class="game-headline" style="color:#D500F9">Взлет Ракеты</h2>
-            <p class="game-subline">Заберите ставку до взрыва! Макс выигрыш 333x</p>
+            <p class="game-subline">Заберите деньги до взрыва! Множитель до 333x</p>
             
-            <!-- Поле полета ракеты (скругление углов ровно 7px) -->
+            <!-- Поле с закруглением ровно 7px -->
             <div class="rocket-arena-wrapper">
                 <div class="stars-container"></div>
                 <div id="rocketTimerOverlay" class="rocket-timer-overlay">10</div>
@@ -233,18 +233,24 @@
                 <div id="rocketExplosion" class="rocket-explosion">💥</div>
             </div>
 
-            <!-- Последние 10 коэффициентов прямо под полем -->
+            <!-- Последние 10 результатов полета -->
             <div class="rocket-history-label">Последние 10 игр:</div>
             <div id="rocketHistory" class="rocket-history-bar">
                 <span class="rocket-hist-empty">История пуста...</span>
             </div>
 
-            <!-- Панель управления -->
+            <!-- Панель управления ставками -->
             <div class="rocket-controls">
                 <div class="sp-input-group">
                     <label>Сумма ставки (₽):</label>
                     <input type="number" id="rocketBetInput" value="10" min="5">
                 </div>
+
+                <!-- Блок растущего выигрыша в реальном времени -->
+                <div id="rocketPotentialPayout" class="rocket-potential-payout" style="display: none;">
+                    Вы заберете: <span id="rocketPotentialAmount" class="win-color">0.00</span> ₽
+                </div>
+
                 <div id="rocketMessage">Ожидание начала раунда...</div>
                 <div class="rocket-action-buttons">
                     <button id="rocketBetBtn" onclick="placeRocketBet()">Сделать ставку</button>
@@ -252,9 +258,9 @@
                 </div>
             </div>
 
-            <!-- Список всех ставок игроков в текущем раунде -->
+            <!-- Живой список участников текущего раунда -->
             <div class="rocket-bets-container">
-                <h4 class="rocket-bets-title">Участники и ставки:</h4>
+                <h4 class="rocket-bets-title">Участники и ставки в раунде:</h4>
                 <div id="rocketBetsList" class="rocket-bets-list">
                     <div class="bet-placeholder">Ставок еще нет...</div>
                 </div>
@@ -295,6 +301,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=31"></script>
+    <script src="script.js?v=32"></script>
 </body>
-    </html>
+            </html>
