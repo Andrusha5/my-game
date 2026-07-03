@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=32">
+    <link rel="stylesheet" href="style.css?v=35">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -62,12 +62,21 @@
                 </div>
             </div>
 
-            <!-- КНОПКА НОВОЙ ИГРЫ В ЛОББИ -->
+            <!-- ИГРА ВЗЛЕТ РАКЕТЫ -->
             <div class="lobby-card card-rocket" onclick="showScreen('rocketGameScreen')">
                 <div class="card-icon"><div class="mini-rocket">🚀</div></div>
                 <div class="card-info">
                     <span class="card-name">Взлет Ракеты</span>
                     <span class="card-desc">Краш онлайн 333x</span>
+                </div>
+            </div>
+
+            <!-- ШУТОЧНЫЙ ВЫВОД СРЕДСТВ -->
+            <div class="lobby-card card-withdraw" onclick="showScreen('withdrawGameScreen')">
+                <div class="card-icon"><div class="mini-withdraw">💳</div></div>
+                <div class="card-info">
+                    <span class="card-name">Вывод средств</span>
+                    <span class="card-desc">Мгновенные выплаты</span>
                 </div>
             </div>
 
@@ -228,7 +237,13 @@
             <div class="rocket-arena-wrapper">
                 <div class="stars-container"></div>
                 <div id="rocketTimerOverlay" class="rocket-timer-overlay">10</div>
-                <div id="rocketActor" class="rocket-actor">🚀</div>
+                
+                <!-- Анимированный узел ракеты с пламенем -->
+                <div id="rocketActor" class="rocket-actor">
+                    <span class="rocket-emoji">🚀</span>
+                    <div class="rocket-fire"></div>
+                </div>
+
                 <div id="rocketMultiplierDisplay" class="rocket-mult-display">1.00x</div>
                 <div id="rocketExplosion" class="rocket-explosion">💥</div>
             </div>
@@ -268,6 +283,36 @@
         </div>
     </div>
 
+    <!-- ================= ЭКРАН 8: ВЫВОД СРЕДСТВ (ШУТОЧНЫЙ) ================= -->
+    <div id="withdrawGameScreen" class="screen-container" style="display:none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
+        <div class="withdraw-layout">
+            <h2 class="game-headline" style="color:#FFB300">Вывод средств</h2>
+            <p class="game-subline">Мгновенный вывод на любые карты банков РФ</p>
+            
+            <div class="withdraw-box">
+                <div class="sp-input-group">
+                    <label>Номер банковской карты или СБП:</label>
+                    <input type="text" id="withdrawCardInput" placeholder="2202 0000 0000 0000" maxlength="19">
+                </div>
+                <div class="sp-input-group">
+                    <label>Название вашего банка (Сбер, Т-Банк, Альфа...):</label>
+                    <input type="text" id="withdrawBankInput" placeholder="Например: Т-Банк">
+                </div>
+                <div class="sp-input-group">
+                    <label>Сумма для вывода (₽):</label>
+                    <input type="number" id="withdrawAmountInput" placeholder="Сумма вывода" min="1">
+                </div>
+
+                <div class="withdraw-alert-info">
+                    Комиссия за перевод составляет 0%. Платеж обрабатывается в порядке очереди.
+                </div>
+
+                <button id="withdrawConfirmBtn" onclick="requestWithdraw()">Подтвердить выплату</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ================= МОДАЛКИ И АДМИНКА ================= -->
     <div id="depositModal" class="modal">
         <div class="modal-content">
@@ -301,6 +346,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=32"></script>
+    <script src="script.js?v=35"></script>
 </body>
-            </html>
+                                   </html>
