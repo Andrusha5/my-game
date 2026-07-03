@@ -111,7 +111,31 @@ body {
 .card-mines { border-top: 5px solid #E65100; }
 .card-imp-mines { border-top: 5px solid #FF1744; }
 .card-rocket { border-top: 5px solid #D500F9; }
-.card-withdraw { border-top: 5px solid #FFB300; }
+
+/* КНОПКА ВЫВОДА СРЕДСТВ - МЕГА-ЯРКАЯ И ЗАМАНЧИВАЯ */
+.card-withdraw {
+    background: linear-gradient(135deg, #2b1f02 0%, #171101 100%) !important;
+    border: 2px solid #FFB300 !important;
+    border-top: 5px solid #FFD700 !important;
+    box-shadow: 0 0 15px rgba(255, 179, 0, 0.2);
+    animation: withdrawGoldenGlow 2.5s infinite alternate ease-in-out;
+}
+.card-withdraw:hover {
+    border-color: #FFF59D !important;
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.6) !important;
+    transform: scale(1.04) translateY(-4px);
+}
+
+@keyframes withdrawGoldenGlow {
+    0% {
+        box-shadow: 0 0 8px rgba(255, 179, 0, 0.2);
+        border-color: #FFB300 !important;
+    }
+    100% {
+        box-shadow: 0 0 25px rgba(255, 215, 0, 0.5);
+        border-color: #FFF59D !important;
+    }
+}
 
 .card-icon {
     width: 50px;
@@ -173,7 +197,7 @@ body {
 }
 @keyframes bounceWithdraw {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.15) rotate(5deg); }
+    50% { transform: scale(1.2) rotate(6deg); }
 }
 
 @keyframes rotateMiniWheel { 100% { transform: rotate(360deg); } }
@@ -504,7 +528,7 @@ input:focus { outline: none; border-color: #61dafb; }
     box-shadow: 0 0 20px rgba(123, 31, 162, 0.4);
 }
 
-/* Эффект бесконечного звездного неба с мерцанием */
+/* Эффект звездного неба */
 .stars-container {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -545,7 +569,7 @@ input:focus { outline: none; border-color: #61dafb; }
     100% { transform: scale(1.05); box-shadow: 0 0 25px rgba(213,0,249,0.5); }
 }
 
-/* Модель летящей ракеты с пламенем */
+/* Модель летящей ракеты */
 .rocket-actor {
     position: absolute;
     bottom: 20px;
@@ -562,7 +586,7 @@ input:focus { outline: none; border-color: #61dafb; }
     display: inline-block;
 }
 
-/* Эффект огненного выхлопа двигателя ракеты */
+/* Эффект пламени */
 .rocket-fire {
     width: 14px;
     height: 30px;
