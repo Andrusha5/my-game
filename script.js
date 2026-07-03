@@ -94,13 +94,17 @@ const impMinesData = [
     { cells: 2, mines: 1, mult: 15.0 }  
 ];
 
-// ======= ИЗОЛИРОВАННЫЕ ПЕРЕМЕННЫЕ ИГРЫ "ВЗЛЕТ РАКЕТЫ V3" =======
+// ======= ПЕРЕМЕННЫЕ ИГРЫ "ВЗЛЕТ РАКЕТЫ V3" =======
 let rocketGameActive = false; 
 let rocketMyBet = 0;         
 let rocketIsCashed = false;   
 let rocketState = { status: 'betting', timerEnd: 0 };
 let rocketLoopId = null;
 let rocketTimerInterval = null; 
+
+// ПЕРЕМЕННЫЕ АВТОВЫВОДА РАКЕТЫ
+let rocketAutoCashoutEnabled = false;
+let rocketAutoCashoutMultiplier = 1.5;
 
 // DOM элементы
 let bettingTimerDisplay, totalBankDisplay, gameCanvas, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, historyList, gameMessage;
@@ -233,6 +237,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 cashoutBtn.disabled = true;
                 cashoutBtn.textContent = 'Успешно забрали!';
             }
+        } else {
+            // ИСПРАВЛЕН БАГ: Если нашей ставки в базе больше нет, сбрасываем локальный статус!
+            rocketGameActive = false;
+            rocketMyBet = 0;
+            rocketIsCashed = false;
         }
     });
 
@@ -1267,33 +1276,27 @@ function renderWheelSections() {
 }
 
 
-// ======= ИГРА 6: ВЗЛЕТ РАКЕТЫ (МУЛЬТИПЛЕЕР КРАШ С УСКОРЕНИЕМ И НОВОЙ МАТЕМАТИКОЙ) =======
+// ======= ИГРА 6: ВЗЛЕТ РАКЕТЫ V3 (КРАШ С АВТОВЫВОДОМ И УСКОРЕНИЕМ) =======
 
-// НОВЫЙ ЧЕСТНЫЙ ГЕНЕРАТОР МАКСИМАЛЬНО ИНТЕРЕСНЫХ КОЭФФИЦИЕНТОВ
+// Честный генератор максимально интересных коэффициентов
 function generateCrashMultiplier() {
     const rand = Math.random();
     
-    // 1. Мгновенный взрыв (ровно 1.00x) -> 5% шанс
     if (rand < 0.05) {
         return 1.00;
     }
-    // 2. Низкий диапазон (1.01x - 1.39x) -> 35% шанс (границы 0.05 - 0.40)
     else if (rand < 0.40) {
         return parseFloat((1.01 + Math.random() * 0.38).toFixed(2));
     }
-    // 3. Золотая середина (1.40x - 4.00x) -> 45% шанс (границы 0.40 - 0.85) - САМАЯ ЧАСТАЯ ЗОНА
     else if (rand < 0.85) {
         return parseFloat((1.40 + Math.random() * 2.60).toFixed(2));
     }
-    // 4. Средний диапазон (4.01x - 15.00x) -> 10% шанс (границы 0.85 - 0.95)
     else if (rand < 0.95) {
         return parseFloat((4.01 + Math.random() * 10.99).toFixed(2));
     }
-    // 5. Высокий диапазон (15.01x - 50.00x) -> 4% шанс (границы 0.95 - 0.99)
     else if (rand < 0.99) {
         return parseFloat((15.01 + Math.random() * 34.99).toFixed(2));
     }
-    // 6. Супер-космос (50.01x - 333.00x) -> Исключительный 1% шанс (джекпот)
     else {
         return parseFloat((50.01 + Math.random() * 282.99).toFixed(2));
     }
@@ -1301,16 +1304,42 @@ function generateCrashMultiplier() {
 
 // Математическая кривая набора высоты с автоускорением после 10.0x
 function getRocketMult(elapsed, crashMult) {
-    const t_10 = Math.log(10) / 0.07; // Время в секундах до достижения x10 при обычной скорости (~32.89 сек)
+    const t_10 = Math.log(10) / 0.07; // Время до x10 при обычной скорости (~32.89 сек)
     
     if (crashMult >= 20 && elapsed > t_10) {
-        // Ускоряем показатель роста до 0.22 (быстрее в 3+ раза!)
         return 10 * Math.exp(0.22 * (elapsed - t_10));
     }
     return Math.exp(elapsed * 0.07);
 }
 
-// Синхронизация состояний из бд Firebase V3
+// УПРАВЛЕНИЕ АВТОВЫВОДОМ ИЗ ИНТЕРФЕЙСА
+window.toggleRocketAuto = function() {
+    const toggle = document.getElementById('rocketAutoToggle');
+    const controls = document.getElementById('rocketAutoControls');
+    
+    rocketAutoCashoutEnabled = toggle.checked;
+    
+    if (rocketAutoCashoutEnabled) {
+        controls.style.opacity = '1';
+        controls.style.pointerEvents = 'auto';
+    } else {
+        controls.style.opacity = '0.5';
+        controls.style.pointerEvents = 'none';
+    }
+};
+
+window.changeRocketAutoMult = function(amount) {
+    let newVal = parseFloat((rocketAutoCashoutMultiplier + amount).toFixed(1));
+    if (newVal < 1.1) return;
+    
+    rocketAutoCashoutMultiplier = newVal;
+    document.getElementById('rocketAutoValue').textContent = `${rocketAutoCashoutMultiplier.toFixed(1)}x`;
+    
+    // Блокируем кнопку минус, если дошли до предела 1.1x
+    document.getElementById('rocketAutoMinus').disabled = (rocketAutoCashoutMultiplier <= 1.1);
+};
+
+// Синхронизация состояний Ракеты
 function syncRocketState() {
     const status = rocketState ? (rocketState.status || 'betting') : 'betting';
     const timerOverlay = document.getElementById('rocketTimerOverlay');
@@ -1340,7 +1369,7 @@ function syncRocketState() {
         }
         if (multDisp) multDisp.style.display = 'none';
         if (timerOverlay) timerOverlay.style.display = 'block';
-        if (stars) stars.style.animationDuration = '3s';
+        if (stars) stars.style.animationDuration = '3.5s';
         if (payoutDiv) payoutDiv.style.display = 'none';
 
         if (betInput) betInput.disabled = false;
@@ -1417,7 +1446,7 @@ function syncRocketState() {
     }
 }
 
-// Запуск обратного отсчета (10 секунд) в фазе ставок
+// Запуск обратного отсчета в фазе ставок
 function startRocketBettingTimer(timerEnd) {
     if (rocketTimerInterval) {
         clearInterval(rocketTimerInterval);
@@ -1455,7 +1484,7 @@ function startRocketBettingTimer(timerEnd) {
     }, 100);
 }
 
-// Рендеринг анимации полета и пламени
+// Анимация полета
 function startRocketFlightAnimation(launchTime) {
     const stars = document.querySelector('.stars-container');
     const rocketActor = document.getElementById('rocketActor');
@@ -1475,7 +1504,6 @@ function startRocketFlightAnimation(launchTime) {
             return;
         }
 
-        // Рассчитываем множитель с автоматическим ускорением
         const currentMult = getRocketMult(elapsed, rocketState.crashMult);
 
         if (multDisp && rocketState.status === 'flying') {
@@ -1493,22 +1521,26 @@ function startRocketFlightAnimation(launchTime) {
         }
 
         if (stars) {
-            // При ускорении ракеты звезды летят быстрее
             const rateLimit = (rocketState.crashMult >= 20 && currentMult > 10) ? 0.05 : 0.15;
-            const animSpeed = Math.max(0.08, 3 / (1 + elapsed * (1 / rateLimit * 0.02)));
+            const animSpeed = Math.max(0.08, 3.5 / (1 + elapsed * (1 / rateLimit * 0.02)));
             stars.style.animationDuration = `${animSpeed}s`;
         }
 
-        // Плавное обновление кнопки и растущей суммы выигрыша (до копеек!)
+        // СЛУШАТЕЛЬ СРАБАТЫВАНИЯ АВТОВЫВОДА (СВЕРХТОЧНЫЙ)
         if (rocketGameActive && !rocketIsCashed && rocketState.status === 'flying') {
-            const potentialWin = (rocketMyBet * currentMult).toFixed(2);
-            
-            if (payoutDiv) payoutDiv.style.display = 'block';
-            if (payoutAmt) payoutAmt.textContent = potentialWin;
+            if (rocketAutoCashoutEnabled && currentMult >= rocketAutoCashoutMultiplier) {
+                // Если сработал автовывод, забираем строго по выбранной ставке
+                cashoutRocket(rocketAutoCashoutMultiplier);
+            } else {
+                // Показ прогнозируемого выигрыша в реальном времени при ручной игре
+                const potentialWin = (rocketMyBet * currentMult).toFixed(2);
+                if (payoutDiv) payoutDiv.style.display = 'block';
+                if (payoutAmt) payoutAmt.textContent = potentialWin;
 
-            if (cashoutBtn) {
-                cashoutBtn.disabled = false;
-                cashoutBtn.textContent = `Забрать ${Math.floor(potentialWin)} ₽`;
+                if (cashoutBtn) {
+                    cashoutBtn.disabled = false;
+                    cashoutBtn.textContent = `Забрать ${Math.floor(potentialWin)} ₽`;
+                }
             }
         } else {
             if (payoutDiv) payoutDiv.style.display = 'none';
@@ -1521,7 +1553,7 @@ function startRocketFlightAnimation(launchTime) {
     rocketLoopId = requestAnimationFrame(tick);
 }
 
-// Ставка в ракете (минималка 5 рублей)
+// Ставка в ракете
 window.placeRocketBet = function() {
     const status = rocketState ? (rocketState.status || 'betting') : 'betting';
     if (status !== 'betting') {
@@ -1575,17 +1607,26 @@ window.placeRocketBet = function() {
     });
 }
 
-// Забрать деньги (с копейками)
-window.cashoutRocket = function() {
+// Забрать деньги (с поддержкой ручного и автоматического вывода)
+window.cashoutRocket = function(forcedMult) {
     if (!rocketGameActive || rocketIsCashed || rocketState.status !== 'flying') return;
 
     const now = getServerTime();
     const elapsed = (now - rocketState.launchTime) / 1000;
-    const currentMult = parseFloat(getRocketMult(elapsed, rocketState.crashMult).toFixed(2));
+    const liveMult = parseFloat(getRocketMult(elapsed, rocketState.crashMult).toFixed(2));
 
-    if (currentMult >= rocketState.crashMult) {
-        alert('Не успели! Ракета уже потерпела крушение.');
-        return;
+    // Используем либо автовывод (forcedMult), либо текущий живой коэффициент
+    let currentMult = forcedMult ? parseFloat(forcedMult.toFixed(1)) : liveMult;
+
+    // Сверка: если мы забираем вручную, но ракета уже взорвалась
+    if (liveMult >= rocketState.crashMult) {
+        // Если это автовывод и ракета взлетела выше или ровно на цель - отдаем выигрыш
+        if (forcedMult && rocketState.crashMult >= forcedMult) {
+            // Разрешаем транзакцию
+        } else {
+            alert('Не успели! Ракета уже потерпела крушение.');
+            return;
+        }
     }
 
     rocketIsCashed = true;
@@ -1605,7 +1646,11 @@ window.cashoutRocket = function() {
 
             const msg = document.getElementById('rocketMessage');
             if (msg) {
-                msg.innerHTML = `🎉 Вы успешно забрали <span class="win-color">+${winnings} ₽</span> (множитель x${currentMult})`;
+                if (forcedMult) {
+                    msg.innerHTML = `🎉 Автовывод сработал! Забрали <span class="win-color">+${winnings} ₽</span> (на x${currentMult.toFixed(1)})`;
+                } else {
+                    msg.innerHTML = `🎉 Вы успешно забрали <span class="win-color">+${winnings} ₽</span> (множитель x${currentMult})`;
+                }
                 msg.style.color = '#00FF88';
             }
         } else {
@@ -1774,7 +1819,6 @@ function checkHostRocketLogic() {
 }
 
 function launchRocket() {
-    // Вызываем генератор честных коэффициентов
     const chosenMult = generateCrashMultiplier();
 
     db.ref('rocketStateV3').update({
@@ -1948,4 +1992,4 @@ function renderBets() {
         `;
         betList.appendChild(item);
     });
-              }
+                          }
