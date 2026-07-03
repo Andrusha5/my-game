@@ -48,13 +48,18 @@ body {
     transform: scale(1.05);
 }
 
-/* Экраны */
+/* Нативные плавные переходы экранов */
 .screen-container {
     width: 100%;
     max-width: 500px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    animation: fadeInScreen 0.4s cubic-bezier(0.1, 0.8, 0.1, 1) forwards;
+}
+@keyframes fadeInScreen {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Стили ЛОББИ */
@@ -106,6 +111,7 @@ body {
 .card-mines { border-top: 5px solid #E65100; }
 .card-imp-mines { border-top: 5px solid #FF1744; }
 .card-rocket { border-top: 5px solid #D500F9; }
+.card-withdraw { border-top: 5px solid #FFB300; }
 
 .card-icon {
     width: 50px;
@@ -161,6 +167,15 @@ body {
     100% { transform: translateY(-3px) rotate(10deg); }
 }
 
+.mini-withdraw {
+    font-size: 24px;
+    animation: bounceWithdraw 2s infinite ease-in-out;
+}
+@keyframes bounceWithdraw {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15) rotate(5deg); }
+}
+
 @keyframes rotateMiniWheel { 100% { transform: rotate(360deg); } }
 
 .card-info {
@@ -190,8 +205,9 @@ body {
     margin-bottom: 15px;
     font-weight: bold;
     width: auto;
+    transition: all 0.2s;
 }
-.back-to-menu-btn:hover { background: #444; color: white; }
+.back-to-menu-btn:hover { background: #444; color: white; transform: scale(1.03); }
 
 /* Мультиплеер */
 #ui { text-align: center; width: 100%; }
@@ -477,60 +493,92 @@ input:focus { outline: none; border-color: #61dafb; }
 .rocket-arena-wrapper {
     width: 100%;
     height: 240px;
-    background: radial-gradient(circle, #100e23 0%, #07050f 100%);
-    border: 3px solid #3d2b63;
+    background: radial-gradient(circle, #0e0b1f 0%, #05040a 100%);
+    border: 3px solid #7B1FA2;
     border-radius: 7px; /* Скругление строго 7px */
     position: relative;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 25px rgba(213, 0, 249, 0.2);
+    box-shadow: 0 0 20px rgba(123, 31, 162, 0.4);
 }
 
-/* Эффект бесконечного звездного неба */
+/* Эффект бесконечного звездного неба с мерцанием */
 .stars-container {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
     background-image: 
         radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
         radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px);
-    background-size: 150px 150px, 100px 100px;
+    background-size: 140px 140px, 90px 90px;
     background-position: 0 0, 40px 60px;
-    animation: starsScroll 3s linear infinite;
-    opacity: 0.6;
+    animation: starsScroll 3s linear infinite, starsTwinkle 1.5s infinite alternate;
+    opacity: 0.7;
 }
 @keyframes starsScroll {
     0% { background-position: 0 0, 40px 60px; }
     100% { background-position: 0 240px, 40px 300px; }
 }
+@keyframes starsTwinkle {
+    0% { opacity: 0.4; }
+    100% { opacity: 0.85; }
+}
 
-/* Текст обратного отсчета */
+/* Цифровой sci-fi таймер */
 .rocket-timer-overlay {
     position: absolute;
-    font-size: 5rem;
+    font-size: 4.5rem;
     font-weight: 900;
-    color: rgba(213, 0, 249, 0.95);
-    text-shadow: 0 0 20px rgba(213,0,249,0.7);
+    color: #D500F9;
+    text-shadow: 0 0 25px rgba(213,0,249,0.8);
+    font-family: 'Courier New', Courier, monospace;
     z-index: 5;
-    animation: pulseBet 0.8s infinite alternate;
+    background: rgba(0,0,0,0.55);
+    padding: 5px 25px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(213,0,249,0.4);
+    animation: pulseBet 1s infinite alternate;
 }
 @keyframes pulseBet {
-    0% { transform: scale(0.9); }
-    100% { transform: scale(1.1); }
+    0% { transform: scale(0.95); box-shadow: 0 0 10px rgba(213,0,249,0.2); }
+    100% { transform: scale(1.05); box-shadow: 0 0 25px rgba(213,0,249,0.5); }
 }
 
-/* Модель летящей ракеты */
+/* Модель летящей ракеты с пламенем */
 .rocket-actor {
     position: absolute;
     bottom: 20px;
-    font-size: 50px;
     z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     transition: bottom 0.1s linear;
-    filter: drop-shadow(0 0 10px rgba(255, 110, 0, 0.7));
+}
+.rocket-emoji {
+    font-size: 50px;
+    filter: drop-shadow(0 0 12px rgba(213, 0, 249, 0.7));
+    transform: rotate(-45deg);
+    display: inline-block;
 }
 
-/* Живой счетчик коэффициента */
+/* Эффект огненного выхлопа двигателя ракеты */
+.rocket-fire {
+    width: 14px;
+    height: 30px;
+    background: linear-gradient(to bottom, #FFD54F, #FF3D00, transparent);
+    border-radius: 50% 50% 0 0;
+    margin-top: -12px;
+    animation: flameFlicker 0.12s infinite alternate;
+    filter: blur(1.5px);
+    box-shadow: 0 0 15px #FF3D00, 0 0 5px #FFD54F;
+}
+@keyframes flameFlicker {
+    0% { transform: scaleX(0.85) scaleY(0.85); opacity: 0.75; }
+    100% { transform: scaleX(1.2) scaleY(1.35); opacity: 1; }
+}
+
+/* Счетчик коэффициента */
 .rocket-mult-display {
     position: absolute;
     font-size: 3.5rem;
@@ -541,7 +589,7 @@ input:focus { outline: none; border-color: #61dafb; }
     display: none;
 }
 
-/* Взрыв ракеты */
+/* Взрыв */
 .rocket-explosion {
     position: absolute;
     font-size: 90px;
@@ -555,7 +603,7 @@ input:focus { outline: none; border-color: #61dafb; }
     100% { transform: scale(1); opacity: 1; }
 }
 
-/* История последних коэффициентов */
+/* Последние 10 результатов */
 .rocket-history-label {
     align-self: flex-start;
     font-size: 0.85rem;
@@ -586,13 +634,12 @@ input:focus { outline: none; border-color: #61dafb; }
     white-space: nowrap;
 }
 
-/* Капсулы истории по ценности коэффициента */
 .mult-grey { background: #37474F; color: #ECEFF1; }
-.mult-green { background: #2E7D32; color: #A5D6A7; }
-.mult-gold { background: #F9A825; color: #FFF59D; }
-.mult-cyan { background: #00838F; color: #80DEEA; }
+.mult-green { background: #2E7D32; color: #A5D6A7; box-shadow: 0 0 6px rgba(46, 125, 50, 0.4); }
+.mult-gold { background: #F9A825; color: #FFF59D; box-shadow: 0 0 8px rgba(249, 168, 37, 0.5); }
+.mult-cyan { background: #00838F; color: #80DEEA; box-shadow: 0 0 10px rgba(0, 131, 143, 0.6); }
 
-/* Динамический блок растущей выплаты */
+/* Выигрыш игрока */
 .rocket-potential-payout {
     background: rgba(0, 230, 118, 0.12);
     border: 1.5px solid #00E676;
@@ -612,7 +659,7 @@ input:focus { outline: none; border-color: #61dafb; }
     100% { transform: scale(1.02); opacity: 1; }
 }
 
-/* Кнопки и панель */
+/* Панель управления */
 .rocket-controls {
     width: 100%;
     background: #1e1e1e;
@@ -634,7 +681,8 @@ input:focus { outline: none; border-color: #61dafb; }
     padding: 15px;
     border-radius: 10px;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(213, 0, 249, 0.3);
 }
 #rocketCashoutBtn {
     background: #FF9100;
@@ -644,13 +692,17 @@ input:focus { outline: none; border-color: #61dafb; }
     padding: 15px;
     border-radius: 10px;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(255, 145, 0, 0.3);
 }
-#rocketBetBtn:hover, #rocketCashoutBtn:hover { transform: scale(1.02); }
-#rocketBetBtn:disabled, #rocketCashoutBtn:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
+#rocketBetBtn:hover:not(:disabled), #rocketCashoutBtn:hover:not(:disabled) { 
+    transform: scale(1.03); 
+    box-shadow: 0 6px 20px rgba(213, 0, 249, 0.5); 
+}
+#rocketBetBtn:disabled, #rocketCashoutBtn:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; box-shadow: none; }
 #rocketMessage { text-align: center; margin-top: 10px; font-weight: bold; min-height: 24px; }
 
-/* Контейнер списка ставок */
+/* Список ставок */
 .rocket-bets-container {
     width: 100%;
     background: #1e1e1e;
@@ -667,6 +719,47 @@ input:focus { outline: none; border-color: #61dafb; }
 .rocket-bets-list {
     max-height: 180px;
     overflow-y: auto;
+}
+
+/* ================= СТИЛИ ДЛЯ ВЫВОДА СРЕДСТВ ================= */
+.withdraw-layout {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.withdraw-box {
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+.withdraw-alert-info {
+    background: rgba(255, 179, 0, 0.08);
+    border: 1px solid #FFB300;
+    border-radius: 8px;
+    color: #FFB300;
+    padding: 12px;
+    font-size: 0.85rem;
+    margin: 15px 0;
+    text-align: left;
+    line-height: 1.4;
+}
+#withdrawConfirmBtn {
+    background: #FFB300;
+    color: black;
+    font-weight: bold;
+    font-size: 1.1rem;
+    padding: 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+#withdrawConfirmBtn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 15px rgba(255, 179, 0, 0.35);
 }
 
 /* Модальные окна */
