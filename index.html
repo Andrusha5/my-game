@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=37">
+    <link rel="stylesheet" href="style.css?v=38">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -242,9 +242,8 @@
                 <div class="rocket-grid-overlay"></div>
                 <div id="rocketTimerOverlay" class="rocket-timer-overlay">10</div>
                 
-                <!-- Анимированный узел ракеты с пламенем и неоновой аурой -->
+                <!-- Анимированная ракета -->
                 <div id="rocketActor" class="rocket-actor">
-                    <div class="rocket-aura"></div>
                     <span class="rocket-emoji">🚀</span>
                     <div class="rocket-fire"></div>
                 </div>
@@ -262,7 +261,7 @@
             <!-- Панель управления ставками -->
             <div class="rocket-controls">
                 
-                <!-- Панель ввода суммы и Автовывода в ряд (Компактно!) -->
+                <!-- Панель ввода суммы и Автовывода в ряд (Компактно) -->
                 <div class="rocket-input-row">
                     <div class="rocket-input-col">
                         <label class="rocket-field-label">Ставка (₽):</label>
@@ -279,7 +278,7 @@
                         </div>
                         <div class="rocket-counter-compact" id="rocketAutoControls">
                             <button class="rocket-counter-btn-compact" id="rocketAutoMinus" onclick="changeRocketAutoMult(-0.1)" disabled>-</button>
-                            <span class="rocket-counter-value-compact" id="rocketAutoValue">1.5x</span>
+                            <span class="rocket-counter-value-compact" id="rocketAutoValue">1.1x</span>
                             <button class="rocket-counter-btn-compact" onclick="changeRocketAutoMult(0.1)">+</button>
                         </div>
                     </div>
@@ -370,6 +369,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=37"></script>
+    <script src="script.js?v=38"></script>
 </body>
-    </html>
+                                    </html>
