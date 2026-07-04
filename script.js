@@ -839,7 +839,7 @@ window.spinSingleplayerWheel = function() {
     spIsSpinning = true;
     spinBtn.disabled = true;
     betInput.disabled = true;
-    spMsg.textContent = 'Косело раскручивается...';
+    spMsg.textContent = 'Колесо раскручивается...';
     spMsg.style.color = '#00E5FF';
 
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
@@ -896,12 +896,12 @@ function evaluateSpResult(stoppedAngle, bet) {
 
 // ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР С ТАНГРАМ-ГЕОМЕТРИЕЙ И СТРЕЛКОЙ) =======
 
-// Функция находит крайнюю точку на периметре квадрата 400x400 по длине d (от 0 до 1600)
+// Находит крайнюю точку на периметре квадрата 400x400 по длине d (от 0 до 1600)
 function getPerimeterPoint(d) {
-    if (d <= 400) return { x: d, y: 0 }; // Верхняя грань
-    if (d <= 800) return { x: 400, y: d - 400 }; // Правая грань
-    if (d <= 1200) return { x: 1200 - d, y: 400 }; // Нижняя грань
-    return { x: 0, y: 1600 - d }; // Левая грань
+    if (d <= 400) return { x: d, y: 0 }; 
+    if (d <= 800) return { x: 400, y: d - 400 }; 
+    if (d <= 1200) return { x: 1200 - d, y: 400 }; 
+    return { x: 0, y: 1600 - d }; 
 }
 
 // Получаем массив игроков с распределенными секторами на периметре 1600
@@ -945,7 +945,6 @@ function getPlayerUnderCoordinates(x, y) {
         if (p.startD < p.endD) {
             return targetD >= p.startD && targetD <= p.endD;
         } else {
-            // Переход через 0 / 1600
             return targetD >= p.startD || targetD <= p.endD;
         }
     });
@@ -2181,4 +2180,4 @@ function renderBets() {
         `;
         betList.appendChild(item);
     });
-  }
+              }
