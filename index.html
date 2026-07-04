@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=38">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <link rel="stylesheet" href="style.css?v=39">
+    <!-- Firebase SDK (с обработкой ошибок загрузки) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js" onerror="window.firebaseLoadError=true;"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js" onerror="window.firebaseLoadError=true;"></script>
 </head>
 <body>
 
@@ -16,7 +16,7 @@
 
     <!-- Верхняя панель (Баланс и Имя) -->
     <div id="headerBar">
-        <div id="userWelcome">Загрузка...</div>
+        <div id="userWelcome">Инициализация...</div>
         <button id="balanceBtn" onclick="openDepositModal()">Баланс: <span id="myBalance">0</span> ₽</button>
     </div>
 
@@ -369,6 +369,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=38"></script>
+    <script src="script.js?v=39"></script>
 </body>
-                                    </html>
+            </html>
