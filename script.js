@@ -13,36 +13,43 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const DISTINCT_COLORS = [
-    '#651FFF', '#FF1744', '#00ff15', '#FF6D00', '#00E5FF', '#e100ff', '#eeff00', '#0026ff', '#a7ff03'
-];
-
+// ======= Глобальные переменные состояния =======
 let myPlayerId = localStorage.getItem('roulette_player_id');
 if (!myPlayerId) {
     myPlayerId = `player_${Math.random().toString(36).slice(2, 11)}`;
     localStorage.setItem('roulette_player_id', myPlayerId);
 }
 
-// ======= Глобальные переменные состояния =======
 let players = {};         
 let gameState = {};       
 let onlinePlayers = [];   
 let serverOffset = 0;     
 
-// Переменные мультиплеера
+// Переменные мультиплеера (Игра в кальмара)
 const BETTING_TIME = 15;
-const BALL_MAX_SPEED = 150;
+const BALL_MAX_SPEED = 120; 
 const BALL_DECELERATION = 0.985;
 const MIN_BET = 10;
 const VIRTUAL_WIDTH = 400;
 const VIRTUAL_HEIGHT = 400;
-const VIRTUAL_RADIUS = 12;
+const VIRTUAL_RADIUS = 10;
 
 let timerInterval = null;
 let animationFrameId = null;
 let currentPath = [];
 let animStartTime = 0;
 let ballX = 200, ballY = 200;
+
+// Анимация вращения стрелки в Кальмаре
+let arrowSpinning = false;
+let arrowAngle = 0;
+let arrowSpinDuration = 2000; // Стрелка крутится 2 секунды перед стартом
+
+const DISTINCT_COLORS = [
+    '#E91E63', '#9C27B0', '#3F51B5', '#00BCD4',  
+    '#4CAF50', '#FFEB3B', '#FF9800', '#FF5722',  
+    '#E040FB', '#00E676', '#FF1744', '#00E5FF'
+];
 
 // Переменные «Невозможного колеса»
 let spSelectedPercent = 50;  
@@ -98,8 +105,8 @@ let rocketState = { status: 'betting', timerEnd: 0 };
 let rocketLoopId = null;
 let rocketTimerInterval = null; 
 
-// ПЕРЕМЕННЫЕ АВТОВЫВОДА РАКЕТЫ (Строго от 1.1)
-let rocketAutoCashoutEnabled = false;
+// ПЕРЕМЕННЫЕ АВТОВЫВОДА РАКЕТЫ (Изначально ВКЛЮЧЕН на 1.1x)
+let rocketAutoCashoutEnabled = true;
 let rocketAutoCashoutMultiplier = 1.1; 
 
 // DOM элементы
@@ -114,7 +121,81 @@ function isHost() {
     return onlinePlayers[0] === myPlayerId;
 }
 
-// КРАСИВЫЕ CUSTOM TOAST-УВЕДОМЛЕНИЯ НА САЙТЕ
+// УНИКАЛЬНОЕ КАСТOМНОЕ УВЕДОМЛЕНИЕ О ПОБЕДЕ (5 секунд с автозакрытием и крестиком)
+window.showVictoryNotification = function(winnerName, prize, color) {
+    // Удаляем старое уведомление, если есть
+    const oldNotify = document.getElementById('victoryOverlayNotification');
+    if (oldNotify) oldNotify.remove();
+
+    const notify = document.createElement('div');
+    notify.id = 'victoryOverlayNotification';
+    
+    // Стилизация карточки уведомления
+    Object.assign(notify.style, {
+        position: 'fixed',
+        top: '25px',
+        left: '50%',
+        transform: 'translateX(-50%) translateY(-50px)',
+        background: 'rgba(15, 8, 28, 0.98)',
+        border: `3px solid ${color}`,
+        boxShadow: `0 0 30px ${color}88`,
+        borderRadius: '16px',
+        padding: '20px 25px',
+        color: 'white',
+        zIndex: '999999',
+        minWidth: '320px',
+        maxWidth: '90%',
+        textAlign: 'center',
+        opacity: '0',
+        transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+        pointerEvents: 'auto'
+    });
+
+    notify.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span style="font-size:0.85rem; text-transform:uppercase; letter-spacing:1.5px; color:${color}; font-weight:900;">🏆 ПОБЕДИТЕЛЬ РАУНДА 🏆</span>
+            <button id="closeVictoryNotifyBtn" style="background:none; border:none; color:#ff1744; font-size:1.6rem; cursor:pointer; line-height:1; padding:0; margin:0;">&times;</button>
+        </div>
+        <div style="font-size:1.25rem; font-weight:bold; margin-bottom:6px; color:#ffffff;">
+            🎉 <span style="color:${color}">${winnerName}</span> 🎉
+        </div>
+        <div style="font-size:1.05rem; color:#00FF88; font-weight:bold;">
+            Выигрыш: +${prize} ₽
+        </div>
+        <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); margin-top:12px; border-radius:2px; overflow:hidden;">
+            <div id="victoryTimerProgress" style="width:100%; height:100%; background:${color}; transition: width 5s linear;"></div>
+        </div>
+    `;
+
+    document.body.appendChild(notify);
+
+    // Показываем уведомление (плавный въезд)
+    setTimeout(() => {
+        notify.style.opacity = '1';
+        notify.style.transform = 'translateX(-50%) translateY(0)';
+        const progress = document.getElementById('victoryTimerProgress');
+        if (progress) progress.style.width = '0%';
+    }, 50);
+
+    // Логика кнопки закрытия
+    const closeBtn = notify.querySelector('#closeVictoryNotifyBtn');
+    closeBtn.onclick = () => {
+        notify.style.opacity = '0';
+        notify.style.transform = 'translateX(-50%) translateY(-50px)';
+        setTimeout(() => notify.remove(), 400);
+    };
+
+    // Автоматическое удаление через 5 секунд
+    setTimeout(() => {
+        if (notify.parentElement) {
+            notify.style.opacity = '0';
+            notify.style.transform = 'translateX(-50%) translateY(-50px)';
+            setTimeout(() => notify.remove(), 400);
+        }
+    }, 5000);
+};
+
+// Стандартные кастомные тосты
 window.showToast = function(title, text) {
     const container = document.getElementById('toastContainer');
     if (!container) return;
@@ -123,7 +204,7 @@ window.showToast = function(title, text) {
     toast.className = 'custom-toast';
     toast.innerHTML = `
         <div class="toast-header">
-            <span class="toast-title">🏆 ${title}</span>
+            <span class="toast-title">💥 ${title}</span>
             <button class="toast-close-btn" onclick="this.parentElement.parentElement.remove()">&times;</button>
         </div>
         <div class="toast-body">${text}</div>
@@ -131,15 +212,14 @@ window.showToast = function(title, text) {
 
     container.appendChild(toast);
 
-    // Закрываем через 5 секунд автоматически
     setTimeout(() => {
-        if (toast && toast.parentElement) {
+        if (toast) {
             toast.classList.add('hide');
             setTimeout(() => {
                 toast.remove();
             }, 300);
         }
-    }, 5000);
+    }, 3000);
 };
 
 window.showScreen = function(screenId) {
@@ -160,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bettingTimerDisplay = document.getElementById('bettingTimer');
     totalBankDisplay = document.getElementById('totalBank');
     gameCanvas = document.getElementById('gameCanvas');
-    gameAreaWrapper = document.getElementById('gameAreaWrapper');
+    gameAreaWrapper= document.getElementById('gameAreaWrapper');
     ball = document.getElementById('ball');
     playerNameInput = document.getElementById('playerNameInput');
     betAmountInput = document.getElementById('betAmountInput');
@@ -200,12 +280,11 @@ document.addEventListener('DOMContentLoaded', () => {
         checkHostTimerLogic();
     });
 
-    // Регистрация первого захода
     db.ref(`players/${myPlayerId}`).once('value', (snap) => {
         if (!snap.exists()) {
             db.ref(`players/${myPlayerId}`).set({
-                name: savedName || "Игрок_" + Math.floor(1000 + Math.random() * 9000),
-                balance: 5000, 
+                name: savedName || "Игрок",
+                balance: 100, 
                 totalBet: 0,
                 color: DISTINCT_COLORS[Math.floor(Math.random() * DISTINCT_COLORS.length)]
             });
@@ -232,7 +311,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     db.ref('gameState').on('value', (snapshot) => {
+        const oldState = gameState;
         gameState = snapshot.val() || { status: 'betting' };
+
+        // ПОБЕДНОЕ УВЕДОМЛЕНИЕ: Вызываем наше новое роскошное кастомное уведомление
+        if (gameState.status === 'finished' && oldState.status !== 'finished' && gameState.winnerName) {
+            if (gameState.winnerName !== 'Никто') {
+                showVictoryNotification(gameState.winnerName, gameState.winnerPrize, gameState.winnerColor || '#00FF88');
+            } else {
+                showToast("ИГРА В КАЛЬМАРА", "Раунд завершен! Победителей нет 🔴");
+            }
+        }
         syncGameWithDatabase();
     });
 
@@ -240,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistory(snapshot.val() || {});
     });
 
-    // ======= СЛУШАТЕЛИ РАКЕТЫ V3 =======
+    // ======= СЛУШАТЕЛИ РАКЕТЫ =======
     db.ref('rocketStateV3').on('value', (snapshot) => {
         rocketState = snapshot.val() || { status: 'betting', timerEnd: 0 };
         syncRocketState();
@@ -281,6 +370,9 @@ document.addEventListener('DOMContentLoaded', () => {
         impBetInput.addEventListener('input', updateImpMinesLabels);
     }
     
+    // Инициализируем автовывод Ракеты на 1.1x изначально при запуске
+    document.getElementById('rocketAutoToggle').checked = true;
+    document.getElementById('rocketAutoValue').textContent = "1.1x";
     toggleRocketAuto();
 });
 
@@ -624,7 +716,7 @@ window.startImpMines = function() {
     const cashoutBtn = document.getElementById('impCashoutBtn');
     const impMsg = document.getElementById('impMessage');
 
-    const bet = parseInt(betInput ? betInput.value : 0) || 0;
+    const bet = parseInt(betInput.value) || 0;
     const balance = players[myPlayerId]?.balance || 0;
 
     if (isNaN(bet) || bet < 10) {
@@ -893,64 +985,7 @@ function evaluateSpResult(stoppedAngle, bet) {
     betInput.disabled = false;
 }
 
-
-// ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР С ТАНГРАМ-ГЕОМЕТРИЕЙ И СТРЕЛКОЙ) =======
-
-// Находит крайнюю точку на периметре квадрата 400x400 по длине d (от 0 до 1600)
-function getPerimeterPoint(d) {
-    if (d <= 400) return { x: d, y: 0 }; 
-    if (d <= 800) return { x: 400, y: d - 400 }; 
-    if (d <= 1200) return { x: 1200 - d, y: 400 }; 
-    return { x: 0, y: 1600 - d }; 
-}
-
-// Получаем массив игроков с распределенными секторами на периметре 1600
-function getPlayersWithSegments() {
-    const active = Object.keys(players)
-        .filter(id => players[id] && players[id].totalBet > 0)
-        .map(id => ({ id, ...players[id] }))
-        .sort((a, b) => a.id.localeCompare(b.id)); 
-
-    const totalB = active.reduce((sum, p) => sum + p.totalBet, 0);
-    if (active.length === 0 || totalB === 0) return [];
-
-    const totalP = 1600; 
-    let currentD = 0;
-
-    return active.map((p) => {
-        const fraction = p.totalBet / totalB;
-        const size = fraction * totalP;
-        
-        const startD = currentD;
-        const endD = (currentD + size) % totalP;
-        currentD = (currentD + size) % totalP;
-
-        return { ...p, startD, endD, fraction };
-    });
-}
-
-// Нахождение игрока по текущим координатам шарика (угол от центра)
-function getPlayerUnderCoordinates(x, y) {
-    const segments = getPlayersWithSegments();
-    if (segments.length === 0) return null;
-
-    const dx = x - 200;
-    const dy = y - 200;
-    let ballAngle = Math.atan2(dy, dx);
-    if (ballAngle < 0) ballAngle += Math.PI * 2;
-
-    const targetD = (ballAngle / (Math.PI * 2)) * 1600;
-
-    const matched = segments.find(p => {
-        if (p.startD < p.endD) {
-            return targetD >= p.startD && targetD <= p.endD;
-        } else {
-            return targetD >= p.startD || targetD <= p.endD;
-        }
-    });
-
-    return matched || segments[segments.length - 1];
-}
+// ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР) [КРИСТАЛЬНЫЕ СЕКТОРЫ + НИКИ + АВАТАРЫ + СТРЕЛКА] =======
 
 function placeBet() {
     const status = gameState.status || 'betting';
@@ -1010,6 +1045,7 @@ function syncGameWithDatabase() {
             animationFrameId = null;
         }
         if (ball) ball.style.display = 'none';
+        arrowSpinning = false;
 
         if (gameState.timerEnd && gameState.timerEnd > 0) {
             if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'block';
@@ -1028,13 +1064,14 @@ function syncGameWithDatabase() {
             }
             stopLocalTimer();
         }
+        renderWheelSections();
     } 
     else if (status === 'running') {
         stopLocalTimer();
         if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'none';
         if (gameMessage) {
-            gameMessage.textContent = 'Идет розыгрыш!';
-            gameMessage.style.color = '#61dafb';
+            gameMessage.textContent = 'Определение направления...';
+            gameMessage.style.color = '#FFEB3B';
             gameMessage.style.backgroundColor = 'transparent';
         }
         if (!animationFrameId) {
@@ -1051,9 +1088,7 @@ function syncGameWithDatabase() {
             gameMessage.style.backgroundColor = gameState.winnerColor || '#61dafb';
             gameMessage.textContent = `Победил: ${gameState.winnerName} 🎉 (+${gameState.winnerPrize} ₽)`;
         }
-
-        // Всплытие кастомного 5-секундного 3D-уведомления для всех игроков
-        showToast("Победа в игре Кальмара!", `Игрок <b>${gameState.winnerName}</b> выиграл <span class="win-color"><b>+${gameState.winnerPrize} ₽</b></span>!`);
+        renderWheelSections();
     }
 }
 
@@ -1084,7 +1119,7 @@ function checkHostTimerLogic() {
 
     if (!isHost()) return;
 
-    const activePlayers = Object.values(players).filter(p => p && p.totalBet > 0);
+    const activePlayers = Object.values(players).filter(p => p.totalBet > 0);
     const status = gameState.status || 'betting';
     const now = getServerTime();
 
@@ -1153,78 +1188,86 @@ function generateDeterministicPath(angle) {
     return path;
 }
 
+// Запуск стрелки, крутящейся по часовой стрелке
 function startLocalRound(launchAngle) {
-    if (ball) ball.style.display = 'block';
+    if (ball) {
+        ball.style.display = 'block';
+        // Пока крутится стрелка, шарик стоит строго в центре
+        ballX = 200;
+        ballY = 200;
+        updateBallDOMPosition();
+    }
     currentPath = generateDeterministicPath(launchAngle);
+    
+    arrowSpinning = true;
+    arrowAngle = 0;
     animStartTime = Date.now();
+    
     animationFrameId = requestAnimationFrame(animateDeterministicBall);
 }
 
-// АНИМАЦИЯ ШАРИКА СО СТРЕЛКОЙ, НИКАМИ И ФИНАЛЬНОЙ ПОДСВЕТКОЙ
+// Утилита позиционирования шарика
+function updateBallDOMPosition() {
+    if (ball && gameAreaWrapper) {
+        const rect = gameAreaWrapper.getBoundingClientRect();
+        const borderSize = 6;
+        const actualSize = rect.width - (borderSize * 2);
+        const scale = actualSize / VIRTUAL_WIDTH;
+
+        const screenX = ballX * scale;
+        const screenY = ballY * scale;
+        const screenRadius = VIRTUAL_RADIUS * scale;
+
+        ball.style.width = `${screenRadius * 2}px`;
+        ball.style.height = `${screenRadius * 2}px`;
+        ball.style.left = `${screenX - screenRadius}px`;
+        ball.style.top = `${screenY - screenRadius}px`;
+    }
+}
+
 function animateDeterministicBall() {
     const elapsed = Date.now() - animStartTime;
-    
-    // 1. Фаза Спиннера стрелки (первые 2 секунды шарик стоит в центре, а стрелка крутится по часовой)
-    if (elapsed < 2000) {
-        ballX = 200;
-        ballY = 200;
-        
-        renderWheelSections(true, (elapsed * 0.01) % (Math.PI * 2));
-        
-        if (ball && gameAreaWrapper) {
-            const rect = gameAreaWrapper.getBoundingClientRect();
-            const borderSize = 6;
-            const actualSize = rect.width - (borderSize * 2);
-            const scale = actualSize / VIRTUAL_WIDTH;
 
-            ball.style.width = `${VIRTUAL_RADIUS * 2 * scale}px`;
-            ball.style.height = `${VIRTUAL_RADIUS * 2 * scale}px`;
-            ball.style.left = `${(200 - VIRTUAL_RADIUS) * scale}px`;
-            ball.style.top = `${(200 - VIRTUAL_RADIUS) * scale}px`;
-        }
+    // ФАЗА 1: Крутится стрелка по часовой стрелке, выбирая траекторию (2 секунды)
+    if (arrowSpinning) {
+        // Угол вращения стрелки по часовой стрелке
+        arrowAngle = (elapsed / arrowSpinDuration) * Math.PI * 6; // Сделает ровно 3 полных оборота
         
+        renderWheelSections();
+        
+        if (elapsed >= arrowSpinDuration) {
+            arrowSpinning = false;
+            animStartTime = Date.now(); // Перезапускаем таймер для полета шарика
+            if (gameMessage) {
+                gameMessage.textContent = 'Шарик запущен!';
+                gameMessage.style.color = '#00FF88';
+            }
+        }
         animationFrameId = requestAnimationFrame(animateDeterministicBall);
         return;
     }
 
-    // 2. Фаза Полета
-    const flightElapsed = elapsed - 2000;
+    // ФАЗА 2: Сам полет шарика по траектории
     const targetFps = 60;
-    const frameIndex = Math.floor((flightElapsed / 1000) * targetFps);
+    const frameIndex = Math.floor((elapsed / 1000) * targetFps);
 
     if (frameIndex < currentPath.length) {
         const coord = currentPath[frameIndex];
         ballX = coord.x;
         ballY = coord.y;
 
-        renderWheelSections(false);
-
-        if (ball && gameAreaWrapper) {
-            const rect = gameAreaWrapper.getBoundingClientRect();
-            const borderSize = 6;
-            const actualSize = rect.width - (borderSize * 2);
-            const scale = actualSize / VIRTUAL_WIDTH;
-
-            const screenX = ballX * scale;
-            const screenY = ballY * scale;
-            const screenRadius = VIRTUAL_RADIUS * scale;
-
-            ball.style.width = `${screenRadius * 2}px`;
-            ball.style.height = `${screenRadius * 2}px`;
-            ball.style.left = `${screenX - screenRadius}px`;
-            ball.style.top = `${screenY - screenRadius}px`;
-        }
-
+        updateBallDOMPosition();
+        renderWheelSections(); // Перерисовываем для динамического показа имени над летящим шариком
         animationFrameId = requestAnimationFrame(animateDeterministicBall);
     } else {
+        // Остановка
         const finalCoord = currentPath[currentPath.length - 1];
         ballX = finalCoord.x;
         ballY = finalCoord.y;
 
-        // Финальная фаза: подсветка победившего сегмента
-        renderWheelSections(false, 0, true);
-
         animationFrameId = null;
+        renderWheelSections(); // Финальный рендер с яркой подсветкой победившего полигона
+
         if (isHost()) {
             determineAndPublishWinner();
         }
@@ -1236,22 +1279,14 @@ function determineAndPublishWinner() {
     let winner = null;
     const totalBank = calculateTotalBank();
 
+    // Находим победителя по углу финального шарика относительно центра
     const dx = ballX - 200;
     const dy = ballY - 200;
-    let ballAngle = Math.atan2(dy, dx);
-    if (ballAngle < 0) ballAngle += Math.PI * 2; 
-
-    const totalP = 1600;
-    const targetD = (ballAngle / (Math.PI * 2)) * totalP;
+    let stopAngle = Math.atan2(dy, dx);
+    if (stopAngle < 0) stopAngle += Math.PI * 2;
 
     if (segments.length > 0) {
-        winner = segments.find(p => {
-            if (p.startD < p.endD) {
-                return targetD >= p.startD && targetD <= p.endD;
-            } else {
-                return targetD >= p.startD || targetD <= p.endD;
-            }
-        });
+        winner = segments.find(p => stopAngle >= p.startAngle && stopAngle < p.endAngle);
         if (!winner) winner = segments[segments.length - 1]; 
     }
 
@@ -1277,21 +1312,23 @@ function determineAndPublishWinner() {
             playerName: winner.name,
             winnerPrize: finalPrize,
             winnerChance: chancePct,
-            timestamp: firebase.database ? firebase.database.ServerValue.TIMESTAMP : Date.now()
+            timestamp: firebase.database.ServerValue.TIMESTAMP
         });
 
         db.ref('gameState').set({
             status: 'finished',
             winnerName: winner.name,
             winnerColor: winner.color,
-            winnerPrize: finalPrize
+            winnerPrize: finalPrize,
+            winnerAngle: stopAngle 
         });
     } else {
         db.ref('gameState').set({
             status: 'finished',
             winnerName: 'Никто',
             winnerColor: '#e57373',
-            winnerPrize: 0
+            winnerPrize: 0,
+            winnerAngle: -1
         });
     }
 
@@ -1326,8 +1363,84 @@ function resetRoomForNextRound() {
     });
 }
 
-// КРАСИВОЕ ДИАГОНАЛЬНОЕ РАЗДЕЛЕНИЕ ПОЛЯ И ВЫВОД НИКОВ НА CANVAS
-function renderWheelSections(drawArrow = false, arrowAngle = 0, highlightWinner = false) {
+// Преобразование процента по периметру квадрата в координаты (x, y) для постройки осколочных полигонов
+function getPerimeterPoint(f) {
+    const p = f * 1600;
+    if (p <= 400) return { x: p, y: 0 };                     // Верх
+    if (p <= 800) return { x: 400, y: p - 400 };             // Право
+    if (p <= 1200) return { x: 1200 - p, y: 400 };           // Низ
+    return { x: 0, y: 1600 - p };                            // Лево
+}
+
+// Построение полигона секторов с учетом углов квадрата (точно как на вашем скриншоте!)
+function getSegmentPolygon(f1, f2) {
+    const points = [{ x: 200, y: 200 }];
+    points.push(getPerimeterPoint(f1));
+    
+    const p1 = f1 * 1600;
+    let p2 = f2 * 1600;
+    if (p2 < p1) p2 += 1600; 
+
+    const corners = [400, 800, 1200, 1600];
+    for (let i = 0; i < corners.length; i++) {
+        let c = corners[i];
+        if (c > p1 && c < p2) {
+            const actualCorner = c % 1600;
+            if (actualCorner === 400) points.push({ x: 400, y: 0 });
+            else if (actualCorner === 800) points.push({ x: 400, y: 400 });
+            else if (actualCorner === 1200) points.push({ x: 0, y: 400 });
+            else if (actualCorner === 0) points.push({ x: 0, y: 0 });
+        }
+    }
+    
+    points.push(getPerimeterPoint(f2));
+    return points;
+}
+
+// Проверка нахождения точки внутри сложного полигона (Ray-casting алгоритм)
+function isPointInPolygon(px, py, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        let xi = polygon[i].x, yi = polygon[i].y;
+        let xj = polygon[j].x, yj = polygon[j].y;
+        let intersect = ((yi > py) !== (yj > py))
+            && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+// Формируем секторы игроков
+function getPlayersWithSegments() {
+    const active = Object.keys(players)
+        .filter(id => players[id].totalBet > 0)
+        .map(id => ({ id, ...players[id] }))
+        .sort((a, b) => a.id.localeCompare(b.id)); 
+
+    const totalB = active.reduce((sum, p) => sum + p.totalBet, 0);
+    if (active.length === 0 || totalB === 0) return [];
+
+    let currentAngle = 0;
+    const totalAngle = Math.PI * 2;
+
+    return active.map(p => {
+        const angleWidth = (p.totalBet / totalB) * totalAngle;
+        const startAngle = currentAngle;
+        const endAngle = currentAngle + angleWidth;
+        
+        // Переводим радиальные углы в проценты периметра квадрата
+        const f1 = startAngle / totalAngle;
+        const f2 = endAngle / totalAngle;
+        
+        const polygon = getSegmentPolygon(f1, f2);
+
+        currentAngle = endAngle;
+        return { ...p, startAngle, endAngle, angleWidth, polygon };
+    });
+}
+
+// Отрисовка поля, ников, аватарок, летящего ника над шариком и стрелки
+function renderWheelSections() {
     const canvas = document.getElementById('gameCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -1339,153 +1452,144 @@ function renderWheelSections(drawArrow = false, arrowAngle = 0, highlightWinner 
     if (segments.length === 0) {
         ctx.fillStyle = '#1e1e1e';
         ctx.fillRect(0, 0, 400, 400);
+        
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= 400; i += 40) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 400); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(400, i); ctx.stroke();
+        }
+        
+        ctx.fillStyle = '#888';
+        ctx.font = '16px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Сделайте ставку для запуска', 200, 200);
         return;
     }
 
-    let winningSegIndex = -1;
-    if (highlightWinner) {
-        const dx = ballX - 200;
-        const dy = ballY - 200;
-        let ballAngle = Math.atan2(dy, dx);
-        if (ballAngle < 0) ballAngle += Math.PI * 2;
-        const targetD = (ballAngle / (Math.PI * 2)) * 1600;
-
-        winningSegIndex = segments.findIndex(p => {
-            if (p.startD < p.endD) {
-                return targetD >= p.startD && targetD <= p.endD;
-            } else {
-                return targetD >= p.startD || targetD <= p.endD;
-            }
-        });
-    }
-
-    // Отрисовка геометрических диагональных сегментов (Калейдоскоп/Танграм)
-    segments.forEach((p, index) => {
-        const p1 = getPerimeterPoint(p.startD);
-        const p2 = getPerimeterPoint(p.endD);
-
+    // 1. Рисуем кристальные геометрические секторы
+    segments.forEach(p => {
         ctx.beginPath();
-        ctx.moveTo(200, 200);
-        ctx.lineTo(p1.x, p1.y);
-        
-        let tempD = p.startD;
-        const step = 10;
-        while (true) {
-            if (p.startD < p.endD) {
-                if (tempD >= p.endD) break;
-                tempD = Math.min(p.endD, tempD + step);
-            } else {
-                if (tempD >= p.endD && tempD < p.startD) break;
-                tempD = (tempD + step) % 1600;
-            }
-            const pt = getPerimeterPoint(tempD);
-            ctx.lineTo(pt.x, pt.y);
+        ctx.moveTo(p.polygon[0].x, p.polygon[0].y);
+        for (let i = 1; i < p.polygon.length; i++) {
+            ctx.lineTo(p.polygon[i].x, p.polygon[i].y);
         }
-
-        ctx.lineTo(p2.x, p2.y);
         ctx.closePath();
-
         ctx.fillStyle = p.color;
         ctx.fill();
 
-        // Свечение победителя (импульс)
-        if (highlightWinner && index === winningSegIndex) {
-            const glowPulse = Math.abs(Math.sin(Date.now() * 0.015));
-            ctx.fillStyle = `rgba(255, 255, 255, ${0.45 * glowPulse})`;
+        // Четкие белые границы
+        ctx.strokeStyle = '#121212';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Подсвечиваем победивший полигон, когда шарик ПОЛНОСТЬЮ остановился
+        if (gameState.status === 'finished' && gameState.winnerName === p.name) {
+            const glow = Math.sin(Date.now() * 0.015) * 0.2 + 0.4; 
+            ctx.fillStyle = `rgba(255, 255, 255, ${glow})`;
             ctx.fill();
-            ctx.lineWidth = 6;
             ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 5;
             ctx.stroke();
         }
 
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-        ctx.stroke();
+        // 2. Рисуем круглые белые аватарки игроков и их ники
+        const bisector = p.startAngle + p.angleWidth / 2;
+        const dist = 120; // Дистанция размещения аватара
+        const ax = 200 + Math.cos(bisector) * dist;
+        const ay = 200 + Math.sin(bisector) * dist;
 
-        // Отрисовка плашек с именами игроков
-        const cx = (200 + p1.x + p2.x) / 3;
-        const cy = (200 + p1.y + p2.y) / 3;
-
-        ctx.save();
         ctx.beginPath();
-        ctx.arc(cx, cy, 32, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(10, 5, 20, 0.75)';
+        ctx.arc(ax, ay, 18, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = p.color;
+        ctx.strokeStyle = '#121212';
+        ctx.lineWidth = 2;
         ctx.stroke();
 
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 10px Segoe UI, sans-serif';
+        ctx.fillStyle = '#121212';
+        ctx.font = 'bold 14px Segoe UI, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
-        const shortName = p.name ? (p.name.length > 8 ? p.name.slice(0, 7) + '..' : p.name) : "Игрок";
-        ctx.fillText(shortName, cx, cy - 5);
-        
-        ctx.fillStyle = '#00FF88';
-        ctx.font = '800 9px monospace';
-        ctx.fillText(`${p.totalBet} ₽`, cx, cy + 8);
-        ctx.restore();
+        ctx.fillText(p.name[0].toUpperCase(), ax, ay);
+
+        // Никнейм под аватаром
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 11px Segoe UI, sans-serif';
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 4;
+        ctx.fillText(p.name, ax, ay + 26);
+        ctx.shadowBlur = 0;
     });
 
-    // Рисуем красивую стрелку выбора направления шарика
-    if (drawArrow) {
+    // 3. Красивый темный центральный круг
+    ctx.beginPath();
+    ctx.arc(200, 200, 40, 0, Math.PI * 2);
+    ctx.fillStyle = '#121212';
+    ctx.fill();
+    ctx.strokeStyle = '#333333';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // 4. Отрисовка вращающейся стрелки перед вылетом
+    if (arrowSpinning) {
         ctx.save();
         ctx.translate(200, 200);
         ctx.rotate(arrowAngle);
         
         ctx.beginPath();
         ctx.moveTo(35, 0);
-        ctx.lineTo(15, -10);
-        ctx.lineTo(15, -4);
-        ctx.lineTo(0, -4);
-        ctx.lineTo(0, 4);
-        ctx.lineTo(15, 4);
-        ctx.lineTo(15, 10);
+        ctx.lineTo(15, -12);
+        ctx.lineTo(15, -5);
+        ctx.lineTo(-5, -5);
+        ctx.lineTo(-5, 5);
+        ctx.lineTo(15, 5);
+        ctx.lineTo(15, 12);
         ctx.closePath();
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.shadowColor = '#00FF88';
-        ctx.shadowBlur = 10;
+        
+        ctx.fillStyle = '#00FF88'; 
         ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
         ctx.restore();
     }
 
-    // ВЫВОД НИКА НАД ЛЕТЯЩИМ ШАРИКОМ В РЕАЛЬНОМ ВРЕМЕНИ
-    const state = gameState.status || 'betting';
-    if (state === 'running' && (ballX !== 200 || ballY !== 200)) {
-        const activePlayer = getPlayerUnderCoordinates(ballX, ballY);
+    // 5. ДИНАМИЧЕСКИЙ НИК НАД ЛЕТЯЩИМ ШАРИКОМ В РЕАЛЬНОМ ВРЕМЕНИ
+    if (!arrowSpinning && gameState.status === 'running') {
+        let activePlayer = null;
+        for (let p of segments) {
+            if (isPointInPolygon(ballX, ballY, p.polygon)) {
+                activePlayer = p;
+                break;
+            }
+        }
+
         if (activePlayer) {
             ctx.save();
             ctx.font = 'bold 11px Segoe UI, sans-serif';
-            ctx.textAlign = 'center';
-            const nameText = activePlayer.name || 'Игрок';
-            const textWidth = ctx.measureText(nameText).width;
+            const text = activePlayer.name;
+            const textW = ctx.measureText(text).width;
+            const tagW = textW + 12;
+            const tagH = 20;
+            const tx = ballX;
+            const ty = ballY - 22; // Смещение вверх над шариком
 
-            // Рисуем подложку-вывеску над шариком
-            const py = ballY - 22;
-            ctx.fillStyle = 'rgba(10, 5, 20, 0.85)';
+            // Фон под ник
+            ctx.fillStyle = 'rgba(18, 18, 18, 0.85)';
             ctx.strokeStyle = activePlayer.color;
             ctx.lineWidth = 1.5;
-            
             ctx.beginPath();
-            ctx.roundRect(ballX - (textWidth/2) - 8, py - 9, textWidth + 16, 18, 5);
+            ctx.rect(tx - tagW/2, ty - tagH/2, tagW, tagH);
             ctx.fill();
             ctx.stroke();
 
-            // Рисуем маленький указатель плашки
-            ctx.beginPath();
-            ctx.moveTo(ballX - 4, py + 9);
-            ctx.lineTo(ballX + 4, py + 9);
-            ctx.lineTo(ballX, py + 13);
-            ctx.closePath();
-            ctx.fillStyle = activePlayer.color;
-            ctx.fill();
-
             // Текст ника
             ctx.fillStyle = '#FFFFFF';
-            ctx.fillText(nameText, ballX, py + 3);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, tx, ty);
             ctx.restore();
         }
     }
@@ -1494,16 +1598,31 @@ function renderWheelSections(drawArrow = false, arrowAngle = 0, highlightWinner 
 
 // ======= ИГРА 6: ВЗЛЕТ РАКЕТЫ V3 =======
 
+// Честный генератор коэффициентов
 function generateCrashMultiplier() {
     const rand = Math.random();
-    if (rand < 0.05) return 1.00;
-    else if (rand < 0.40) return parseFloat((1.01 + Math.random() * 0.38).toFixed(2));
-    else if (rand < 0.85) return parseFloat((1.40 + Math.random() * 2.60).toFixed(2));
-    else if (rand < 0.95) return parseFloat((4.01 + Math.random() * 10.99).toFixed(2));
-    else if (rand < 0.99) return parseFloat((15.01 + Math.random() * 34.99).toFixed(2));
-    else return parseFloat((50.01 + Math.random() * 282.99).toFixed(2));
+    
+    if (rand < 0.05) {
+        return 1.00;
+    }
+    else if (rand < 0.40) {
+        return parseFloat((1.01 + Math.random() * 0.38).toFixed(2));
+    }
+    else if (rand < 0.85) {
+        return parseFloat((1.40 + Math.random() * 2.60).toFixed(2));
+    }
+    else if (rand < 0.95) {
+        return parseFloat((4.01 + Math.random() * 10.99).toFixed(2));
+    }
+    else if (rand < 0.99) {
+        return parseFloat((15.01 + Math.random() * 34.99).toFixed(2));
+    }
+    else {
+        return parseFloat((50.01 + Math.random() * 282.99).toFixed(2));
+    }
 }
 
+// Математическая кривая набора высоты
 function getRocketMult(elapsed, crashMult) {
     const t_10 = Math.log(10) / 0.07;
     if (crashMult >= 20 && elapsed > t_10) {
@@ -1512,37 +1631,38 @@ function getRocketMult(elapsed, crashMult) {
     return Math.exp(elapsed * 0.07);
 }
 
+// Управление автовыводом
 window.toggleRocketAuto = function() {
     const toggle = document.getElementById('rocketAutoToggle');
     const controls = document.getElementById('rocketAutoControls');
     
-    rocketAutoCashoutEnabled = toggle ? toggle.checked : false;
+    rocketAutoCashoutEnabled = toggle.checked;
     
     if (rocketAutoCashoutEnabled) {
-        if (controls) {
-            controls.style.opacity = '1';
-            controls.style.pointerEvents = 'auto';
-        }
+        controls.style.opacity = '1';
+        controls.style.pointerEvents = 'auto';
     } else {
-        if (controls) {
-            controls.style.opacity = '0.35';
-            controls.style.pointerEvents = 'none';
-        }
+        controls.style.opacity = '0.35';
+        controls.style.pointerEvents = 'none';
     }
 };
 
 window.changeRocketAutoMult = function(amount) {
     let newVal = parseFloat((rocketAutoCashoutMultiplier + amount).toFixed(1));
-    if (newVal < 1.1) return; // Меньше 1.1 спуститься нельзя
+    
+    // Блокируем спуск ниже 1.1x
+    if (newVal < 1.1) {
+        newVal = 1.1;
+    }
     
     rocketAutoCashoutMultiplier = newVal;
-    const valDisp = document.getElementById('rocketAutoValue');
-    if (valDisp) valDisp.textContent = `${rocketAutoCashoutMultiplier.toFixed(1)}x`;
+    document.getElementById('rocketAutoValue').textContent = `${rocketAutoCashoutMultiplier.toFixed(1)}x`;
     
-    const minusBtn = document.getElementById('rocketAutoMinus');
-    if (minusBtn) minusBtn.disabled = (rocketAutoCashoutMultiplier <= 1.1);
+    // Блокируем кнопку минус, если значение ровно 1.1x
+    document.getElementById('rocketAutoMinus').disabled = (rocketAutoCashoutMultiplier <= 1.1);
 };
 
+// Синхронизация состояний Ракеты
 function syncRocketState() {
     const status = rocketState ? (rocketState.status || 'betting') : 'betting';
     const timerOverlay = document.getElementById('rocketTimerOverlay');
@@ -1629,6 +1749,7 @@ function syncRocketState() {
             multDisp.style.display = 'block';
             multDisp.textContent = `${rocketState.crashMult ? rocketState.crashMult.toFixed(2) : '1.00'}x`;
             multDisp.style.color = '#ff1744';
+            multDisp.style.textShadow = '0 0 20px rgba(255, 23, 68, 0.8)';
         }
 
         if (betBtn) betBtn.disabled = true;
@@ -1642,6 +1763,7 @@ function syncRocketState() {
             msg.innerHTML = `💥 Ракета взорвалась на <span style="color:#ff1744; font-weight:bold;">${finalMult}x</span>`;
         }
 
+        // КЛИЕНТСКИЙ FALLBACK ДЛЯ АВТОВЫВОДА НА ВЗРЫВЕ
         if (rocketGameActive && !rocketIsCashed && rocketAutoCashoutEnabled) {
             if (rocketState.crashMult >= rocketAutoCashoutMultiplier) {
                 cashoutRocket(rocketAutoCashoutMultiplier);
@@ -1654,6 +1776,7 @@ function syncRocketState() {
     }
 }
 
+// Запуск обратного отсчета в фазе ставок
 function startRocketBettingTimer(timerEnd) {
     if (rocketTimerInterval) {
         clearInterval(rocketTimerInterval);
@@ -1691,6 +1814,7 @@ function startRocketBettingTimer(timerEnd) {
     }, 100);
 }
 
+// Оптимизированная и плавная анимация полета ракеты
 function startRocketFlightAnimation(launchTime) {
     const stars = document.querySelector('.stars-container');
     const rocketActor = document.getElementById('rocketActor');
@@ -1718,18 +1842,11 @@ function startRocketFlightAnimation(launchTime) {
         }
 
         if (rocketActor) {
-            const verticalPos = Math.min(130, 20 + elapsed * 12);
-            const shake = Math.sin(now * 0.12) * 3;
+            const verticalPos = Math.min(130, 20 + elapsed * 10);
             rocketActor.style.bottom = `${verticalPos}px`;
-            rocketActor.style.transform = `translateX(${shake}px)`;
         }
 
-        if (stars) {
-            const rateLimit = (rocketState.crashMult >= 20 && currentMult > 10) ? 0.05 : 0.15;
-            const animSpeed = Math.max(0.08, 3.5 / (1 + elapsed * (1 / rateLimit * 0.02)));
-            stars.style.animationDuration = `${animSpeed}s`;
-        }
-
+        // Автовывод в реальном времени
         if (rocketGameActive && !rocketIsCashed && rocketState.status === 'flying') {
             if (rocketAutoCashoutEnabled && currentMult >= rocketAutoCashoutMultiplier) {
                 cashoutRocket(rocketAutoCashoutMultiplier);
@@ -1754,10 +1871,11 @@ function startRocketFlightAnimation(launchTime) {
     rocketLoopId = requestAnimationFrame(tick);
 }
 
+// Ставка в ракете
 window.placeRocketBet = function() {
     const status = rocketState ? (rocketState.status || 'betting') : 'betting';
     if (status !== 'betting') {
-        alert('Ставки закрыты!');
+        alert('Ставки закрыты! Ракета уже в полете или взорвалась.');
         return;
     }
     if (rocketGameActive) return;
@@ -1767,11 +1885,11 @@ window.placeRocketBet = function() {
     const balance = players[myPlayerId]?.balance || 0;
 
     if (isNaN(amount) || amount < 5) {
-        alert('Минимальная ставка — 5 ₽!');
+        alert('Минимальная ставка в Ракете — 5 ₽!');
         return;
     }
     if (amount > balance) {
-        alert(`Недостаточно средств!`);
+        alert(`Недостаточно средств! Ваш текущий баланс: ${parseFloat(balance.toFixed(3))} ₽`);
         return;
     }
 
@@ -1794,10 +1912,20 @@ window.placeRocketBet = function() {
                 status: 'active',
                 color: myData.color || '#BA68C8'
             });
+
+            const msg = document.getElementById('rocketMessage');
+            if (msg) {
+                msg.textContent = 'Ставка принята! Ожидаем старт...';
+                msg.style.color = '#00FF88';
+            }
+        } else {
+            if (betBtn) betBtn.disabled = false;
+            alert('Ошибка выполнения транзакции списания средств.');
         }
     });
 }
 
+// Забрать деньги
 window.cashoutRocket = function(forcedMult) {
     if (!rocketGameActive || rocketIsCashed || rocketState.status !== 'flying') return;
 
@@ -1809,8 +1937,9 @@ window.cashoutRocket = function(forcedMult) {
 
     if (liveMult >= rocketState.crashMult) {
         if (forcedMult && rocketState.crashMult >= forcedMult) {
+            // Ок
         } else {
-            alert('Не успели!');
+            alert('Не успели! Ракета уже потерпела крушение.');
             return;
         }
     }
@@ -1830,11 +1959,26 @@ window.cashoutRocket = function(forcedMult) {
                 cashoutMult: currentMult
             });
 
-            showToast("Выигрыш получен!", `Вы успешно забрали на <b>x${currentMult.toFixed(2)}</b>. На счет начислено <span class="win-color"><b>+${winnings} ₽</b></span>!`);
+            if (forcedMult) {
+                showToast("Успешный автовывод!", `Поздравляем! Ваш автовывод сработал на <b>x${currentMult.toFixed(1)}</b>. На счет начислено <span class="win-color"><b>+${winnings} ₽</b></span>!`);
+            } else {
+                showToast("Выигрыш получен!", `Вы успешно катапультировались на коэффициенте <b>x${currentMult.toFixed(2)}</b>. На счет начислено <span class="win-color"><b>+${winnings} ₽</b></span>!`);
+            }
+
+            const msg = document.getElementById('rocketMessage');
+            if (msg) {
+                msg.innerHTML = `🎉 Забрали <span class="win-color">+${winnings} ₽</span> (на x${currentMult})`;
+                msg.style.color = '#00FF88';
+            }
+        } else {
+            rocketIsCashed = false;
+            if (cashoutBtn) cashoutBtn.disabled = false;
+            alert('Не удалось связаться с базой данных для выплаты.');
         }
     });
 }
 
+// Отображение ставок всех участников раунда
 function renderRocketBets(betsData) {
     const listContainer = document.getElementById('rocketBetsList');
     if (!listContainer) return;
@@ -1862,9 +2006,9 @@ function renderRocketBets(betsData) {
         }
 
         div.innerHTML = `
-            <div class="avatar" style="background:${b.color}; color:black;">${b.name ? b.name[0].toUpperCase() : 'П'}</div>
+            <div class="avatar" style="background:${b.color}; color:black;">${b.name[0].toUpperCase()}</div>
             <div class="bet-info">
-                <strong>${b.name || 'Игрок'}</strong>
+                <strong>${b.name}</strong>
                 <span>Ставка: ${b.betAmount} ₽</span>
             </div>
             <div class="bet-chance">${statusText}</div>
@@ -1873,12 +2017,13 @@ function renderRocketBets(betsData) {
     });
 }
 
+// Последние 10 результатов полета
 function renderRocketHistory(historyList) {
     const bar = document.getElementById('rocketHistory');
     if (!bar) return;
     bar.innerHTML = '';
 
-    if (!historyList || historyList.length === 0) {
+    if (historyList.length === 0) {
         bar.innerHTML = '<span class="rocket-hist-empty">История пуста...</span>';
         return;
     }
@@ -1888,55 +2033,57 @@ function renderRocketHistory(historyList) {
         const span = document.createElement('span');
         span.className = 'rocket-hist-item';
         
-        if (val < 1.5) span.classList.add('mult-grey');
-        else if (val < 5.0) span.classList.add('mult-green');
-        else if (val < 20.0) span.classList.add('mult-gold');
-        else span.classList.add('mult-cyan');
+        if (val < 1.5) span.className += ' mult-grey';
+        else if (val < 5.0) span.className += ' mult-green';
+        else if (val < 20.0) span.className += ' mult-gold';
+        else span.className += ' mult-cyan';
 
         span.textContent = `${val.toFixed(2)}x`;
         bar.appendChild(span);
     });
 }
 
-// Постоянный тактовый интервал хоста
+// ПОСТОЯННЫЙ ТАКТОВЫЙ ИНТЕРВАЛ ХОСТА
 setInterval(() => {
     if (isHost()) {
         checkHostRocketLogic();
     }
-}, 250);
+}, 150);
 
 let lastRocketStateUpdate = 0; 
 
+// Сетевая хост-логика Ракеты V3 с АВТОНОМНЫМ САМОИСЦЕЛЕНИЕМ (БЕСКОНЕЧНЫЙ ЦИКЛ БЕЗ ИГРОКОВ)
 function checkHostRocketLogic() {
     if (!isHost()) return;
 
     const now = getServerTime();
+    
     if (now - lastRocketStateUpdate < 200) return;
 
     const current = rocketState || { status: 'betting', timerEnd: 0 };
     const stateRef = db.ref('rocketStateV3');
 
-    const isStale = (current.status === 'flying' && current.launchTime && (now - current.launchTime > 90000)) ||
-                    (current.status === 'crashed' && current.crashedTime && (now - current.crashedTime > 15000)) ||
-                    (current.status === 'betting' && current.timerEnd && (now - current.timerEnd > 25000));
-
-    if (isStale) {
+    // ================= СИСТЕМА АВТОНОМНОГО САМОИСЦЕЛЕНИЯ (SELF-HEALING) =================
+    // Если последний запуск игры завис более чем на 25 секунд назад, игра идет вхолостую
+    // без реальных игроков. Хост автоматически прокручивает раунды, пишет симуляционные коэффициенты в ленту истории
+    // и мгновенно перезапускает цикл! Ракета больше никогда не будет стоять на месте.
+    const lastActiveTime = current.crashedTime || current.launchTime || current.timerEnd || 0;
+    if (lastActiveTime > 0 && (now - lastActiveTime > 25000)) {
         lastRocketStateUpdate = now;
-        db.ref('rocketBetsV3').remove();
-
+        
+        // Добавляем от 3 до 6 случайных крашей в историю за время вашего отсутствия
         db.ref('rocketHistoryV3').once('value').then((histSnap) => {
             let hList = histSnap.val() || [];
             if (!Array.isArray(hList)) hList = [];
-            
-            const missingGamesCount = Math.floor(Math.random() * 4) + 3;
-            for (let i = 0; i < missingGamesCount; i++) {
+            const simCount = Math.floor(Math.random() * 4) + 3;
+            for (let i = 0; i < simCount; i++) {
                 hList.push(generateCrashMultiplier());
             }
-            while (hList.length > 10) hList.shift();
-            
+            if (hList.length > 10) hList = hList.slice(-10);
             db.ref('rocketHistoryV3').set(hList);
         });
 
+        db.ref('rocketBetsV3').remove();
         stateRef.set({
             status: 'betting',
             timerEnd: now + 10000,
@@ -1946,6 +2093,7 @@ function checkHostRocketLogic() {
         });
         return;
     }
+    // ===================================================================================
 
     if (current.status === 'betting') {
         if (!current.timerEnd || current.timerEnd === 0) {
@@ -1956,6 +2104,7 @@ function checkHostRocketLogic() {
             });
         } else if (now >= current.timerEnd) {
             lastRocketStateUpdate = now;
+            
             const chosenMult = generateCrashMultiplier();
 
             stateRef.set({
@@ -2048,7 +2197,7 @@ window.requestWithdraw = function() {
         return;
     }
     if (amount > balance) {
-        alert(`Недостаточно средств!`);
+        alert(`Недостаточно средств! Ваш текущий баланс: ${parseFloat(balance.toFixed(3))} ₽`);
         return;
     }
 
@@ -2056,19 +2205,25 @@ window.requestWithdraw = function() {
         return parseFloat(((current || 0) - amount).toFixed(3));
     }, (error, committed) => {
         if (committed) {
-            alert("Ваша выплата оформлена. Зачисление произойдет в течении 1-365 дней.");
+            alert(
+                "Ваша выплата оформлена. Ждите поступление средств в течении 365 дней. " +
+                "В случае, если средства не поступят, напишите в поддержку. Поддержка вам не ответит :)\n\n" +
+                "Всего вам доброго!"
+            );
             
             document.getElementById('withdrawCardInput').value = '';
             document.getElementById('withdrawBankInput').value = '';
             amountInput.value = '';
 
             showScreen('lobbyScreen');
+        } else {
+            alert('Ошибка выполнения транзакции вывода. Попробуйте еще раз.');
         }
     });
 }
 
 
-// ======= ДЕПОЗИТЫ И АДМИН ПАНЕЛЬ =======
+// ======= DEPOSITS AND ADMIN PANEL =======
 
 window.openDepositModal = function() {
     document.getElementById('depositModal').style.display = 'block';
@@ -2094,7 +2249,7 @@ window.goToDepositStep2 = function() {
 
 window.sendDepositRequest = function() {
     const amount = parseInt(document.getElementById('depositAmountInput').value);
-    const name = players[myPlayerId]?.name || "Без имени";
+    const name = (playerNameInput ? playerNameInput.value.trim() : "Без имени") || "Без имени";
 
     const reqRef = db.ref('deposit_requests').push();
     reqRef.set({
@@ -2150,12 +2305,12 @@ window.declineDeposit = function(reqId) {
 }
 
 function calculateTotalBank() {
-    return Object.values(players).reduce((acc, p) => acc + (p ? (p.totalBet || 0) : 0), 0);
+    return Object.values(players).reduce((acc, p) => acc + (p.totalBet || 0), 0);
 }
 
 function renderBets() {
     if (!betList) return;
-    const active = Object.values(players).filter(p => p && p.totalBet > 0).sort((a, b) => b.totalBet - a.totalBet);
+    const active = Object.values(players).filter(p => p.totalBet > 0).sort((a, b) => b.totalBet - a.totalBet);
     const totalB = calculateTotalBank();
 
     betList.innerHTML = '';
@@ -2171,13 +2326,13 @@ function renderBets() {
         item.className = 'bet-item';
         item.style.borderLeft = `4px solid ${p.color}`;
         item.innerHTML = `
-            <div class="avatar" style="background:${p.color}">${p.name ? p.name[0].toUpperCase() : 'И'}</div>
+            <div class="avatar" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
             <div class="bet-info">
-                <strong>${p.name || 'Игрок'}</strong> 
+                <strong>${p.name}</strong> 
                 <span>${p.totalBet} ₽</span>
             </div>
             <div class="bet-chance">${percentage}%</div>
         `;
         betList.appendChild(item);
     });
-              }
+}
