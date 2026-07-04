@@ -9,9 +9,32 @@ const firebaseConfig = {
   appId: "1:856460439104:web:0e386cc2afca3b655af9a5"
 };
 
-// Инициализируем Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+// Проверяем, загрузились ли скрипты Firebase
+let db = null;
+let isOfflineMode = false;
+
+// Глобальное хранилище данных для автономного (офлайн) режима
+let offlineDbStore = {
+    players: {},
+    gameState: { status: 'betting', timerEnd: 0 },
+    rocketStateV3: { status: 'betting', timerEnd: 0, crashMult: 0, launchTime: 0 },
+    rocketBetsV3: {},
+    rocketHistoryV3: [1.2, 2.4, 1.05, 15.2, 1.8, 4.3, 1.15, 3.2, 5.1, 1.3],
+    history: []
+};
+
+// Попытка инициализации Firebase
+try {
+    if (window.firebaseLoadError || typeof firebase === 'undefined') {
+        throw new Error("Firebase SDK blocked by AdBlock or network error.");
+    }
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+} catch (e) {
+    console.warn("Включаем локальный режим песочницы: " + e.message);
+    isOfflineMode = true;
+    initOfflineDatabase();
+}
 
 // ======= Глобальные переменные состояния =======
 let myPlayerId = localStorage.getItem('roulette_player_id');
@@ -100,7 +123,7 @@ let rocketTimerInterval = null;
 
 // ПЕРЕМЕННЫЕ АВТОВЫВОДА РАКЕТЫ
 let rocketAutoCashoutEnabled = false;
-let rocketAutoCashoutMultiplier = 1.1; // Изначально установлено строго на 1.1x
+let rocketAutoCashoutMultiplier = 1.1; // По умолчанию строго 1.1x
 
 // DOM элементы
 let bettingTimerDisplay, totalBankDisplay, gameCanvas, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, historyList, gameMessage;
@@ -110,8 +133,141 @@ function getServerTime() {
 }
 
 function isHost() {
+    if (isOfflineMode) return true; // В офлайне мы всегда хост
     if (onlinePlayers.length === 0) return false;
     return onlinePlayers[0] === myPlayerId;
+}
+
+// ЭМУЛЯЦИЯ FIREBASE ДЛЯ АВТОНОМНОЙ РАБОТЫ (Если AdBlock режет Firebase)
+function initOfflineDatabase() {
+    const savedName = localStorage.getItem('roulette_player_name') || "Игрок";
+    
+    // В песочнице выдаем щедрый баланс 50 000 рублей чтобы вдоволь наиграться!
+    offlineDbStore.players[myPlayerId] = {
+        name: savedName,
+        balance: 50000, 
+        totalBet: 0,
+        color: '#D500F9'
+    };
+
+    // Добавляем виртуальных игроков для массовки
+    const botNames = ["MegaGamer", "LuckyBoy", "CrazyCrash", "T-Rex", "Slayer99"];
+    botNames.forEach((name, i) => {
+        offlineDbStore.players[`bot_${i}`] = {
+            name: name,
+            balance: 15000,
+            totalBet: 0,
+            color: DISTINCT_COLORS[(i + 1) % DISTINCT_COLORS.length]
+        };
+    });
+
+    // Мокаем объект БД
+    db = {
+        ref: function(path) {
+            return {
+                on: function(event, callback) {
+                    setTimeout(() => {
+                        if (path === 'players') callback({ val: () => offlineDbStore.players });
+                        else if (path === `players/${myPlayerId}`) callback({ val: () => offlineDbStore.players[myPlayerId], exists: () => true });
+                        else if (path === 'gameState') callback({ val: () => offlineDbStore.gameState });
+                        else if (path === 'rocketStateV3') callback({ val: () => offlineDbStore.rocketStateV3 });
+                        else if (path === 'rocketBetsV3') callback({ val: () => offlineDbStore.rocketBetsV3 });
+                        else if (path === 'rocketHistoryV3') callback({ val: () => offlineDbStore.rocketHistoryV3 });
+                        else if (path === 'history') callback({ val: () => offlineDbStore.history });
+                    }, 50);
+                    // Сохраняем листенер для офлайн-триггеров
+                    if (!this._listeners) this._listeners = {};
+                    this._listeners[path] = callback;
+                },
+                once: function(event) {
+                    return new Promise((resolve) => {
+                        if (path === `players/${myPlayerId}`) {
+                            resolve({ exists: () => true, val: () => offlineDbStore.players[myPlayerId] });
+                        } else if (path === 'rocketHistoryV3') {
+                            resolve({ val: () => offlineDbStore.rocketHistoryV3 });
+                        } else if (path === 'rocketBetsV3') {
+                            resolve({ val: () => offlineDbStore.rocketBetsV3 });
+                        }
+                    });
+                },
+                set: function(val) {
+                    setOfflineValue(path, val);
+                },
+                update: function(val) {
+                    updateOfflineValue(path, val);
+                },
+                remove: function() {
+                    setOfflineValue(path, null);
+                },
+                push: function() {
+                    return {
+                        key: `push_${Math.random()}`,
+                        set: (val) => {}
+                    };
+                },
+                transaction: function(transactionFunction, onComplete) {
+                    let currentVal = getOfflineValue(path);
+                    let newVal = transactionFunction(currentVal);
+                    setOfflineValue(path, newVal);
+                    if (onComplete) onComplete(null, true);
+                }
+            };
+        }
+    };
+}
+
+function getOfflineValue(path) {
+    if (path.startsWith('players/')) {
+        const parts = path.split('/');
+        return offlineDbStore.players[parts[1]] ? offlineDbStore.players[parts[1]].balance : 0;
+    }
+    return offlineDbStore[path];
+}
+
+function setOfflineValue(path, val) {
+    if (path.startsWith('players/')) {
+        const parts = path.split('/');
+        if (offlineDbStore.players[parts[1]]) {
+            offlineDbStore.players[parts[1]].balance = val;
+        }
+    } else {
+        offlineDbStore[path] = val;
+    }
+    triggerOfflineListeners(path);
+}
+
+function updateOfflineValue(path, val) {
+    if (path.startsWith('players/')) {
+        const parts = path.split('/');
+        if (offlineDbStore.players[parts[1]]) {
+            Object.assign(offlineDbStore.players[parts[1]], val);
+        }
+    } else if (path.startsWith('rocketBetsV3/')) {
+        const parts = path.split('/');
+        if (offlineDbStore.rocketBetsV3[parts[1]]) {
+            Object.assign(offlineDbStore.rocketBetsV3[parts[1]], val);
+        }
+    } else {
+        Object.assign(offlineDbStore[path], val);
+    }
+    triggerOfflineListeners(path);
+}
+
+function triggerOfflineListeners(path) {
+    // Триггерим листенеры для реактивного обновления UI в офлайне
+    const list = ['players', `players/${myPlayerId}`, 'gameState', 'rocketStateV3', 'rocketBetsV3', 'rocketHistoryV3', 'history'];
+    list.forEach(p => {
+        const callback = db.ref(p)._listeners ? db.ref(p)._listeners[p] : null;
+        if (callback) {
+            if (p === 'players') callback({ val: () => offlineDbStore.players });
+            else if (p === `players/${myPlayerId}`) callback({ val: () => offlineDbStore.players[myPlayerId] });
+            else if (p === 'gameState') callback({ val: () => offlineDbStore.gameState });
+            else if (p === 'rocketStateV3') callback({ val: () => offlineDbStore.rocketStateV3 });
+            else if (p === 'rocketBetsV3') callback({ val: () => offlineDbStore.rocketBetsV3 });
+            else if (p === 'rocketHistoryV3') callback({ val: () => offlineDbStore.rocketHistoryV3 });
+            else if (p === 'history') callback({ val: () => offlineDbStore.history });
+        }
+    });
 }
 
 // КРАСИВЫЕ CUSTOM TOAST-УВЕДОМЛЕНИЯ НА САЙТЕ
@@ -183,12 +339,22 @@ document.addEventListener('DOMContentLoaded', () => {
         initAdminPanel();
     }
 
+    // Если мы в сети, ставим таймаут: если за 2.5с база не ответит — врубаем офлайн!
+    let connectionTimeout = setTimeout(() => {
+        if (Object.keys(players).length === 0) {
+            isOfflineMode = true;
+            initOfflineDatabase();
+            showToast("Режим Песочницы", "Firebase заблокирован AdBlock или нет сети. Включен автономный режим с балансом 50 000 ₽!");
+        }
+    }, 2500);
+
     db.ref('.info/serverTimeOffset').on('value', (snap) => {
         serverOffset = snap.val() || 0;
     });
 
     db.ref('.info/connected').on('value', (snap) => {
         if (snap.val() === true) {
+            clearTimeout(connectionTimeout);
             const presenceRef = db.ref(`presence/${myPlayerId}`);
             presenceRef.set(true);
             presenceRef.onDisconnect().remove();
@@ -215,6 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
         players = snapshot.val() || {};
         const me = players[myPlayerId];
         if (me) {
+            clearTimeout(connectionTimeout);
             if (document.getElementById('userWelcome')) {
                 document.getElementById('userWelcome').textContent = me.name || "Игрок";
             }
@@ -280,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         impBetInput.addEventListener('input', updateImpMinesLabels);
     }
     
-    // Инициализация выключения контроллеров автовывода
+    // Инициализация автовывода (блокировка кнопки «-» при старте)
     toggleRocketAuto();
 });
 
@@ -624,7 +791,7 @@ window.startImpMines = function() {
     const cashoutBtn = document.getElementById('impCashoutBtn');
     const impMsg = document.getElementById('impMessage');
 
-    const bet = parseInt(impBetInput ? impBetInput.value : 0) || 0;
+    const bet = parseInt(betInput ? betInput.value : 0) || 0;
     const balance = players[myPlayerId]?.balance || 0;
 
     if (isNaN(bet) || bet < 10) {
@@ -1488,7 +1655,7 @@ window.toggleRocketAuto = function() {
 
 window.changeRocketAutoMult = function(amount) {
     let newVal = parseFloat((rocketAutoCashoutMultiplier + amount).toFixed(1));
-    if (newVal < 1.1) return;
+    if (newVal < 1.1) return; // Меньше 1.1x спуститься нельзя
     
     rocketAutoCashoutMultiplier = newVal;
     const valDisp = document.getElementById('rocketAutoValue');
