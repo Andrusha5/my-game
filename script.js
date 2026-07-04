@@ -1,4 +1,4 @@
-// ======= НАСТРОЙКИ СВЯЗИ =======
+// ======= НАСТРОЙКИ FIREBASE =======
 const firebaseConfig = {
   apiKey: "AIzaSyDaqDEFnRgoOoQRpoQoZ5_OZq4FywdbByM",
   authDomain: "checkers-roulette.firebaseapp.com",
@@ -8,6 +8,10 @@ const firebaseConfig = {
   messagingSenderId: "856460439104",
   appId: "1:856460439104:web:0e386cc2afca3b655af9a5"
 };
+
+// Инициализируем Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
 const DISTINCT_COLORS = [
     '#651FFF', '#FF1744', '#00ff15', '#FF6D00', '#00E5FF', '#e100ff', '#eeff00', '#0026ff', '#a7ff03'
@@ -19,276 +23,13 @@ if (!myPlayerId) {
     localStorage.setItem('roulette_player_id', myPlayerId);
 }
 
-// ======= УМНЫЙ КЛИЕНТСКИЙ МОСТ (DATABASE PROXY) =======
-class DatabaseWrapper {
-    constructor() {
-        this.activeDb = null;
-        this.listeners = []; // Накопленные подписки { path, event, callback, limit }
-        this.isLocal = false;
-    }
-
-    setBackend(dbEngine, isLocalBackend) {
-        this.activeDb = dbEngine;
-        this.isLocal = isLocalBackend;
-        
-        // Перерегистрируем все активные подписки на новый движок
-        this.listeners.forEach(lis => {
-            let reference = this.activeDb.ref(lis.path);
-            if (lis.limit) {
-                reference = reference.limitToLast(lis.limit);
-            }
-            reference.on(lis.event, lis.callback);
-        });
-    }
-
-    ref(path) {
-        const self = this;
-        let limitVal = null;
-        
-        const refObj = {
-            limitToLast(num) {
-                limitVal = num;
-                return this;
-            },
-            on(event, callback) {
-                self.listeners.push({ path, event, callback, limit: limitVal });
-                if (self.activeDb) {
-                    let reference = self.activeDb.ref(path);
-                    if (limitVal) reference = reference.limitToLast(limitVal);
-                    reference.on(event, callback);
-                }
-            },
-            once(event, callback) {
-                if (self.activeDb) {
-                    let reference = self.activeDb.ref(path);
-                    if (limitVal) reference = reference.limitToLast(limitVal);
-                    return reference.once(event, callback);
-                }
-                return Promise.resolve({ exists: () => false, val: () => null });
-            },
-            set(val) {
-                if (self.activeDb) return self.activeDb.ref(path).set(val);
-                return Promise.resolve();
-            },
-            update(val) {
-                if (self.activeDb) return self.activeDb.ref(path).update(val);
-                return Promise.resolve();
-            },
-            remove() {
-                if (self.activeDb) return self.activeDb.ref(path).remove();
-                return Promise.resolve();
-            },
-            push() {
-                if (self.activeDb) return self.activeDb.ref(path).push();
-                const key = 'local_' + Math.random().toString(36).substring(2, 9);
-                return { 
-                    key: key, 
-                    set: (val) => {
-                        if (self.isLocal) self.activeDb.ref(path + '/' + key).set(val);
-                        return Promise.resolve();
-                    } 
-                };
-            },
-            transaction(fn, onComplete) {
-                if (self.activeDb) return self.activeDb.ref(path).transaction(fn, onComplete);
-                return Promise.resolve();
-            }
-        };
-        return refObj;
-    }
-}
-
-// Создаем глобальный прокси
-const db = new DatabaseWrapper();
-
-// ======= КЛИЕНТСКАЯ АВТОНОМНАЯ БАЗА ДАННЫХ =======
-class LocalDatabase {
-    constructor() {
-        const savedName = localStorage.getItem('roulette_player_name') || "Игрок";
-        this.store = {
-            players: {},
-            gameState: { status: 'betting', timerEnd: 0 },
-            rocketStateV3: { status: 'betting', timerEnd: 0, crashMult: 0, launchTime: 0 },
-            rocketBetsV3: {},
-            rocketHistoryV3: [1.2, 2.4, 1.05, 15.2, 1.8, 4.3, 1.15, 3.2, 5.1, 1.3],
-            history: {},
-            deposit_requests: {}
-        };
-        this.callbacks = {};
-
-        // Создаем профиль игрока в локалке с балансом 10 000 ₽
-        this.store.players[myPlayerId] = {
-            name: savedName,
-            balance: 10000,
-            totalBet: 0,
-            color: '#D500F9'
-        };
-
-        // Заселяем мир ботами
-        const botNames = ["MegaGamer", "LuckyGuy", "NeonRacer", "Slayer", "T-Rex"];
-        botNames.forEach((name, i) => {
-            this.store.players[`bot_${i}`] = {
-                name: name,
-                balance: 15000,
-                totalBet: 0,
-                color: DISTINCT_COLORS[(i + 1) % DISTINCT_COLORS.length]
-            };
-        });
-    }
-
-    ref(path) {
-        const self = this;
-        const refObj = {
-            limitToLast(num) { return this; },
-            on(event, callback) {
-                if (!self.callbacks[path]) self.callbacks[path] = [];
-                self.callbacks[path].push(callback);
-                setTimeout(() => { callback(self._makeSnapshot(path)); }, 10);
-            },
-            once(event) {
-                return Promise.resolve(self._makeSnapshot(path));
-            },
-            set(val) {
-                self._setValue(path, val);
-                return Promise.resolve();
-            },
-            update(val) {
-                self._updateValue(path, val);
-                return Promise.resolve();
-            },
-            remove() {
-                self._setValue(path, null);
-                return Promise.resolve();
-            },
-            push() {
-                const key = 'push_' + Math.random().toString(36).substring(2, 9);
-                return {
-                    key: key,
-                    set: (val) => {
-                        self._setValue(path + '/' + key, val);
-                        return Promise.resolve();
-                    }
-                };
-            },
-            transaction(fn, onComplete) {
-                const currentVal = self._getValue(path);
-                const newVal = fn(currentVal);
-                self._setValue(path, newVal);
-                if (onComplete) onComplete(null, true, self._makeSnapshot(path));
-                return Promise.resolve();
-            }
-        };
-        return refObj;
-    }
-
-    _makeSnapshot(path) {
-        const val = this._getValue(path);
-        return {
-            val: () => val,
-            exists: () => val !== undefined && val !== null,
-            key: path.split('/').pop()
-        };
-    }
-
-    _getValue(path) {
-        const parts = path.split('/');
-        let current = this.store;
-        for (let part of parts) {
-            if (current === undefined || current === null) return null;
-            current = current[part];
-        }
-        return current;
-    }
-
-    _setValue(path, val) {
-        const parts = path.split('/');
-        let current = this.store;
-        for (let i = 0; i < parts.length - 1; i++) {
-            if (!current[parts[i]]) current[parts[i]] = {};
-            current = current[parts[i]];
-        }
-        current[parts[parts.length - 1]] = val;
-        this._trigger(path);
-    }
-
-    _updateValue(path, val) {
-        const parts = path.split('/');
-        let current = this.store;
-        for (let i = 0; i < parts.length - 1; i++) {
-            if (!current[parts[i]]) current[parts[i]] = {};
-            current = current[parts[i]];
-        }
-        const targetKey = parts[parts.length - 1];
-        if (!current[targetKey] || typeof current[targetKey] !== 'object') {
-            current[targetKey] = {};
-        }
-        Object.assign(current[targetKey], val);
-        this._trigger(path);
-    }
-
-    _trigger(path) {
-        const parts = path.split('/');
-        let currentPath = '';
-        for (let i = 0; i < parts.length; i++) {
-            currentPath = currentPath ? currentPath + '/' + parts[i] : parts[i];
-            if (this.callbacks[currentPath]) {
-                this.callbacks[currentPath].forEach(cb => {
-                    cb(this._makeSnapshot(currentPath));
-                });
-            }
-        }
-        Object.keys(this.callbacks).forEach(listenerPath => {
-            if (listenerPath.startsWith(path + '/')) {
-                const cbList = this.callbacks[listenerPath];
-                if (cbList) cbList.forEach(cb => cb(this._makeSnapshot(listenerPath)));
-            }
-        });
-    }
-}
-
-// ======= ИНИЦИАЛИЗАЦИЯ ПОДКЛЮЧЕНИЯ =======
-let connectedToFirebase = false;
-
-try {
-    if (window.firebaseLoadError || typeof firebase === 'undefined') {
-        throw new Error("Firebase SDK is blocked");
-    }
-    firebase.initializeApp(firebaseConfig);
-    const realDb = firebase.database();
-    db.setBackend(realDb, false);
-
-    // Мониторим подключение
-    realDb.ref('.info/connected').on('value', (snap) => {
-        if (snap.val() === true) {
-            connectedToFirebase = true;
-        }
-    });
-} catch (e) {
-    console.error("Firebase не загружен. Переходим на локальный движок: ", e);
-    switchToLocalMode();
-}
-
-// Предохранитель: если за 1.5 секунды Firebase не ответил, включаем локальный режим!
-setTimeout(() => {
-    if (!connectedToFirebase) {
-        switchToLocalMode();
-    }
-}, 1500);
-
-function switchToLocalMode() {
-    if (db.isLocal) return;
-    const localDb = new LocalDatabase();
-    db.setBackend(localDb, true);
-    showToast("Автономная Песочница", "Сервер недоступен. Запущен автономный режим! Начислено 10 000 ₽.");
-}
-
-// ======= ГЛОБАЛЬНЫЕ ИГРОВЫЕ ПЕРЕМЕННЫЕ =======
+// ======= Глобальные переменные состояния =======
 let players = {};         
 let gameState = {};       
 let onlinePlayers = [];   
 let serverOffset = 0;     
 
-// Переменные Кальмара
+// Переменные мультиплеера
 const BETTING_TIME = 15;
 const BALL_MAX_SPEED = 150;
 const BALL_DECELERATION = 0.985;
@@ -303,7 +44,7 @@ let currentPath = [];
 let animStartTime = 0;
 let ballX = 200, ballY = 200;
 
-// Переменные Колеса
+// Переменные «Невозможного колеса»
 let spSelectedPercent = 50;  
 let spTotalRotation = 0;     
 let spIsSpinning = false;    
@@ -317,12 +58,12 @@ const SP_RULES = {
     1:  { mult: 33.0, label: 'x33.0' }
 };
 
-// Монетка
+// Переменные «Всегда Голубь» (Монетка)
 let coinChoice = 'heads'; 
 let coinIsSpinning = false;
 let coinRotationY = 0; 
 
-// Мины
+// Переменные «Везде мины»
 let minesGameActive = false;
 let minesMap = []; 
 let minesOpened = []; 
@@ -334,7 +75,7 @@ const MINES_MULTIPLIERS = [
     76.00, 134.00, 275.00, 750.00
 ];
 
-// Башня
+// Переменные «Невозможная башня» (Башня)
 let impGameActive = false;
 let impCurrentRow = 0; 
 let impBet = 0;
@@ -349,7 +90,7 @@ const impMinesData = [
     { cells: 2, mines: 1, mult: 15.0 }  
 ];
 
-// Ракета V3
+// ======= ПЕРЕМЕННЫЕ ИГРЫ "ВЗЛЕТ РАКЕТЫ V3" =======
 let rocketGameActive = false; 
 let rocketMyBet = 0;         
 let rocketIsCashed = false;   
@@ -357,6 +98,7 @@ let rocketState = { status: 'betting', timerEnd: 0 };
 let rocketLoopId = null;
 let rocketTimerInterval = null; 
 
+// ПЕРЕМЕННЫЕ АВТОВЫВОДА РАКЕТЫ (Изначально строго 1.1)
 let rocketAutoCashoutEnabled = false;
 let rocketAutoCashoutMultiplier = 1.1; 
 
@@ -368,7 +110,6 @@ function getServerTime() {
 }
 
 function isHost() {
-    if (db.isLocal) return true; // В локалке мы хозяева игры
     if (onlinePlayers.length === 0) return false;
     return onlinePlayers[0] === myPlayerId;
 }
@@ -390,71 +131,31 @@ window.showToast = function(title, text) {
 
     container.appendChild(toast);
 
+    // Удаление через 3 секунды с плавной анимацией
     setTimeout(() => {
         if (toast) {
             toast.classList.add('hide');
-            setTimeout(() => { toast.remove(); }, 300);
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
         }
     }, 3000);
 };
 
-// ======= ИГРОВОЙ ЭМУЛЯТОР АКТИВНОСТИ БОТОВ В ОФЛАЙНЕ =======
-setInterval(() => {
-    if (!db.isLocal) return;
+window.showScreen = function(screenId) {
+    document.getElementById('lobbyScreen').style.display = 'none';
+    document.getElementById('multiplayerGameScreen').style.display = 'none';
+    document.getElementById('singleplayerGameScreen').style.display = 'none';
+    document.getElementById('coinGameScreen').style.display = 'none';
+    document.getElementById('minesGameScreen').style.display = 'none';
+    document.getElementById('impMinesGameScreen').style.display = 'none';
+    document.getElementById('rocketGameScreen').style.display = 'none';
+    document.getElementById('withdrawGameScreen').style.display = 'none';
+    
+    document.getElementById(screenId).style.display = 'flex';
+};
 
-    // 1. Кальмар: Боты случайно ставят ставки
-    if (db.activeDb.store.gameState.status === 'betting') {
-        const bots = Object.keys(db.activeDb.store.players).filter(id => id.startsWith('bot_'));
-        bots.forEach(botId => {
-            const bot = db.activeDb.store.players[botId];
-            if (bot.totalBet === 0 && Math.random() < 0.15) {
-                const bVal = Math.floor(Math.random() * 20 + 2) * 10;
-                bot.totalBet = bVal;
-                bot.balance -= bVal;
-                db.activeDb._trigger('players');
-            }
-        });
-    }
-
-    // 2. Ракета: Боты заходят и забирают
-    if (db.activeDb.store.rocketStateV3.status === 'betting') {
-        const bots = Object.keys(db.activeDb.store.players).filter(id => id.startsWith('bot_'));
-        bots.forEach(botId => {
-            if (!db.activeDb.store.rocketBetsV3[botId] && Math.random() < 0.2) {
-                const bVal = Math.floor(Math.random() * 50 + 10) * 10;
-                db.activeDb.store.rocketBetsV3[botId] = {
-                    name: db.activeDb.store.players[botId].name,
-                    betAmount: bVal,
-                    cashoutMult: 0,
-                    status: 'active',
-                    color: db.activeDb.store.players[botId].color
-                };
-                db.activeDb._trigger('rocketBetsV3');
-            }
-        });
-    } 
-    else if (db.activeDb.store.rocketStateV3.status === 'flying') {
-        const now = getServerTime();
-        const elapsed = (now - db.activeDb.store.rocketStateV3.launchTime) / 1000;
-        const liveMult = getRocketMult(elapsed, db.activeDb.store.rocketStateV3.crashMult);
-
-        Object.keys(db.activeDb.store.rocketBetsV3).forEach(botId => {
-            const b = db.activeDb.store.rocketBetsV3[botId];
-            if (b && b.status === 'active' && botId !== myPlayerId) {
-                if (!b.targetMult) {
-                    b.targetMult = parseFloat((1.1 + Math.random() * 4).toFixed(2));
-                }
-                if (liveMult >= b.targetMult && liveMult < db.activeDb.store.rocketStateV3.crashMult) {
-                    b.status = 'cashed';
-                    b.cashoutMult = b.targetMult;
-                    db.activeDb._trigger('rocketBetsV3');
-                }
-            }
-        });
-    }
-}, 1000);
-
-// ======= ОБРАБОТЧИК DOM =======
+// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
     bettingTimerDisplay = document.getElementById('bettingTimer');
     totalBankDisplay = document.getElementById('totalBank');
@@ -482,10 +183,38 @@ document.addEventListener('DOMContentLoaded', () => {
         initAdminPanel();
     }
 
-    // Регистрация подписок
+    db.ref('.info/serverTimeOffset').on('value', (snap) => {
+        serverOffset = snap.val() || 0;
+    });
+
+    db.ref('.info/connected').on('value', (snap) => {
+        if (snap.val() === true) {
+            const presenceRef = db.ref(`presence/${myPlayerId}`);
+            presenceRef.set(true);
+            presenceRef.onDisconnect().remove();
+        }
+    });
+
     db.ref('presence').on('value', (snap) => {
         onlinePlayers = Object.keys(snap.val() || {}).sort();
         checkHostTimerLogic();
+    });
+
+    // ГАРАНТИЯ ИНИЦИАЛИЗАЦИИ ИГРОКА ПРИ ВХОДЕ (ДАРИМ ИМ 5000 РУБЛЕЙ СТАРТОВЫХ)
+    db.ref(`players/${myPlayerId}`).once('value', (snap) => {
+        if (!snap.exists()) {
+            db.ref(`players/${myPlayerId}`).set({
+                name: savedName || "Игрок_" + Math.floor(1000 + Math.random() * 9000),
+                balance: 5000, 
+                totalBet: 0,
+                color: DISTINCT_COLORS[Math.floor(Math.random() * DISTINCT_COLORS.length)]
+            });
+        } else {
+            let pData = snap.val();
+            if (!pData.name) {
+                db.ref(`players/${myPlayerId}/name`).set("Игрок_" + Math.floor(1000 + Math.random() * 9000));
+            }
+        }
     });
 
     db.ref('players').on('value', (snapshot) => {
@@ -516,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistory(snapshot.val() || {});
     });
 
+    // ======= СЛУШАТЕЛИ РАКЕТЫ V3 =======
     db.ref('rocketStateV3').on('value', (snapshot) => {
         rocketState = snapshot.val() || { status: 'betting', timerEnd: 0 };
         syncRocketState();
@@ -556,10 +286,11 @@ document.addEventListener('DOMContentLoaded', () => {
         impBetInput.addEventListener('input', updateImpMinesLabels);
     }
     
+    // Инициализация автовывода
     toggleRocketAuto();
 });
 
-// Навигация
+// Вкладки мультиплеера
 window.switchMultiTab = function(tabName) {
     const betsBtn = document.getElementById('tabBetsBtn');
     const historyBtn = document.getElementById('tabHistoryBtn');
@@ -577,7 +308,32 @@ window.switchMultiTab = function(tabName) {
     }
 }
 
+function renderHistory(historyData) {
+    if (!historyList) return;
+    historyList.innerHTML = '';
+    const list = Object.values(historyData).reverse();
+    if (list.length === 0) {
+        historyList.innerHTML = '<div class="bet-placeholder">История пуста...</div>';
+        return;
+    }
+    list.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'bet-item';
+        div.style.borderLeft = `4px solid #00E676`;
+        div.innerHTML = `
+            <div class="avatar" style="background:#00E676; color:black;">💰</div>
+            <div class="bet-info">
+                <strong>${item.playerName}</strong>
+                <span>Выиграл: ${item.winnerPrize} ₽</span>
+            </div>
+            <div class="bet-chance" style="color:#00E676">${item.winnerChance}% шанс</div>
+        `;
+        historyList.appendChild(div);
+    });
+}
+
 // ======= ИГРА 1: ВСЕГДА ГОЛУБЬ (COIN FLIP) =======
+
 window.selectCoinChoice = function(choice) {
     if (coinIsSpinning) return;
     coinChoice = choice;
@@ -593,27 +349,39 @@ window.playCoinFlip = function() {
     const coinMsg = document.getElementById('coinMessage');
     
     const bet = parseInt(betInput.value) || 0;
-    const balance = players[myPlayerId]?.balance || 0;
+    const myData = players[myPlayerId] || { balance: 0 };
+    const balance = myData.balance || 0;
 
     if (isNaN(bet) || bet < 10) {
         alert('Минимальная ставка — 10 ₽!');
         return;
     }
     if (bet > balance) {
-        alert('Недостаточно средств!');
+        alert('Недостаточно средств на балансе!');
         return;
     }
 
     coinIsSpinning = true;
     betInput.disabled = true;
     coinMsg.textContent = 'Монетка летит...';
+    coinMsg.style.color = '#FFC400';
 
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
         return parseFloat(((current || 0) - bet).toFixed(3));
     }, (error, committed) => {
         if (committed) {
             const result = Math.random() < 0.5 ? 'heads' : 'tails';
-            coinRotationY += 1800 + (result === 'heads' ? 360 : 180);
+            const minSpins = 1800; 
+            const currentFacing = (coinRotationY % 360) === 0 ? 'heads' : 'tails';
+            let additionalRotation = 0;
+            
+            if (currentFacing === result) {
+                additionalRotation = 360; 
+            } else {
+                additionalRotation = 180; 
+            }
+            
+            coinRotationY += minSpins + additionalRotation;
             coinEl.style.transform = `rotateY(${coinRotationY}deg)`;
 
             setTimeout(() => {
@@ -623,21 +391,24 @@ window.playCoinFlip = function() {
                     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
                         return parseFloat(((current || 0) + prize).toFixed(3));
                     });
-                    coinMsg.innerHTML = `🎉 Победа! Выпало: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. <span class="win-color">+${prize} ₽</span>`;
+                    coinMsg.innerHTML = `🎉 Вы выиграли! Выпало: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. <span class="win-color">+${prize} ₽</span>`;
                 } else {
-                    coinMsg.innerHTML = `🔴 Не угадали. Выпало: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>.`;
+                    coinMsg.innerHTML = `🔴 Не угадали! Выпало: <strong>${result === 'heads' ? 'Орел' : 'Решка'}</strong>. <span style="color:#ff1744">-${bet} ₽</span>`;
                 }
+                
                 coinIsSpinning = false;
                 betInput.disabled = false;
             }, 3000);
         } else {
             coinIsSpinning = false;
             betInput.disabled = false;
+            coinMsg.textContent = 'Ошибка транзакции.';
         }
     });
 }
 
 // ======= ИГРА 2: ВЕЗДЕ МИНЫ =======
+
 function renderMinesGrid() {
     const grid = document.getElementById('minesGrid');
     if (!grid) return;
@@ -654,18 +425,24 @@ function renderMinesGrid() {
 
 function updateMinesSummary() {
     const betInput = document.getElementById('minesBetInput');
+    const cashoutVal = document.getElementById('minesCashoutValue');
     const cashoutBtn = document.getElementById('minesCashoutBtn');
-    if (!betInput || !cashoutBtn) return;
+    if (!betInput || !cashoutVal || !cashoutBtn) return;
 
     if (!minesGameActive) {
+        cashoutVal.textContent ='0';
         cashoutBtn.textContent = 'Забрать 0 ₽';
         return;
     }
 
     const currentMult = MINES_MULTIPLIERS[minesOpened.length];
     const currentWin = Math.floor(minesCurrentBet * currentMult);
+    
+    cashoutVal.textContent = currentWin;
     cashoutBtn.textContent = `Забрать ${currentWin} ₽`;
 }
+
+document.getElementById('minesBetInput')?.addEventListener('input', updateMinesSummary);
 
 window.startMinesRound = function() {
     if (minesGameActive) return;
@@ -709,6 +486,7 @@ window.startMinesRound = function() {
             betInput.disabled = true;
             cashoutBtn.disabled = false;
             minesMsg.textContent = 'Раунд начался! Ищите алмазы!';
+            minesMsg.style.color = '#00E5FF';
 
             for (let i = 0; i < 25; i++) {
                 const cell = document.getElementById(`mine_cell_${i}`);
@@ -745,7 +523,9 @@ function clickMineCell(index) {
         document.getElementById('minesCurrentMultiplier').textContent = `${newMultiplier.toFixed(2)}x`;
         updateMinesSummary();
 
-        if (minesOpened.length === 22) endMinesGame(true);
+        if (minesOpened.length === 22) {
+            endMinesGame(true);
+        }
     }
 }
 
@@ -769,24 +549,33 @@ function endMinesGame(isWin) {
         const cell = document.getElementById(`mine_cell_${i}`);
         cell.disabled = true;
         if (minesMap[i]) {
-            cell.classList.add('revealed-mine');
-            cell.textContent = '💣';
-        } else if (!cell.classList.contains('safe')) {
-            cell.textContent = '💎';
+            if (!cell.classList.contains('exploded')) {
+                cell.classList.add('revealed-mine');
+                cell.textContent = '💣';
+            }
+        } else {
+            if (!cell.classList.contains('safe')) {
+                cell.textContent = '💎';
+            }
         }
     }
 
     if (isWin) {
         const mult = MINES_MULTIPLIERS[minesOpened.length];
         const winnings = Math.floor(minesCurrentBet * mult);
-        db.ref(`players/${myPlayerId}/balance`).transaction(current => parseFloat(((current || 0) + winnings).toFixed(3)));
+
+        db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+            return parseFloat(((current || 0) + winnings).toFixed(3));
+        });
+
         minesMsg.innerHTML = `🎉 Забрали <span class="win-color">${winnings} ₽</span> (${mult.toFixed(2)}x)`;
     } else {
-        minesMsg.innerHTML = `💥 Взрыв! Ставка сгорела.`;
+        minesMsg.innerHTML = `💥 Бабах! Вы проиграли <span style="color:#ff1744">${minesCurrentBet} ₽</span>`;
     }
 }
 
 // ======= ИГРА 3: НЕВОЗМОЖНАЯ БАШНЯ =======
+
 function initImpMinesUI() {
     const container = document.getElementById('impMinesRowsContainer');
     if (!container) return;
@@ -825,7 +614,10 @@ function updateImpMinesLabels() {
         if (label) {
             const rowData = impMinesData[i];
             const possibleWin = Math.floor(bet * rowData.mult);
-            label.innerHTML = `<span style="color:#00E676;">x${rowData.mult}</span><br><span style="color:#FFC400;">+${possibleWin} ₽</span>`;
+            label.innerHTML = `
+                <span style="color:#00E676;">x${rowData.mult} <span style="color:#ff1744;">💣${rowData.mines}</span></span>
+                <span style="color:#FFC400; font-size:0.75rem;">+${possibleWin} ₽</span>
+            `;
         }
     }
 }
@@ -875,14 +667,17 @@ window.startImpMines = function() {
 
             startBtn.disabled = true;
             betInput.disabled = true;
-            cashoutBtn.disabled = true;
-            impMsg.textContent = 'Начните с нижнего ряда!';
+            cashoutBtn.disabled = true; 
+            cashoutBtn.textContent = 'Забрать 0 ₽';
+            impMsg.textContent = 'Начните с первого ряда (самый нижний)!';
+            impMsg.style.color = '#00E5FF';
 
             for (let i = 0; i < 6; i++) {
                 const rDiv = document.getElementById(`imp_row_${i}`);
                 rDiv.className = (i === 0) ? 'imp-row active' : 'imp-row locked';
+                
                 Array.from(rDiv.getElementsByClassName('imp-cell')).forEach(c => {
-                    c.className = 'imp-cell';
+                    c.className = 'imp-cell'; 
                     c.textContent = '';
                 });
             }
@@ -916,6 +711,8 @@ function clickImpCell(rowIdx, cellIdx) {
             document.getElementById(`imp_row_${rowIdx}`).className = 'imp-row passed';
             impCurrentRow++;
             document.getElementById(`imp_row_${impCurrentRow}`).className = 'imp-row active';
+            impMsg.textContent = `Ряд ${rowIdx + 1} пройден! Поднимайтесь выше.`;
+            impMsg.style.color = '#00E676';
         } else {
             endImpGame(true);
         }
@@ -942,28 +739,44 @@ function endImpGame(isWin) {
     if (isWin) {
         const row5Cells = document.getElementById('imp_row_5') ? Array.from(document.getElementById('imp_row_5').getElementsByClassName('imp-cell')) : [];
         const finishedLastRow = row5Cells.some(c => c.classList.contains('win'));
-        finalMult = finishedLastRow ? impMinesData[5].mult : impMinesData[impCurrentRow - 1].mult;
+
+        if (finishedLastRow) {
+            finalMult = impMinesData[5].mult; 
+        } else if (impCurrentRow > 0) {
+            finalMult = impMinesData[impCurrentRow - 1].mult;
+        }
     }
 
     const winnings = Math.floor(impBet * finalMult);
 
     if (isWin && winnings > 0) {
-        db.ref(`players/${myPlayerId}/balance`).transaction(current => parseFloat(((current || 0) + winnings).toFixed(3)));
-        impMsg.innerHTML = `🎉 Победа! Получено ${winnings} ₽`;
-    } else {
-        impMsg.innerHTML = `💥 Проигрыш.`;
+        db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+            return parseFloat(((current || 0) + winnings).toFixed(3));
+        });
+        impMsg.innerHTML = `🎉 ПОБЕДА! Вы забрали <span class="win-color">${winnings} ₽</span>`;
+    } else if (!isWin) {
+        impMsg.innerHTML = `💥 ВЗРЫВ! Ваша ставка <span style="color:#ff1744">${impBet} ₽</span> сгорела.`;
     }
 
     for (let i = 0; i < 6; i++) {
         document.getElementById(`imp_row_${i}`).classList.remove('locked', 'active');
         impBoard[i].forEach((isMine, cellIdx) => {
             const cell = document.getElementById(`imp_cell_${i}_${cellIdx}`);
-            cell.textContent = isMine ? '💣' : '💎';
+            if (isMine) {
+                if (!cell.classList.contains('lose')) {
+                    cell.textContent = '💣';
+                }
+            } else {
+                if (!cell.classList.contains('win')) {
+                    cell.textContent = '💎';
+                }
+            }
         });
     }
 }
 
 // ======= ИГРА 4: НЕВОЗМОЖНОЕ КОЛЕСО =======
+
 window.selectSpPercent = function(pct) {
     if (spIsSpinning) return;
     
@@ -971,7 +784,9 @@ window.selectSpPercent = function(pct) {
     const buttons = document.querySelectorAll('.sp-pct-btn');
     buttons.forEach(btn => {
         btn.classList.remove('active');
-        if (btn.textContent.includes(pct + '%')) btn.classList.add('active');
+        if (btn.textContent.includes(pct + '%')) {
+            btn.classList.add('active');
+        }
     });
 
     const deg = (pct / 100) * 360;
@@ -979,6 +794,13 @@ window.selectSpPercent = function(pct) {
     if (wheel) {
         wheel.style.background = `conic-gradient(#00E676 0deg ${deg}deg, #ff1744 ${deg}deg 360deg)`;
     }
+
+    const label = document.getElementById('spWheelText');
+    if (label) {
+        const halfAngle = deg / 2;
+        label.style.transform = `translate(-50%, -50%) rotate(${halfAngle}deg) translateY(-50px) rotate(-${halfAngle}deg)`;
+    }
+
     updateSpSummary();
 };
 
@@ -1023,7 +845,8 @@ window.spinSingleplayerWheel = function() {
     spIsSpinning = true;
     spinBtn.disabled = true;
     betInput.disabled = true;
-    spMsg.textContent = 'Колесо вращается...';
+    spMsg.textContent = 'Колесо раскручивается...';
+    spMsg.style.color = '#00E5FF';
 
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
         return parseFloat(((current || 0) - bet).toFixed(3));
@@ -1042,6 +865,7 @@ window.spinSingleplayerWheel = function() {
             spIsSpinning = false;
             spinBtn.disabled = false;
             betInput.disabled = false;
+            spMsg.textContent = 'Ошибка.';
         }
     });
 };
@@ -1053,16 +877,21 @@ function evaluateSpResult(stoppedAngle, bet) {
 
     const netRotation = spTotalRotation % 360;
     const winningAngleOnWheel = (360 - netRotation) % 360;
+
     const playerBoundary = (spSelectedPercent / 100) * 360;
     const isPlayerWinner = winningAngleOnWheel <= playerBoundary;
 
     if (isPlayerWinner) {
         const rule = SP_RULES[spSelectedPercent];
         const prize = Math.floor(bet * rule.mult);
-        db.ref(`players/${myPlayerId}/balance`).transaction(current => parseFloat(((current || 0) + prize).toFixed(3)));
-        spMsg.innerHTML = `🎉 ПОБЕДА! <span style="color:#00E676">+${prize} ₽</span>`;
+
+        db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
+            return parseFloat(((current || 0) + prize).toFixed(3));
+        });
+
+        spMsg.innerHTML = `🎉 ВЫ ПОБЕДИЛИ! Получено: <span style="color:#00E676">+${prize} ₽</span>`;
     } else {
-        spMsg.innerHTML = `🔴 ВЫ ПРОИГРАЛИ!`;
+        spMsg.innerHTML = `🔴 ВЫ ПРОИГРАЛИ! <span style="color:#ff1744">-${bet} ₽</span>`;
     }
 
     spIsSpinning = false;
@@ -1070,7 +899,9 @@ function evaluateSpResult(stoppedAngle, bet) {
     betInput.disabled = false;
 }
 
-// ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР С ТАНГРАМ-ГЕОМЕТРИЕЙ) =======
+
+// ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР С ТАНГРАМ-ГЕОМЕТРИЕЙ И СТРЕЛКОЙ) =======
+
 function getPerimeterPoint(d) {
     if (d <= 400) return { x: d, y: 0 };
     if (d <= 800) return { x: 400, y: d - 400 };
@@ -1125,17 +956,19 @@ function placeBet() {
     const myCurrentBalance = myData.balance || 0;
 
     if (amount > myCurrentBalance) {
-        alert(`Недостаточно средств!`);
+        alert(`Недостаточно средств! Баланс: ${myCurrentBalance} ₽.`);
         return;
     }
 
     localStorage.setItem('roulette_player_name', name);
+
     const newBalance = parseFloat((myCurrentBalance - amount).toFixed(3));
     const currentBet = myData.totalBet || 0;
+    const playerColor = DISTINCT_COLORS[Object.keys(players).length % DISTINCT_COLORS.length];
 
     db.ref(`players/${myPlayerId}`).update({
         name: name,
-        color: myData.color || DISTINCT_COLORS[Math.floor(Math.random() * DISTINCT_COLORS.length)],
+        color: myData.color || playerColor,
         totalBet: currentBet + amount,
         balance: newBalance
     });
@@ -1161,15 +994,30 @@ function syncGameWithDatabase() {
 
         if (gameState.timerEnd && gameState.timerEnd > 0) {
             if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'block';
+            if (gameMessage) {
+                gameMessage.textContent = 'Ставки приняты! Время пошло';
+                gameMessage.style.color = '#61dafb';
+                gameMessage.style.backgroundColor = 'transparent';
+            }
             startLocalTimer(gameState.timerEnd);
         } else {
             if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'none';
+            if (gameMessage) {
+                gameMessage.textContent = 'Ждем ставки...';
+                gameMessage.style.color = 'white';
+                gameMessage.style.backgroundColor = 'transparent';
+            }
             stopLocalTimer();
         }
     } 
     else if (status === 'running') {
         stopLocalTimer();
         if (bettingTimerDisplay) bettingTimerDisplay.style.display = 'none';
+        if (gameMessage) {
+            gameMessage.textContent = 'Идет розыгрыш!';
+            gameMessage.style.color = '#61dafb';
+            gameMessage.style.backgroundColor = 'transparent';
+        }
         if (!animationFrameId) {
             startLocalRound(gameState.launchAngle);
         }
@@ -1185,7 +1033,8 @@ function syncGameWithDatabase() {
             gameMessage.textContent = `Победил: ${gameState.winnerName} 🎉 (+${gameState.winnerPrize} ₽)`;
         }
 
-        showToast("Игра в Кальмара", `Победил <b>${gameState.winnerName}</b>! Выигрыш: <span class="win-color"><b>+${gameState.winnerPrize} ₽</b></span>`);
+        // Всплытие Custom-Уведомления на сайте у всех игроков
+        showToast("Победа в игре Кальмара!", `Игрок <b>${gameState.winnerName}</b> выиграл <span class="win-color"><b>+${gameState.winnerPrize} ₽</b></span>!`);
     }
 }
 
@@ -1247,13 +1096,6 @@ function triggerRoundStart() {
     });
 }
 
-function startLocalRound(launchAngle) {
-    if (ball) ball.style.display = 'block';
-    currentPath = generateDeterministicPath(launchAngle);
-    animStartTime = Date.now();
-    animationFrameId = requestAnimationFrame(animateDeterministicBall);
-}
-
 function generateDeterministicPath(angle) {
     let x = VIRTUAL_WIDTH / 2;
     let y = VIRTUAL_HEIGHT / 2;
@@ -1264,61 +1106,105 @@ function generateDeterministicPath(angle) {
     let iterations = 0;
 
     while ((Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) && iterations < 2000) {
-        x += vx; y += vy;
+        x += vx;
+        y += vy;
 
-        if (x - VIRTUAL_RADIUS < 0) { vx = Math.abs(vx); x = VIRTUAL_RADIUS; }
-        else if (x + VIRTUAL_RADIUS > VIRTUAL_WIDTH) { vx = -Math.abs(vx); x = VIRTUAL_WIDTH - VIRTUAL_RADIUS; }
+        if (x - VIRTUAL_RADIUS < 0) {
+            vx = Math.abs(vx);
+            x = VIRTUAL_RADIUS;
+        } else if (x + VIRTUAL_RADIUS > VIRTUAL_WIDTH) {
+            vx = -Math.abs(vx);
+            x = VIRTUAL_WIDTH - VIRTUAL_RADIUS;
+        }
 
-        if (y - VIRTUAL_RADIUS < 0) { vy = Math.abs(vy); y = VIRTUAL_RADIUS; }
-        else if (y + VIRTUAL_RADIUS > VIRTUAL_HEIGHT) { vy = -Math.abs(vy); y = VIRTUAL_HEIGHT - VIRTUAL_RADIUS; }
+        if (y - VIRTUAL_RADIUS < 0) {
+            vy = Math.abs(vy);
+            y = VIRTUAL_RADIUS;
+        } else if (y + VIRTUAL_RADIUS > VIRTUAL_HEIGHT) {
+            vy = -Math.abs(vy);
+            y = VIRTUAL_HEIGHT - VIRTUAL_RADIUS;
+        }
 
-        vx *= BALL_DECELERATION; vy *= BALL_DECELERATION;
+        vx *= BALL_DECELERATION;
+        vy *= BALL_DECELERATION;
+
         path.push({ x: x, y: y });
         iterations++;
     }
     return path;
 }
 
+function startLocalRound(launchAngle) {
+    if (ball) ball.style.display = 'block';
+    currentPath = generateDeterministicPath(launchAngle);
+    animStartTime = Date.now();
+    animationFrameId = requestAnimationFrame(animateDeterministicBall);
+}
+
+// АНИМАЦИЯ ШАРИКА СО СТРЕЛКОЙ И ФИНАЛЬНОЙ ПОДСВЕТКОЙ
 function animateDeterministicBall() {
     const elapsed = Date.now() - animStartTime;
     
+    // 1. Фаза Спиннера (первые 2 секунды шарик стоит в центре, а стрелка крутится)
     if (elapsed < 2000) {
-        ballX = 200; ballY = 200;
+        ballX = 200;
+        ballY = 200;
+        
         renderWheelSections(true, (elapsed * 0.01) % (Math.PI * 2));
         
         if (ball && gameAreaWrapper) {
             const rect = gameAreaWrapper.getBoundingClientRect();
-            const scale = (rect.width - 12) / VIRTUAL_WIDTH;
+            const borderSize = 6;
+            const actualSize = rect.width - (borderSize * 2);
+            const scale = actualSize / VIRTUAL_WIDTH;
+
             ball.style.width = `${VIRTUAL_RADIUS * 2 * scale}px`;
             ball.style.height = `${VIRTUAL_RADIUS * 2 * scale}px`;
             ball.style.left = `${(200 - VIRTUAL_RADIUS) * scale}px`;
             ball.style.top = `${(200 - VIRTUAL_RADIUS) * scale}px`;
         }
+        
         animationFrameId = requestAnimationFrame(animateDeterministicBall);
         return;
     }
 
+    // 2. Фаза Полета шарика
     const flightElapsed = elapsed - 2000;
-    const frameIndex = Math.floor((flightElapsed / 1000) * 60);
+    const targetFps = 60;
+    const frameIndex = Math.floor((flightElapsed / 1000) * targetFps);
 
     if (frameIndex < currentPath.length) {
         const coord = currentPath[frameIndex];
-        ballX = coord.x; ballY = coord.y;
+        ballX = coord.x;
+        ballY = coord.y;
 
         renderWheelSections(false);
 
         if (ball && gameAreaWrapper) {
             const rect = gameAreaWrapper.getBoundingClientRect();
-            const scale = (rect.width - 12) / VIRTUAL_WIDTH;
-            ball.style.left = `${(ballX - VIRTUAL_RADIUS) * scale}px`;
-            ball.style.top = `${(ballY - VIRTUAL_RADIUS) * scale}px`;
+            const borderSize = 6;
+            const actualSize = rect.width - (borderSize * 2);
+            const scale = actualSize / VIRTUAL_WIDTH;
+
+            const screenX = ballX * scale;
+            const screenY = ballY * scale;
+            const screenRadius = VIRTUAL_RADIUS * scale;
+
+            ball.style.width = `${screenRadius * 2}px`;
+            ball.style.height = `${screenRadius * 2}px`;
+            ball.style.left = `${screenX - screenRadius}px`;
+            ball.style.top = `${screenY - screenRadius}px`;
         }
+
         animationFrameId = requestAnimationFrame(animateDeterministicBall);
     } else {
         const finalCoord = currentPath[currentPath.length - 1];
-        ballX = finalCoord.x; ballY = finalCoord.y;
+        ballX = finalCoord.x;
+        ballY = finalCoord.y;
 
+        // Финальная фаза: подсветка выигравшего сегмента
         renderWheelSections(false, 0, true);
+
         animationFrameId = null;
         if (isHost()) {
             determineAndPublishWinner();
@@ -1336,27 +1222,39 @@ function determineAndPublishWinner() {
     let ballAngle = Math.atan2(dy, dx);
     if (ballAngle < 0) ballAngle += Math.PI * 2; 
 
-    const targetD = (ballAngle / (Math.PI * 2)) * 1600;
+    const totalP = 1600;
+    const targetD = (ballAngle / (Math.PI * 2)) * totalP;
 
     if (segments.length > 0) {
         winner = segments.find(p => {
-            if (p.startD < p.endD) return targetD >= p.startD && targetD <= p.endD;
-            else return targetD >= p.startD || targetD <= p.endD;
+            if (p.startD < p.endD) {
+                return targetD >= p.startD && targetD <= p.endD;
+            } else {
+                return targetD >= p.startD || targetD <= p.endD;
+            }
         });
         if (!winner) winner = segments[segments.length - 1]; 
     }
 
     if (winner) {
-        let finalPrize = totalBank * 0.85;
-        if (finalPrize < winner.totalBet) {
-            finalPrize = winner.totalBet + ((totalBank - winner.totalBet) * 0.85);
-        }
-        finalPrize = Math.floor(finalPrize);
+        const defaultPrize = totalBank * 0.85; 
+        let finalPrize = defaultPrize;
 
-        db.ref(`players/${winner.id}/balance`).transaction(current => parseFloat(((current || 0) + finalPrize).toFixed(3)));
+        if (defaultPrize < winner.totalBet) {
+            const otherBets = totalBank - winner.totalBet; 
+            finalPrize = winner.totalBet + (otherBets * 0.85); 
+        }
+
+        finalPrize = Math.floor(finalPrize); 
+
+        db.ref(`players/${winner.id}/balance`).transaction((current) => {
+            return parseFloat(((current || 0) + finalPrize).toFixed(3));
+        });
 
         const chancePct = ((winner.totalBet / totalBank) * 100).toFixed(0);
-        db.ref('history').push({
+
+        const historyRef = db.ref('history');
+        historyRef.push({
             playerName: winner.name,
             winnerPrize: finalPrize,
             winnerChance: chancePct,
@@ -1369,10 +1267,19 @@ function determineAndPublishWinner() {
             winnerColor: winner.color,
             winnerPrize: finalPrize
         });
+    } else {
+        db.ref('gameState').set({
+            status: 'finished',
+            winnerName: 'Никто',
+            winnerColor: '#e57373',
+            winnerPrize: 0
+        });
     }
 
     setTimeout(() => {
-        if (isHost()) resetRoomForNextRound();
+        if (isHost()) {
+            resetRoomForNextRound();
+        }
     }, 6000);
 }
 
@@ -1382,7 +1289,7 @@ function resetRoomForNextRound() {
 
     let colorIndex = 0;
     for (const id in players) {
-        if (db.isLocal || onlinePlayers.includes(id)) {
+        if (onlinePlayers.includes(id)) {
             updatedPlayers[id] = {
                 name: players[id].name,
                 color: shuffledColors[colorIndex % shuffledColors.length],
@@ -1394,15 +1301,20 @@ function resetRoomForNextRound() {
     }
 
     db.ref('players').set(updatedPlayers);
-    db.ref('gameState').set({ status: 'betting', timerEnd: 0 });
+    db.ref('gameState').set({
+        status: 'betting',
+        timerEnd: 0
+    });
 }
 
+// КРАСИВОЕ ДИАГОНАЛЬНОЕ РАЗДЕЛЕНИЕ ПОЛЯ И ВЫВОД НИКОВ НА CANVAS
 function renderWheelSections(drawArrow = false, arrowAngle = 0, highlightWinner = false) {
     const canvas = document.getElementById('gameCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
     ctx.clearRect(0, 0, 400, 400);
+
     const segments = getPlayersWithSegments();
 
     if (segments.length === 0) {
@@ -1413,17 +1325,22 @@ function renderWheelSections(drawArrow = false, arrowAngle = 0, highlightWinner 
 
     let winningSegIndex = -1;
     if (highlightWinner) {
-        const dx = ballX - 200; const dy = ballY - 200;
+        const dx = ballX - 200;
+        const dy = ballY - 200;
         let ballAngle = Math.atan2(dy, dx);
         if (ballAngle < 0) ballAngle += Math.PI * 2;
         const targetD = (ballAngle / (Math.PI * 2)) * 1600;
 
         winningSegIndex = segments.findIndex(p => {
-            if (p.startD < p.endD) return targetD >= p.startD && targetD <= p.endD;
-            else return targetD >= p.startD || targetD <= p.endD;
+            if (p.startD < p.endD) {
+                return targetD >= p.startD && targetD <= p.endD;
+            } else {
+                return targetD >= p.startD || targetD <= p.endD;
+            }
         });
     }
 
+    // Отрисовка диагональных сегментов (Калейдоскоп)
     segments.forEach((p, index) => {
         const p1 = getPerimeterPoint(p.startD);
         const p2 = getPerimeterPoint(p.endD);
@@ -1433,65 +1350,93 @@ function renderWheelSections(drawArrow = false, arrowAngle = 0, highlightWinner 
         ctx.lineTo(p1.x, p1.y);
         
         let tempD = p.startD;
+        const step = 10;
         while (true) {
             if (p.startD < p.endD) {
                 if (tempD >= p.endD) break;
-                tempD = Math.min(p.endD, tempD + 10);
+                tempD = Math.min(p.endD, tempD + step);
             } else {
                 if (tempD >= p.endD && tempD < p.startD) break;
-                tempD = (tempD + 10) % 1600;
+                tempD = (tempD + step) % 1600;
             }
             const pt = getPerimeterPoint(tempD);
             ctx.lineTo(pt.x, pt.y);
         }
+
         ctx.lineTo(p2.x, p2.y);
         ctx.closePath();
 
         ctx.fillStyle = p.color;
         ctx.fill();
 
+        // Свечение победителя (импульс)
         if (highlightWinner && index === winningSegIndex) {
-            ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * Math.abs(Math.sin(Date.now() * 0.01))})`;
+            const glowPulse = Math.abs(Math.sin(Date.now() * 0.015));
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.45 * glowPulse})`;
             ctx.fill();
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.stroke();
         }
 
-        // Рисуем стильный бейдж с именем
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.stroke();
+
+        // Отрисовка плашек с именами игроков
         const cx = (200 + p1.x + p2.x) / 3;
         const cy = (200 + p1.y + p2.y) / 3;
 
         ctx.save();
-        ctx.beginPath(); ctx.arc(cx, cy, 32, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(10, 5, 20, 0.8)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 32, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(10, 5, 20, 0.75)';
         ctx.fill();
-        ctx.strokeStyle = p.color;
         ctx.lineWidth = 1.5;
+        ctx.strokeStyle = p.color;
         ctx.stroke();
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = 'bold 10px Segoe UI, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(p.name.slice(0, 7), cx, cy - 5);
+        
+        const shortName = p.name ? (p.name.length > 8 ? p.name.slice(0, 7) + '..' : p.name) : "Игрок";
+        ctx.fillText(shortName, cx, cy - 5);
         
         ctx.fillStyle = '#00FF88';
+        ctx.font = '800 9px monospace';
         ctx.fillText(`${p.totalBet} ₽`, cx, cy + 8);
         ctx.restore();
     });
 
+    // Рисуем красивую стрелку выбора направления шарика
     if (drawArrow) {
         ctx.save();
         ctx.translate(200, 200);
         ctx.rotate(arrowAngle);
+        
         ctx.beginPath();
-        ctx.moveTo(35, 0); ctx.lineTo(15, -10); ctx.lineTo(15, 10);
+        ctx.moveTo(35, 0);
+        ctx.lineTo(15, -10);
+        ctx.lineTo(15, -4);
+        ctx.lineTo(0, -4);
+        ctx.lineTo(0, 4);
+        ctx.lineTo(15, 4);
+        ctx.lineTo(15, 10);
         ctx.closePath();
+
         ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = '#00FF88';
+        ctx.shadowBlur = 10;
         ctx.fill();
         ctx.restore();
     }
 }
 
+
 // ======= ИГРА 6: ВЗЛЕТ РАКЕТЫ V3 =======
+
 function generateCrashMultiplier() {
     const rand = Math.random();
     if (rand < 0.05) return 1.00;
@@ -1513,17 +1458,25 @@ function getRocketMult(elapsed, crashMult) {
 window.toggleRocketAuto = function() {
     const toggle = document.getElementById('rocketAutoToggle');
     const controls = document.getElementById('rocketAutoControls');
+    
     rocketAutoCashoutEnabled = toggle ? toggle.checked : false;
     
-    if (controls) {
-        controls.style.opacity = rocketAutoCashoutEnabled ? '1' : '0.35';
-        controls.style.pointerEvents = rocketAutoCashoutEnabled ? 'auto' : 'none';
+    if (rocketAutoCashoutEnabled) {
+        if (controls) {
+            controls.style.opacity = '1';
+            controls.style.pointerEvents = 'auto';
+        }
+    } else {
+        if (controls) {
+            controls.style.opacity = '0.35';
+            controls.style.pointerEvents = 'none';
+        }
     }
 };
 
 window.changeRocketAutoMult = function(amount) {
     let newVal = parseFloat((rocketAutoCashoutMultiplier + amount).toFixed(1));
-    if (newVal < 1.1) return;
+    if (newVal < 1.1) return; // Меньше 1.1 спуститься нельзя
     
     rocketAutoCashoutMultiplier = newVal;
     const valDisp = document.getElementById('rocketAutoValue');
@@ -1546,8 +1499,14 @@ function syncRocketState() {
     const betInput = document.getElementById('rocketBetInput');
     const payoutDiv = document.getElementById('rocketPotentialPayout');
 
+    const stars = document.querySelector('.stars-container');
+
     if (status === 'betting') {
-        if (rocketLoopId) cancelAnimationFrame(rocketLoopId);
+        if (rocketLoopId) {
+            cancelAnimationFrame(rocketLoopId);
+            rocketLoopId = null;
+        }
+
         if (explosion) explosion.style.display = 'none';
         if (rocketActor) {
             rocketActor.style.display = 'flex';
@@ -1556,6 +1515,7 @@ function syncRocketState() {
         }
         if (multDisp) multDisp.style.display = 'none';
         if (timerOverlay) timerOverlay.style.display = 'block';
+        if (stars) stars.style.animationDuration = '3.5s';
         if (payoutDiv) payoutDiv.style.display = 'none';
 
         if (betInput) betInput.disabled = false;
@@ -1567,6 +1527,9 @@ function syncRocketState() {
 
         if (rocketState.timerEnd && rocketState.timerEnd > 0) {
             startRocketBettingTimer(rocketState.timerEnd);
+        } else {
+            if (timerOverlay) timerOverlay.textContent = '10';
+            if (msg) msg.textContent = 'Ожидание игроков...';
         }
     } 
     else if (status === 'flying') {
@@ -1577,12 +1540,28 @@ function syncRocketState() {
         if (betBtn) betBtn.disabled = true;
         if (betInput) betInput.disabled = true;
 
-        if (rocketTimerInterval) clearInterval(rocketTimerInterval);
+        if (msg) {
+            msg.textContent = 'Ракета летит вверх!';
+            msg.style.color = '#00E5FF';
+        }
+
+        if (rocketTimerInterval) {
+            clearInterval(rocketTimerInterval);
+            rocketTimerInterval = null;
+        }
+
         startRocketFlightAnimation(rocketState.launchTime);
     } 
     else if (status === 'crashed') {
-        if (rocketLoopId) cancelAnimationFrame(rocketLoopId);
-        if (rocketTimerInterval) clearInterval(rocketTimerInterval);
+        if (rocketLoopId) {
+            cancelAnimationFrame(rocketLoopId);
+            rocketLoopId = null;
+        }
+
+        if (rocketTimerInterval) {
+            clearInterval(rocketTimerInterval);
+            rocketTimerInterval = null;
+        }
 
         if (timerOverlay) timerOverlay.style.display = 'none';
         if (rocketActor) rocketActor.style.display = 'none';
@@ -1601,6 +1580,11 @@ function syncRocketState() {
             cashoutBtn.textContent = 'ВЗРЫВ!';
         }
 
+        if (msg) {
+            const finalMult = rocketState.crashMult ? rocketState.crashMult.toFixed(2) : '1.00';
+            msg.innerHTML = `💥 Ракета взорвалась на <span style="color:#ff1744; font-weight:bold;">${finalMult}x</span>`;
+        }
+
         if (rocketGameActive && !rocketIsCashed && rocketAutoCashoutEnabled) {
             if (rocketState.crashMult >= rocketAutoCashoutMultiplier) {
                 cashoutRocket(rocketAutoCashoutMultiplier);
@@ -1614,22 +1598,44 @@ function syncRocketState() {
 }
 
 function startRocketBettingTimer(timerEnd) {
-    if (rocketTimerInterval) clearInterval(rocketTimerInterval);
+    if (rocketTimerInterval) {
+        clearInterval(rocketTimerInterval);
+    }
+
     const timerOverlay = document.getElementById('rocketTimerOverlay');
+    const msg = document.getElementById('rocketMessage');
 
     rocketTimerInterval = setInterval(() => {
         const now = getServerTime();
         const timeLeft = Math.max(0, (timerEnd - now) / 1000);
-        if (timerOverlay) timerOverlay.textContent = Math.ceil(timeLeft);
+        
+        if (timerOverlay) {
+            timerOverlay.textContent = Math.ceil(timeLeft);
+        }
+
+        if (rocketState.status !== 'betting') {
+            clearInterval(rocketTimerInterval);
+            rocketTimerInterval = null;
+            return;
+        }
+
+        if (msg && !rocketGameActive) {
+            msg.textContent = `Успейте поставить! До старта: ${timeLeft.toFixed(1)}с`;
+            msg.style.color = '#D500F9';
+        }
 
         if (timeLeft <= 0) {
             clearInterval(rocketTimerInterval);
-            if (isHost() && rocketState.status === 'betting') launchRocket();
+            rocketTimerInterval = null;
+            if (isHost() && rocketState.status === 'betting') {
+                launchRocket();
+            }
         }
     }, 100);
 }
 
 function startRocketFlightAnimation(launchTime) {
+    const stars = document.querySelector('.stars-container');
     const rocketActor = document.getElementById('rocketActor');
     const multDisp = document.getElementById('rocketMultiplierDisplay');
     const cashoutBtn = document.getElementById('rocketCashoutBtn');
@@ -1641,18 +1647,30 @@ function startRocketFlightAnimation(launchTime) {
     function tick() {
         const now = getServerTime();
         const elapsed = (now - launchTime) / 1000;
-        if (elapsed < 0) { rocketLoopId = requestAnimationFrame(tick); return; }
+        
+        if (elapsed < 0) {
+            rocketLoopId = requestAnimationFrame(tick);
+            return;
+        }
 
         const currentMult = getRocketMult(elapsed, rocketState.crashMult);
 
         if (multDisp && rocketState.status === 'flying') {
             multDisp.textContent = `${currentMult.toFixed(2)}x`;
+            multDisp.style.color = '#00FF88';
         }
 
         if (rocketActor) {
             const verticalPos = Math.min(130, 20 + elapsed * 12);
+            const shake = Math.sin(now * 0.12) * 3;
             rocketActor.style.bottom = `${verticalPos}px`;
-            rocketActor.style.transform = `translateX(${Math.sin(now * 0.1) * 3}px)`;
+            rocketActor.style.transform = `translateX(${shake}px)`;
+        }
+
+        if (stars) {
+            const rateLimit = (rocketState.crashMult >= 20 && currentMult > 10) ? 0.05 : 0.15;
+            const animSpeed = Math.max(0.08, 3.5 / (1 + elapsed * (1 / rateLimit * 0.02)));
+            stars.style.animationDuration = `${animSpeed}s`;
         }
 
         if (rocketGameActive && !rocketIsCashed && rocketState.status === 'flying') {
@@ -1668,15 +1686,24 @@ function startRocketFlightAnimation(launchTime) {
                     cashoutBtn.textContent = `Забрать ${Math.floor(potentialWin)} ₽`;
                 }
             }
+        } else {
+            if (payoutDiv) payoutDiv.style.display = 'none';
         }
 
-        if (rocketState.status === 'flying') rocketLoopId = requestAnimationFrame(tick);
+        if (rocketState.status === 'flying') {
+            rocketLoopId = requestAnimationFrame(tick);
+        }
     }
     rocketLoopId = requestAnimationFrame(tick);
 }
 
 window.placeRocketBet = function() {
-    if (rocketState.status !== 'betting' || rocketGameActive) return;
+    const status = rocketState ? (rocketState.status || 'betting') : 'betting';
+    if (status !== 'betting') {
+        alert('Ставки закрыты!');
+        return;
+    }
+    if (rocketGameActive) return;
 
     const betInput = document.getElementById('rocketBetInput');
     const amount = parseInt(betInput.value) || 0;
@@ -1687,9 +1714,12 @@ window.placeRocketBet = function() {
         return;
     }
     if (amount > balance) {
-        alert('Недостаточно средств!');
+        alert(`Недостаточно средств!`);
         return;
     }
+
+    const betBtn = document.getElementById('rocketBetBtn');
+    if (betBtn) betBtn.disabled = true;
 
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
         return parseFloat(((current || 0) - amount).toFixed(3));
@@ -1701,11 +1731,11 @@ window.placeRocketBet = function() {
 
             const myData = players[myPlayerId] || { name: 'Игрок', color: '#BA68C8' };
             db.ref(`rocketBetsV3/${myPlayerId}`).set({
-                name: myData.name,
+                name: myData.name || "Игрок",
                 betAmount: amount,
                 cashoutMult: 0,
                 status: 'active',
-                color: myData.color
+                color: myData.color || '#BA68C8'
             });
         }
     });
@@ -1721,11 +1751,17 @@ window.cashoutRocket = function(forcedMult) {
     let currentMult = forcedMult ? parseFloat(forcedMult.toFixed(1)) : liveMult;
 
     if (liveMult >= rocketState.crashMult) {
-        if (forcedMult && rocketState.crashMult >= forcedMult) {} 
-        else { return; }
+        if (forcedMult && rocketState.crashMult >= forcedMult) {
+        } else {
+            alert('Не успели!');
+            return;
+        }
     }
 
     rocketIsCashed = true;
+    const cashoutBtn = document.getElementById('rocketCashoutBtn');
+    if (cashoutBtn) cashoutBtn.disabled = true;
+
     const winnings = parseFloat((rocketMyBet * currentMult).toFixed(2));
 
     db.ref(`players/${myPlayerId}/balance`).transaction((current) => {
@@ -1737,11 +1773,7 @@ window.cashoutRocket = function(forcedMult) {
                 cashoutMult: currentMult
             });
 
-            // Восхитительное всплывающее уведомление на сайте
-            showToast(
-                forcedMult ? "Автовывод сработал!" : "Забрали ракету!",
-                `Вы успешно катапультировались на коэффициенте <b>x${currentMult.toFixed(2)}</b>. Зачислено: <span class="win-color"><b>+${winnings} ₽</b></span>`
-            );
+            showToast("Выигрыш получен!", `Вы успешно забрали на <b>x${currentMult.toFixed(2)}</b>. На счет начислено <span class="win-color"><b>+${winnings} ₽</b></span>!`);
         }
     });
 }
@@ -1753,7 +1785,7 @@ function renderRocketBets(betsData) {
 
     const list = Object.values(betsData);
     if (list.length === 0) {
-        listContainer.innerHTML = '<div class="bet-placeholder">Ставок нет</div>';
+        listContainer.innerHTML = '<div class="bet-placeholder">Ставок еще нет...</div>';
         return;
     }
 
@@ -1762,16 +1794,22 @@ function renderRocketBets(betsData) {
         div.className = 'bet-item';
         div.style.borderLeft = `4px solid ${b.color}`;
 
-        let statusText = '<span style="color:#aaa">В полете...</span>';
-        if (b.status === 'cashed') {
-            statusText = `<span style="color:#00E676;">Забрал x${b.cashoutMult.toFixed(2)}</span>`;
+        let statusText = '';
+        if (b.status === 'active') {
+            statusText = '<span style="color:#aaa">В полете...</span>';
+        } else if (b.status === 'cashed') {
+            const winSum = (b.betAmount * b.cashoutMult).toFixed(2);
+            statusText = `<span style="color:#00E676; font-weight:bold;">Забрал x${b.cashoutMult.toFixed(2)} (+${winSum} ₽)</span>`;
         } else if (b.status === 'lost') {
-            statusText = `<span style="color:#ff1744;">Взрыв x${b.cashoutMult.toFixed(2)}</span>`;
+            statusText = `<span style="color:#ff1744; font-weight:bold;">Взрыв x${b.cashoutMult.toFixed(2)}</span>`;
         }
 
         div.innerHTML = `
-            <div class="avatar" style="background:${b.color}">${b.name[0]}</div>
-            <div class="bet-info"><strong>${b.name}</strong><span>Ставка: ${b.betAmount} ₽</span></div>
+            <div class="avatar" style="background:${b.color}; color:black;">${b.name ? b.name[0].toUpperCase() : 'П'}</div>
+            <div class="bet-info">
+                <strong>${b.name || 'Игрок'}</strong>
+                <span>Ставка: ${b.betAmount} ₽</span>
+            </div>
             <div class="bet-chance">${statusText}</div>
         `;
         listContainer.appendChild(div);
@@ -1783,57 +1821,109 @@ function renderRocketHistory(historyList) {
     if (!bar) return;
     bar.innerHTML = '';
 
+    if (!historyList || historyList.length === 0) {
+        bar.innerHTML = '<span class="rocket-hist-empty">История пуста...</span>';
+        return;
+    }
+
     const reversed = [...historyList].reverse();
     reversed.forEach(val => {
         const span = document.createElement('span');
         span.className = 'rocket-hist-item';
+        
         if (val < 1.5) span.classList.add('mult-grey');
         else if (val < 5.0) span.classList.add('mult-green');
+        else if (val < 20.0) span.classList.add('mult-gold');
         else span.classList.add('mult-cyan');
+
         span.textContent = `${val.toFixed(2)}x`;
         bar.appendChild(span);
     });
 }
 
+// Постоянный тактовый интервал хоста
+setInterval(() => {
+    if (isHost()) {
+        checkHostRocketLogic();
+    }
+}, 250);
+
+let lastRocketStateUpdate = 0; 
+
+// КРУГЛОСУТОЧНАЯ АВТО-СИМУЛЯЦИЯ РАКЕТЫ 24/7 (При простое)
 function checkHostRocketLogic() {
     if (!isHost()) return;
 
     const now = getServerTime();
+    if (now - lastRocketStateUpdate < 200) return;
+
     const current = rocketState || { status: 'betting', timerEnd: 0 };
     const stateRef = db.ref('rocketStateV3');
 
-    // Самоисцеление при долгом простое (когда все закрыли вкладки)
+    // Если игра долго стояла без активности (все закрыли вкладку), генерируем красивую историю за пропущенное время
     const isStale = (current.status === 'flying' && current.launchTime && (now - current.launchTime > 90000)) ||
                     (current.status === 'crashed' && current.crashedTime && (now - current.crashedTime > 15000)) ||
                     (current.status === 'betting' && current.timerEnd && (now - current.timerEnd > 25000));
 
     if (isStale) {
+        lastRocketStateUpdate = now;
         db.ref('rocketBetsV3').remove();
+
         db.ref('rocketHistoryV3').once('value').then((histSnap) => {
             let hList = histSnap.val() || [];
             if (!Array.isArray(hList)) hList = [];
-            hList.push(generateCrashMultiplier());
-            if (hList.length > 10) hList.shift();
+            
+            const missingGamesCount = Math.floor(Math.random() * 4) + 3;
+            for (let i = 0; i < missingGamesCount; i++) {
+                hList.push(generateCrashMultiplier());
+            }
+            while (hList.length > 10) hList.shift();
+            
             db.ref('rocketHistoryV3').set(hList);
         });
 
-        stateRef.set({ status: 'betting', timerEnd: now + 10000, launchTime: 0, crashMult: 0, crashedTime: 0 });
+        stateRef.set({
+            status: 'betting',
+            timerEnd: now + 10000,
+            launchTime: 0,
+            crashMult: 0,
+            crashedTime: 0
+        });
         return;
     }
 
     if (current.status === 'betting') {
         if (!current.timerEnd || current.timerEnd === 0) {
-            stateRef.update({ status: 'betting', timerEnd: now + 10000 });
+            lastRocketStateUpdate = now;
+            stateRef.update({
+                status: 'betting',
+                timerEnd: now + 10000
+            });
         } else if (now >= current.timerEnd) {
-            stateRef.set({ status: 'flying', launchTime: now, crashMult: generateCrashMultiplier(), timerEnd: 0 });
+            lastRocketStateUpdate = now;
+            const chosenMult = generateCrashMultiplier();
+
+            stateRef.set({
+                status: 'flying',
+                launchTime: now,
+                crashMult: chosenMult,
+                timerEnd: 0
+            });
         }
     } 
     else if (current.status === 'flying') {
         const elapsed = (now - current.launchTime) / 1000;
+        if (elapsed < 0) return;
+        
         const currentMult = getRocketMult(elapsed, current.crashMult);
 
         if (currentMult >= current.crashMult) {
-            stateRef.update({ status: 'crashed', crashedTime: now });
+            lastRocketStateUpdate = now;
+            stateRef.update({
+                status: 'crashed',
+                crashedTime: now
+            });
+
             db.ref('rocketHistoryV3').once('value').then((histSnap) => {
                 let hList = histSnap.val() || [];
                 if (!Array.isArray(hList)) hList = [];
@@ -1851,41 +1941,59 @@ function checkHostRocketLogic() {
                         updates[`rocketBetsV3/${pId}/cashoutMult`] = current.crashMult;
                     }
                 }
-                if (Object.keys(updates).length > 0) db.ref().update(updates);
+                if (Object.keys(updates).length > 0) {
+                    db.ref().update(updates);
+                }
             });
         }
     } 
     else if (current.status === 'crashed') {
         if (current.crashedTime && now >= (current.crashedTime + 4000)) {
+            lastRocketStateUpdate = now;
             db.ref('rocketBetsV3').remove(); 
-            stateRef.set({ status: 'betting', timerEnd: now + 10000, launchTime: 0, crashMult: 0, crashedTime: 0 });
+            stateRef.set({
+                status: 'betting',
+                timerEnd: now + 10000,
+                launchTime: 0,
+                crashMult: 0,
+                crashedTime: 0
+            });
         }
     }
 }
 
 function launchRocket() {
+    const chosenMult = generateCrashMultiplier();
+
     db.ref('rocketStateV3').update({
         status: 'flying',
         launchTime: getServerTime(),
-        crashMult: generateCrashMultiplier(),
+        crashMult: chosenMult,
         timerEnd: 0
     });
 }
 
+
 // ======= ШУТОЧНЫЙ ВЫВОД СРЕДСТВ =======
+
 window.requestWithdraw = function() {
     const card = document.getElementById('withdrawCardInput').value.trim();
     const bank = document.getElementById('withdrawBankInput').value.trim();
     const amountInput = document.getElementById('withdrawAmountInput');
     const amount = parseFloat(amountInput.value) || 0;
+    
     const balance = players[myPlayerId]?.balance || 0;
 
-    if (!card || !bank || amount <= 0) {
-        alert('Заполните поля!');
+    if (!card || !bank) {
+        alert('Пожалуйста, заполните все поля!');
+        return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+        alert('Введите корректную сумму для вывода средств!');
         return;
     }
     if (amount > balance) {
-        alert('Недостаточно баланса!');
+        alert(`Недостаточно средств!`);
         return;
     }
 
@@ -1893,40 +2001,97 @@ window.requestWithdraw = function() {
         return parseFloat(((current || 0) - amount).toFixed(3));
     }, (error, committed) => {
         if (committed) {
-            alert("Выплата оформлена. Зачисление произойдет в течении 1-365 дней.");
+            alert("Ваша выплата оформлена. Зачисление произойдет в течении 1-365 дней.");
+            
+            document.getElementById('withdrawCardInput').value = '';
+            document.getElementById('withdrawBankInput').value = '';
+            amountInput.value = '';
+
             showScreen('lobbyScreen');
         }
     });
 }
 
-// Пополнение баланса
+
+// ======= ДЕПОЗИТЫ И АДМИН ПАНЕЛЬ =======
+
 window.openDepositModal = function() {
     document.getElementById('depositModal').style.display = 'block';
     document.getElementById('depositStep1').style.display = 'block';
+    document.getElementById('depositStep2').style.display = 'none';
+    document.getElementById('depositStep3').style.display = 'none';
 }
-window.closeDepositModal = function() { document.getElementById('depositModal').style.display = 'none'; }
+
+window.closeDepositModal = function() {
+    document.getElementById('depositModal').style.display = 'none';
+}
+
 window.goToDepositStep2 = function() {
     const amount = parseInt(document.getElementById('depositAmountInput').value);
-    if (isNaN(amount) || amount < 10) { alert('Минимальная сумма — 10 ₽!'); return; }
+    if (isNaN(amount) || amount < 10) {
+        alert('Минимальная сумма пополнения — 10 ₽!');
+        return;
+    }
     document.getElementById('reqAmount').textContent = amount;
     document.getElementById('depositStep1').style.display = 'none';
     document.getElementById('depositStep2').style.display = 'block';
 }
+
 window.sendDepositRequest = function() {
     const amount = parseInt(document.getElementById('depositAmountInput').value);
-    const name = players[myPlayerId]?.name || "Игрок";
+    const name = players[myPlayerId]?.name || "Без имени";
 
-    // Если играем локально — одобряем пополнение мгновенно!
-    if (db.isLocal) {
-        db.ref(`players/${myPlayerId}/balance`).transaction(curr => parseFloat(((curr || 0) + amount).toFixed(3)));
-        closeDepositModal();
-        showToast("Успех!", `Баланс пополнен на +${amount} ₽!`);
-    } else {
-        const reqRef = db.ref('deposit_requests').push();
-        reqRef.set({ id: reqRef.key, playerId: myPlayerId, playerName: name, amount: amount, status: 'pending' });
-        document.getElementById('depositStep2').style.display = 'none';
-        document.getElementById('depositStep3').style.display = 'block';
-    }
+    const reqRef = db.ref('deposit_requests').push();
+    reqRef.set({
+        id: reqRef.key,
+        playerId: myPlayerId,
+        playerName: name,
+        amount: amount,
+        status: 'pending'
+    });
+
+    document.getElementById('depositStep2').style.display = 'none';
+    document.getElementById('depositStep3').style.display = 'block';
+}
+
+function initAdminPanel() {
+    db.ref('deposit_requests').on('value', (snap) => {
+        const requests = snap.val() || {};
+        const adminList = document.getElementById('adminRequestsList');
+        if (!adminList) return;
+        adminList.innerHTML = '';
+
+        const pending = Object.values(requests).filter(r => r.status === 'pending');
+
+        if (pending.length === 0) {
+            adminList.innerHTML = '<p class="no-reqs">Нет активных заявок</p>';
+            return;
+        }
+
+        pending.forEach(req => {
+            const item = document.createElement('div');
+            item.className = 'admin-req-item';
+            item.innerHTML = `
+                <p>👤 <strong>${req.playerName}</strong> просит пополнить <strong>${req.amount} ₽</strong></p>
+                <div class="admin-btns">
+                    <button class="admin-approve-btn" onclick="approveDeposit('${req.id}', '${req.playerId}', ${req.amount})">Принять</button>
+                    <button class="admin-decline-btn" onclick="declineDeposit('${req.id}')">Отклонить</button>
+                </div>
+            `;
+            adminList.appendChild(item);
+        });
+    });
+}
+
+window.approveDeposit = function(reqId, playerId, amount) {
+    db.ref(`players/${playerId}/balance`).transaction((current) => {
+        return parseFloat(((current || 0) + amount).toFixed(3));
+    });
+    db.ref(`deposit_requests/${reqId}`).remove();
+}
+
+window.declineDeposit = function(reqId) {
+    db.ref(`deposit_requests/${reqId}`).remove();
 }
 
 function calculateTotalBank() {
@@ -1946,46 +2111,18 @@ function renderBets() {
 
     active.forEach(p => {
         const percentage = ((p.totalBet / totalB) * 100).toFixed(1);
+
         const item = document.createElement('div');
         item.className = 'bet-item';
         item.style.borderLeft = `4px solid ${p.color}`;
         item.innerHTML = `
-            <div class="avatar" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
-            <div class="bet-info"><strong>${p.name}</strong><span>${p.totalBet} ₽</span></div>
+            <div class="avatar" style="background:${p.color}">${p.name ? p.name[0].toUpperCase() : 'И'}</div>
+            <div class="bet-info">
+                <strong>${p.name || 'Игрок'}</strong> 
+                <span>${p.totalBet} ₽</span>
+            </div>
             <div class="bet-chance">${percentage}%</div>
         `;
         betList.appendChild(item);
     });
-}
-
-function initAdminPanel() {
-    db.ref('deposit_requests').on('value', (snap) => {
-        const requests = snap.val() || {};
-        const adminList = document.getElementById('adminRequestsList');
-        if (!adminList) return;
-        adminList.innerHTML = '';
-
-        const pending = Object.values(requests).filter(r => r.status === 'pending');
-        if (pending.length === 0) {
-            adminList.innerHTML = '<p class="no-reqs">Нет заявок</p>';
-            return;
-        }
-
-        pending.forEach(req => {
-            const item = document.createElement('div');
-            item.className = 'admin-req-item';
-            item.innerHTML = `
-                <p>👤 <strong>${req.playerName}</strong>: ${req.amount} ₽</p>
-                <div class="admin-btns">
-                    <button class="admin-approve-btn" onclick="approveDeposit('${req.id}', '${req.playerId}', ${req.amount})">Принять</button>
-                </div>
-            `;
-            adminList.appendChild(item);
-        });
-    });
-}
-
-window.approveDeposit = function(reqId, playerId, amount) {
-    db.ref(`players/${playerId}/balance`).transaction(current => parseFloat(((current || 0) + amount).toFixed(3)));
-    db.ref(`deposit_requests/${reqId}`).remove();
-                  }
+  }
