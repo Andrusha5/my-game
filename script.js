@@ -9,6 +9,7 @@ const firebaseConfig = {
   appId: "1:856460439104:web:0e386cc2afca3b655af9a5"
 };
 
+// Инициализируем Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
@@ -98,7 +99,7 @@ const impMinesData = [
     { cells: 2, mines: 1, mult: 15.0 }  
 ];
 
-// ======= ПЕРЕМЕННЫЕ ИГРЫ "ВЗЛЕТ РАКЕТЫ V3" (ДВОЙНЫЕ СТАВКИ) =======
+// ======= ПЕРЕМЕННЫЕ ИГРЫ "ВЗЛЕТ РАКЕТЫ V3" =======
 let rocketState = { status: 'betting', timerEnd: 0 };
 let rocketLoopId = null;
 let rocketTimerInterval = null; 
@@ -142,7 +143,7 @@ function isHost() {
     return onlinePlayers[0] === myPlayerId;
 }
 
-// УНИКАЛЬНОЕ КАСТOМНОЕ УВЕДОМЛЕНИЕ О ПОБЕДЕ (5 секунд)
+// УНИКАЛЬНОЕ КАСТOМНОЕ УВЕДОМЛЕНИЕ О ПОБЕДЕ (5 секунд с автозакрытием и крестиком)
 window.showVictoryNotification = function(winnerName, prize, color) {
     const oldNotify = document.getElementById('victoryOverlayNotification');
     if (oldNotify) oldNotify.remove();
@@ -172,7 +173,7 @@ window.showVictoryNotification = function(winnerName, prize, color) {
 
     notify.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <span style="font-size:0.85rem; text-transform:uppercase; letter-spacing:1.5px; color:${color}; font-weight:900;">🏆 ПОБЕДИТЕЛЬ 🏆</span>
+            <span style="font-size:0.85rem; text-transform:uppercase; letter-spacing:1.5px; color:${color}; font-weight:900;">🏆 ПОБЕДИТЕЛЬ РАУНДА 🏆</span>
             <button id="closeVictoryNotifyBtn" style="background:none; border:none; color:#ff1744; font-size:1.6rem; cursor:pointer; line-height:1; padding:0; margin:0;">&times;</button>
         </div>
         <div style="font-size:1.25rem; font-weight:bold; margin-bottom:6px; color:#ffffff;">
@@ -372,11 +373,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const myBetRecord = bets[myPlayerId];
         if (myBetRecord) {
-            // Подгружаем обе ставки
             if (myBetRecord.bet1) {
                 rocketBet1Active = true;
                 rocketBet1Amount = myBetRecord.bet1.betAmount;
                 rocketBet1Cashed = (myBetRecord.bet1.status === 'cashed');
+            } else if (myBetRecord.betAmount) { // fallback
+                rocketBet1Active = true;
+                rocketBet1Amount = myBetRecord.betAmount;
+                rocketBet1Cashed = (myBetRecord.status === 'cashed');
             } else {
                 rocketBet1Active = false;
                 rocketBet1Amount = 0;
@@ -440,10 +444,139 @@ document.addEventListener('DOMContentLoaded', () => {
         impBetInput.addEventListener('input', updateImpMinesLabels);
     }
     
-    // Инициализируем автовыводы Ракеты
+    // БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ ДВОЙНОГО ПУЛЬТА И ДРОНОВ
+    initRocketDoubleBetUI();
+    injectLobbyCardsAndScreens();
+
+    const r1 = document.getElementById('rocketAutoToggle');
+    if (r1) r1.checked = true;
+    const r2 = document.getElementById('rocketAutoToggle2');
+    if (r2) r2.checked = true;
+    
     toggleRocketAuto(1);
     toggleRocketAuto(2);
 });
+
+// Автоматическая инъекция новой игры и лобби-карточек
+function injectLobbyCardsAndScreens() {
+    const grid = document.querySelector('.lobby-grid');
+    if (grid && !document.getElementById('droneCard')) {
+        const card = document.createElement('div');
+        card.className = 'lobby-card card-drones';
+        card.id = 'droneCard';
+        card.onclick = () => showScreen('dronesGameScreen');
+        card.innerHTML = `
+            <div class="card-icon"><span class="mini-rocket" style="filter: hue-rotate(90deg);">🛸</span></div>
+            <div class="card-info">
+                <span class="card-name">Гонка Дронов</span>
+                <span class="card-desc">Мультиплеер 3.6x</span>
+            </div>
+        `;
+        grid.appendChild(card);
+    }
+
+    if (!document.getElementById('dronesGameScreen')) {
+        const screen = document.createElement('div');
+        screen.id = 'dronesGameScreen';
+        screen.className = 'screen-container';
+        screen.style.display = 'none';
+        screen.innerHTML = `
+            <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
+            <div class="rocket-layout">
+                <h2 class="game-headline" style="color:#00FF88;">🛸 ГОНКА ДРОНОВ 🛸</h2>
+                <p class="game-subline">Мультиплеерный заезд в реальном времени!</p>
+                
+                <div class="rocket-arena-wrapper" style="height: 200px; background: #050b14; border-color: #00E676;">
+                    <canvas id="dronesCanvas" width="400" height="200" style="width:100%; height:100%;"></canvas>
+                </div>
+
+                <div id="dronesHistory" class="rocket-history-bar" style="border-color: #00E676;"></div>
+                
+                <div id="dronesMessage" class="rocket-timer-overlay" style="font-size: 1.5rem; color: #00FF88; border-color: #00FF88;">Ожидание...</div>
+
+                <div class="sp-controls" style="border-color: #00E676; background:#1e1e1e; padding:15px; border-radius:12px; width:100%;">
+                    <div class="sp-input-group">
+                        <label style="color:#aaa; font-size:0.85rem;">Ваша ставка (₽)</label>
+                        <input type="number" id="dronesBetInput" value="10" min="10">
+                    </div>
+
+                    <p class="sp-percentage-label" style="margin-top:10px;">Выберите дрон (Выигрыш: x3.6):</p>
+                    <div class="drones-choice-grid">
+                        <button id="btnDrone_red" class="drone-choice-btn active" style="color: #FF1744;" onclick="selectDronesColor('red')">КРАСНЫЙ</button>
+                        <button id="btnDrone_blue" class="drone-choice-btn" style="color: #2979FF;" onclick="selectDronesColor('blue')">СИНИЙ</button>
+                        <button id="btnDrone_green" class="drone-choice-btn" style="color: #00E676;" onclick="selectDronesColor('green')">ЗЕЛЕНЫЙ</button>
+                        <button id="btnDrone_yellow" class="drone-choice-btn" style="color: #FFEA00;" onclick="selectDronesColor('yellow')">ЖЕЛТЫЙ</button>
+                    </div>
+
+                    <button id="dronesBetBtn" class="rocket-pnl-btn btn-bet" style="background:#00E676; color:black; margin-top:15px;" onclick="placeDronesBet()">Сделать ставку</button>
+                </div>
+
+                <div id="dronesBetsList" class="rocket-history-bar" style="flex-direction:column; align-items:stretch; max-height: 150px; overflow-y: auto; width:100%;"></div>
+            </div>
+        `;
+        document.body.appendChild(screen);
+    }
+}
+
+// Автоматическая инъекция двух панелей для ставок Ракеты
+function initRocketDoubleBetUI() {
+    const originalBtn = document.getElementById('rocketBetBtn');
+    if (!originalBtn) return;
+
+    if (!document.getElementById('rocketBetInput2')) {
+        const originalInput = document.getElementById('rocketBetInput');
+        if (originalInput) {
+            const parent = originalInput.parentElement.parentElement;
+            if (parent) {
+                const originalVal = originalInput.value;
+                parent.innerHTML = `
+                    <div class="rocket-double-controls">
+                        <div class="rocket-panel">
+                            <div class="rocket-panel-title">Ставка 1</div>
+                            <div class="rocket-input-group">
+                                <label>Сумма ставки (₽)</label>
+                                <input type="number" id="rocketBetInput" value="${originalVal || 10}" min="5">
+                            </div>
+                            <div class="rocket-auto-header">
+                                <span>Автовывод</span>
+                                <label class="rocket-switch">
+                                    <input type="checkbox" id="rocketAutoToggle" onchange="toggleRocketAuto(1)">
+                                    <span class="rocket-slider"></span>
+                                </label>
+                            </div>
+                            <div id="rocketAutoControls" class="rocket-counter">
+                                <button type="button" id="rocketAutoMinus" onclick="changeRocketAutoMult(1, -0.1)">-</button>
+                                <span id="rocketAutoValue">1.1x</span>
+                                <button type="button" onclick="changeRocketAutoMult(1, 0.1)">+</button>
+                            </div>
+                            <button type="button" id="rocketBetBtn" class="rocket-pnl-btn btn-bet" onclick="actionRocketBet(1)">Поставить ставку 1</button>
+                        </div>
+                        <div class="rocket-panel">
+                            <div class="rocket-panel-title">Ставка 2</div>
+                            <div class="rocket-input-group">
+                                <label>Сумма ставки (₽)</label>
+                                <input type="number" id="rocketBetInput2" value="10" min="5">
+                            </div>
+                            <div class="rocket-auto-header">
+                                <span>Автовывод</span>
+                                <label class="rocket-switch">
+                                    <input type="checkbox" id="rocketAutoToggle2" onchange="toggleRocketAuto(2)">
+                                    <span class="rocket-slider"></span>
+                                </label>
+                            </div>
+                            <div id="rocketAutoControls2" class="rocket-counter">
+                                <button type="button" id="rocketAutoMinus2" onclick="changeRocketAutoMult(2, -0.1)">-</button>
+                                <span id="rocketAutoValue2">1.1x</span>
+                                <button type="button" onclick="changeRocketAutoMult(2, 0.1)">+</button>
+                            </div>
+                            <button type="button" id="rocketBet2Btn" class="rocket-pnl-btn btn-bet" onclick="actionRocketBet(2)">Поставить ставку 2</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    }
+}
 
 // Вкладки мультиплеера
 window.switchMultiTab = function(tabName) {
@@ -1054,7 +1187,7 @@ function evaluateSpResult(stoppedAngle, bet) {
     betInput.disabled = false;
 }
 
-// ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР) [СЛУЧАЙНЫЙ СПАВН + ЗАДЕРЖКА СТРЕЛКИ] =======
+// ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР) [СЛУЧАЙНЫЙ СПАВН + ЗАДЕРЖКА СТРЕЛКИ НА 1 СЕКУНДУ] =======
 
 function placeBet() {
     const status = gameState.status || 'betting';
@@ -1259,17 +1392,16 @@ function generateDeterministicPath(angle, sx, sy) {
     return path;
 }
 
-// Запуск стрелки направления по часовой стрелке с задержкой на спавне
+// Запуск стрелки направления по часовой стрелке вокруг точки спавна
 function startLocalRound(launchAngle) {
-    // 1. Детерминировано рассчитываем случайную точку спавна шарика на всех клиентах
+    // Детерминированный случайный спавн шарика на основе launchAngle (синхронно для всех)
     let seedX = Math.sin(launchAngle) * 10000;
     let randX = seedX - Math.floor(seedX);
     let seedY = Math.cos(launchAngle) * 20000;
     let randY = seedY - Math.floor(seedY);
 
-    // Допустимые границы спавна внутри Canvas [60, 340]
-    ballStartX = 60 + Math.floor(randX * 280);
-    ballStartY = 60 + Math.floor(randY * 280);
+    ballStartX = 80 + Math.floor(randX * 240); // Спавн в границах [80, 320]
+    ballStartY = 80 + Math.floor(randY * 240);
 
     if (ball) {
         ball.style.display = 'block';
@@ -1287,6 +1419,7 @@ function startLocalRound(launchAngle) {
     animationFrameId = requestAnimationFrame(animateDeterministicBall);
 }
 
+// Утилита позиционирования шарика
 function updateBallDOMPosition() {
     if (ball && gameAreaWrapper) {
         const rect = gameAreaWrapper.getBoundingClientRect();
@@ -1309,7 +1442,7 @@ function animateDeterministicBall() {
     try {
         const elapsed = Date.now() - animStartTime;
 
-        // ФАЗА 1: Крутится стрелка по часовой стрелке вокруг спавна (2 секунды)
+        // ФАЗА 1: Крутится стрелка по часовой стрелке вокруг точки спавна (2 секунды)
         if (arrowSpinning) {
             arrowAngle = (elapsed / arrowSpinDuration) * Math.PI * 6; 
             
@@ -1317,21 +1450,21 @@ function animateDeterministicBall() {
             
             if (elapsed >= arrowSpinDuration) {
                 arrowSpinning = false;
-                arrowHold = true; // Переходим в фазу удержания
+                arrowHold = true; // Переходим в фазу показа направления
                 animStartTime = Date.now(); 
             }
             animationFrameId = requestAnimationFrame(animateDeterministicBall);
             return;
         }
 
-        // ФАЗА 2: Стрелка замерла и показывает направление 1 секунду
+        // ФАЗА 2: Стрелка замерла и показывает направление полета ровно 1 секунду
         if (arrowHold) {
-            arrowAngle = gameState.launchAngle; // Строго указывает направление полета
+            arrowAngle = gameState.launchAngle; 
             renderWheelSections();
 
-            if (elapsed >= 1000) { // Ровно 1 секунда задержки
+            if (elapsed >= 1000) { 
                 arrowHold = false;
-                animStartTime = Date.now();
+                animStartTime = Date.now(); 
                 if (gameMessage) {
                     gameMessage.textContent = 'Шарик запущен!';
                     gameMessage.style.color = '#00FF88';
@@ -1341,7 +1474,7 @@ function animateDeterministicBall() {
             return;
         }
 
-        // ФАЗА 3: Сам полет шарика
+        // ФАЗА 3: Сам полет шарика по траектории
         const targetFps = 60;
         const frameIndex = Math.floor((elapsed / 1000) * targetFps);
 
@@ -1483,7 +1616,7 @@ function getPlayerAtCoords(bx, by, segments) {
     return segments.find(p => finalX >= p.startX && finalX <= p.endX);
 }
 
-// РЕНДЕРИНГ БЕЗ ЧЕРНОГО КРУГА ПО ЦЕНТРУ
+// РЕНДЕРИНГ ОРИГИНАЛЬНОГО ПОЛЯ (ДИАГОНАЛЬНОЕ РАЗДЕЛЕНИЕ БЕЗ ЧЕРНОГО КРУГА ПО ЦЕНТРУ)
 function renderWheelSections() {
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas ? canvas.getContext('2d') : null;
@@ -1518,7 +1651,6 @@ function renderWheelSections() {
             ctx.fillStyle = p.color;
             ctx.fillRect(p.startX, -L, p.width, L * 2);
 
-            // Подсветка при победе
             if (gameState.status === 'finished' && gameState.winnerName === p.name) {
                 const glow = Math.sin(Date.now() * 0.015) * 0.2 + 0.4;
                 ctx.fillStyle = `rgba(255, 255, 255, ${glow})`;
@@ -1527,7 +1659,7 @@ function renderWheelSections() {
         });
         ctx.restore();
 
-        // 2. Отрисовка аватарок
+        // 2. Отрисовка круглых белых аватарок
         segments.forEach((p, idx) => {
             const u = p.startX + p.width / 2;
             const v = (idx % 2 === 0) ? 80 : -80; 
@@ -1554,7 +1686,9 @@ function renderWheelSections() {
             ctx.fillText(p.name, rx, ry + 24);
         });
 
-        // 3. Рисуем стрелку вокруг спавна (черный круг вырезан полностью!)
+        /* ЧЕРНЫЙ КРУГ ПО ЦЕНТРУ ПОЛНОСТЬЮ УБРАН */
+
+        // 3. Отрисовка стрелки направления во время прицеливания (вокруг случайной точки спавна!)
         if (arrowSpinning || arrowHold) {
             ctx.save();
             ctx.translate(ballStartX, ballStartY);
@@ -1634,12 +1768,13 @@ function getRocketMult(elapsed, crashMult) {
 
 // Управление автовыводами
 window.toggleRocketAuto = function(panelIdx) {
-    const toggle = document.getElementById(`rocketAutoToggle${panelIdx}`);
-    const controls = document.getElementById(`rocketAutoControls${panelIdx}`);
+    const idx = panelIdx === 2 ? '2' : '';
+    const toggle = document.getElementById(`rocketAutoToggle${idx}`);
+    const controls = document.getElementById(`rocketAutoControls${idx}`);
     if (!toggle || !controls) return;
 
-    if (panelIdx === 1) rocketAuto1Enabled = toggle.checked;
-    else rocketAuto2Enabled = toggle.checked;
+    if (panelIdx === 2) rocketAuto2Enabled = toggle.checked;
+    else rocketAuto1Enabled = toggle.checked;
     
     if (toggle.checked) {
         controls.style.opacity = '1';
@@ -1651,73 +1786,88 @@ window.toggleRocketAuto = function(panelIdx) {
 };
 
 window.changeRocketAutoMult = function(panelIdx, amount) {
-    let currentVal = (panelIdx === 1) ? rocketAuto1Multiplier : rocketAuto2Multiplier;
+    let currentVal = (panelIdx === 2) ? rocketAuto2Multiplier : rocketAuto1Multiplier;
     let newVal = parseFloat((currentVal + amount).toFixed(1));
     
-    if (newVal < 1.1) newVal = 1.1; // Блокируем спуск ниже 1.1x
+    if (newVal < 1.1) newVal = 1.1; // Не ниже 1.1x
     
-    if (panelIdx === 1) {
-        rocketAuto1Multiplier = newVal;
-        document.getElementById('rocketAutoValue1').textContent = `${rocketAuto1Multiplier.toFixed(1)}x`;
-        document.getElementById('rocketAutoMinus1').disabled = (rocketAuto1Multiplier <= 1.1);
-    } else {
+    if (panelIdx === 2) {
         rocketAuto2Multiplier = newVal;
-        document.getElementById('rocketAutoValue2').textContent = `${rocketAuto2Multiplier.toFixed(1)}x`;
-        document.getElementById('rocketAutoMinus2').disabled = (rocketAuto2Multiplier <= 1.1);
+        const valEl = document.getElementById('rocketAutoValue2');
+        if (valEl) valEl.textContent = `${rocketAuto2Multiplier.toFixed(1)}x`;
+        const minusEl = document.getElementById('rocketAutoMinus2');
+        if (minusEl) minusEl.disabled = (rocketAuto2Multiplier <= 1.1);
+    } else {
+        rocketAuto1Multiplier = newVal;
+        const valEl = document.getElementById('rocketAutoValue');
+        if (valEl) valEl.textContent = `${rocketAuto1Multiplier.toFixed(1)}x`;
+        const minusEl = document.getElementById('rocketAutoMinus');
+        if (minusEl) minusEl.disabled = (rocketAuto1Multiplier <= 1.1);
     }
 };
 
-// Обновление кнопок ставок в зависимости от состояния
+// Обновление состояния кнопок панелей в реальном времени
 function updateRocketUIElements() {
     const status = rocketState ? (rocketState.status || 'betting') : 'betting';
-    const btn1 = document.getElementById('rocketBet1Btn');
+    const btn1 = document.getElementById('rocketBetBtn');
     const btn2 = document.getElementById('rocketBet2Btn');
+    const input1 = document.getElementById('rocketBetInput');
+    const input2 = document.getElementById('rocketBetInput2');
 
     if (status === 'betting') {
+        if (input1) input1.disabled = false;
+        if (input2) input2.disabled = false;
+
         if (btn1) {
             btn1.disabled = rocketBet1Active;
-            btn1.textContent = rocketBet1Active ? 'Ставка принята' : 'Поставить ставку 1';
+            btn1.textContent = rocketBet1Active ? 'Ставка 1 принята' : 'Поставить ставку 1';
             btn1.className = 'rocket-pnl-btn btn-bet';
         }
         if (btn2) {
             btn2.disabled = rocketBet2Active;
-            btn2.textContent = rocketBet2Active ? 'Ставка принята' : 'Поставить ставку 2';
+            btn2.textContent = rocketBet2Active ? 'Ставка 2 принята' : 'Поставить ставку 2';
             btn2.className = 'rocket-pnl-btn btn-bet';
         }
     } else if (status === 'flying') {
+        if (input1) input1.disabled = true;
+        if (input2) input2.disabled = true;
+
         if (btn1) {
             if (rocketBet1Active && !rocketBet1Cashed) {
                 btn1.disabled = false;
-                btn1.textContent = 'Забрать 1';
+                btn1.textContent = 'Забрать ставку 1';
                 btn1.className = 'rocket-pnl-btn btn-cash';
             } else {
                 btn1.disabled = true;
-                btn1.textContent = rocketBet1Cashed ? 'Забрано!' : 'Не участвует';
+                btn1.textContent = rocketBet1Cashed ? 'Забрано 1!' : 'Не участвует';
             }
         }
         if (btn2) {
             if (rocketBet2Active && !rocketBet2Cashed) {
                 btn2.disabled = false;
-                btn2.textContent = 'Забрать 2';
+                btn2.textContent = 'Забрать ставку 2';
                 btn2.className = 'rocket-pnl-btn btn-cash';
             } else {
                 btn2.disabled = true;
-                btn2.textContent = rocketBet2Cashed ? 'Забрано!' : 'Не участвует';
+                btn2.textContent = rocketBet2Cashed ? 'Забрано 2!' : 'Не участвует';
             }
         }
     } else {
-        if (btn1) { btn1.disabled = true; btn1.textContent = 'Взрыв'; }
-        if (btn2) { btn2.disabled = true; btn2.textContent = 'Взрыв'; }
+        if (input1) input1.disabled = true;
+        if (input2) input2.disabled = true;
+        if (btn1) { btn1.disabled = true; btn1.textContent = 'Взрыв!'; }
+        if (btn2) { btn2.disabled = true; btn2.textContent = 'Взрыв!'; }
     }
 }
 
-// Действие ставки
+// Универсальное действие кнопки ставки/кэшаута
 window.actionRocketBet = function(panelIdx) {
     const status = rocketState ? (rocketState.status || 'betting') : 'betting';
     
     if (status === 'betting') {
-        // РЕЖИМ СТАВКИ
-        const betInput = document.getElementById(`rocketBetInput${panelIdx}`);
+        const idx = panelIdx === 2 ? '2' : '';
+        const betInput = document.getElementById(`rocketBetInput${idx}`);
+        if (!betInput) return;
         const amount = parseInt(betInput.value) || 0;
         const balance = players[myPlayerId]?.balance || 0;
 
@@ -1726,7 +1876,7 @@ window.actionRocketBet = function(panelIdx) {
             return;
         }
         if (amount > balance) {
-            alert('Недостаточно средств!');
+            alert(`Недостаточно средств на балансе!`);
             return;
         }
 
@@ -1734,9 +1884,18 @@ window.actionRocketBet = function(panelIdx) {
             return parseFloat(((current || 0) - amount).toFixed(3));
         }, (error, committed) => {
             if (committed) {
+                if (panelIdx === 1) {
+                    rocketBet1Active = true;
+                    rocketBet1Amount = amount;
+                    rocketBet1Cashed = false;
+                } else {
+                    rocketBet2Active = true;
+                    rocketBet2Amount = amount;
+                    rocketBet2Cashed = false;
+                }
+
                 const myData = players[myPlayerId] || { name: 'Игрок', color: '#BA68C8' };
                 const updates = {};
-                
                 updates[`rocketBetsV3/${myPlayerId}/name`] = myData.name || "Игрок";
                 updates[`rocketBetsV3/${myPlayerId}/color`] = myData.color || '#BA68C8';
                 updates[`rocketBetsV3/${myPlayerId}/bet${panelIdx}`] = {
@@ -1746,18 +1905,17 @@ window.actionRocketBet = function(panelIdx) {
                 };
 
                 db.ref().update(updates);
-                showToast("Ставка сделана", `Ставка ${panelIdx} на сумму ${amount} ₽ успешно принята!`);
+                showToast("Ставка принята!", `Ставка №${panelIdx} на сумму ${amount} ₽ успешно отправлена.`);
             }
         });
     } else if (status === 'flying') {
-        // РЕЖИМ КЭШАУТА ВРУЧНУЮ
         cashoutRocketBet(panelIdx);
     }
 };
 
 function cashoutRocketBet(panelIdx, forcedMult) {
-    const isCashed = (panelIdx === 1) ? rocketBet1Cashed : rocketBet2Cashed;
     const isActive = (panelIdx === 1) ? rocketBet1Active : rocketBet2Active;
+    const isCashed = (panelIdx === 1) ? rocketBet1Cashed : rocketBet2Cashed;
     const betAmt = (panelIdx === 1) ? rocketBet1Amount : rocketBet2Amount;
 
     if (!isActive || isCashed || rocketState.status !== 'flying') return;
@@ -1770,7 +1928,7 @@ function cashoutRocketBet(panelIdx, forcedMult) {
 
     if (liveMult >= rocketState.crashMult) {
         if (forcedMult && rocketState.crashMult >= forcedMult) {
-            // Ок
+            // Успешный автовывод на грани краша
         } else {
             return; // Опоздали
         }
@@ -1789,7 +1947,8 @@ function cashoutRocketBet(panelIdx, forcedMult) {
                 status: 'cashed',
                 cashoutMult: currentMult
             });
-            showToast("Выигрыш!", `Ставка ${panelIdx} успешно обналичена на x${currentMult}! +${winnings} ₽`);
+
+            showToast("Выигрыш получен!", `Ставка №${panelIdx} успешно обналичена на коэффициенте x${currentMult}. Получено +${winnings} ₽!`);
         }
     });
 }
@@ -1845,7 +2004,7 @@ function syncRocketState() {
             msg.innerHTML = `💥 Ракета взорвалась на <span style="color:#ff1744; font-weight:bold;">${finalMult}x</span>`;
         }
 
-        // Клиентский автовывод при краше
+        // Клиентский автовывод при крушении
         if (rocketBet1Active && !rocketBet1Cashed && rocketAuto1Enabled && rocketState.crashMult >= rocketAuto1Multiplier) {
             cashoutRocketBet(1, rocketAuto1Multiplier);
         }
@@ -1920,7 +2079,7 @@ function startRocketFlightAnimation(launchTime) {
             rocketActor.style.bottom = `${verticalPos}px`;
         }
 
-        // Автовыводы в реальном времени
+        // Автовывод в реальном времени
         if (rocketState.status === 'flying') {
             if (rocketBet1Active && !rocketBet1Cashed && rocketAuto1Enabled && currentMult >= rocketAuto1Multiplier) {
                 cashoutRocketBet(1, rocketAuto1Multiplier);
@@ -1946,16 +2105,15 @@ function renderRocketBets(betsData) {
     }
 
     list.forEach(([pId, record]) => {
-        const div1 = document.createElement('div');
-        div1.className = 'bet-item';
-        div1.style.borderLeft = `4px solid ${record.color}`;
-
         if (record.bet1) {
-            let status = record.bet1.status === 'active' ? 'В полете...' : `Забрал x${record.bet1.cashoutMult} (+${Math.floor(record.bet1.betAmount * record.bet1.cashoutMult)} ₽)`;
+            const div1 = document.createElement('div');
+            div1.className = 'bet-item';
+            div1.style.borderLeft = `4px solid ${record.color}`;
+            let statusText = record.bet1.status === 'active' ? '<span style="color:#aaa">В полете...</span>' : `<span style="color:#00E676; font-weight:bold;">Забрал x${record.bet1.cashoutMult.toFixed(2)} (+${Math.floor(record.bet1.betAmount * record.bet1.cashoutMult)} ₽)</span>`;
             div1.innerHTML = `
-                <div class="avatar" style="background:${record.color}">${record.name[0]}</div>
+                <div class="avatar" style="background:${record.color}">${record.name[0].toUpperCase()}</div>
                 <div class="bet-info"><strong>${record.name} (Ставка 1)</strong><span>Ставка: ${record.bet1.betAmount} ₽</span></div>
-                <div class="bet-chance">${status}</div>
+                <div class="bet-chance">${statusText}</div>
             `;
             listContainer.appendChild(div1);
         }
@@ -1964,13 +2122,26 @@ function renderRocketBets(betsData) {
             const div2 = document.createElement('div');
             div2.className = 'bet-item';
             div2.style.borderLeft = `4px solid ${record.color}`;
-            let status = record.bet2.status === 'active' ? 'В полете...' : `Забрал x${record.bet2.cashoutMult} (+${Math.floor(record.bet2.betAmount * record.bet2.cashoutMult)} ₽)`;
+            let statusText = record.bet2.status === 'active' ? '<span style="color:#aaa">В полете...</span>' : `<span style="color:#00E676; font-weight:bold;">Забрал x${record.bet2.cashoutMult.toFixed(2)} (+${Math.floor(record.bet2.betAmount * record.bet2.cashoutMult)} ₽)</span>`;
             div2.innerHTML = `
-                <div class="avatar" style="background:${record.color}">${record.name[0]}</div>
+                <div class="avatar" style="background:${record.color}">${record.name[0].toUpperCase()}</div>
                 <div class="bet-info"><strong>${record.name} (Ставка 2)</strong><span>Ставка: ${record.bet2.betAmount} ₽</span></div>
-                <div class="bet-chance">${status}</div>
+                <div class="bet-chance">${statusText}</div>
             `;
             listContainer.appendChild(div2);
+        }
+
+        if (!record.bet1 && !record.bet2 && record.betAmount) { // fallback
+            const divOld = document.createElement('div');
+            divOld.className = 'bet-item';
+            divOld.style.borderLeft = `4px solid ${record.color}`;
+            let statusText = record.status === 'active' ? '<span style="color:#aaa">В полете...</span>' : `<span style="color:#00E676; font-weight:bold;">Забрал x${record.cashoutMult.toFixed(2)}</span>`;
+            divOld.innerHTML = `
+                <div class="avatar" style="background:${record.color}">${record.name[0].toUpperCase()}</div>
+                <div class="bet-info"><strong>${record.name}</strong><span>Ставка: ${record.betAmount} ₽</span></div>
+                <div class="bet-chance">${statusText}</div>
+            `;
+            listContainer.appendChild(divOld);
         }
     });
 }
@@ -2000,7 +2171,6 @@ function checkHostRocketLogic() {
 
     const lastActiveTime = current.crashedTime || current.launchTime || current.timerEnd || 0;
     if (lastActiveTime > 0 && (now - lastActiveTime > 25000)) {
-        // Цикл Ракеты продолжается даже при отсутствии игроков!
         db.ref('rocketHistoryV3').once('value').then((histSnap) => {
             let hList = histSnap.val() || [];
             if (!Array.isArray(hList)) hList = [];
@@ -2053,9 +2223,15 @@ function checkHostRocketLogic() {
                 for (let pId in bets) {
                     if (bets[pId].bet1 && bets[pId].bet1.status === 'active') {
                         updates[`rocketBetsV3/${pId}/bet1/status`] = 'lost';
+                        updates[`rocketBetsV3/${pId}/bet1/cashoutMult`] = current.crashMult;
                     }
                     if (bets[pId].bet2 && bets[pId].bet2.status === 'active') {
                         updates[`rocketBetsV3/${pId}/bet2/status`] = 'lost';
+                        updates[`rocketBetsV3/${pId}/bet2/cashoutMult`] = current.crashMult;
+                    }
+                    if (bets[pId].status === 'active') { // fallback
+                        updates[`rocketBetsV3/${pId}/status`] = 'lost';
+                        updates[`rocketBetsV3/${pId}/cashoutMult`] = current.crashMult;
                     }
                 }
                 if (Object.keys(updates).length > 0) db.ref().update(updates);
@@ -2086,7 +2262,7 @@ function launchRocket() {
 }
 
 
-// ======= АБСОЛЮТНО НОВАЯ МУЛЬТИПЛЕЕРНАЯ ОНЛАЙН-ИГРА: "ГОНКА ДРОНОВ" =======
+// ======= ОНЛАЙН-ИГРА: "ГОНКА ДРОНОВ" (3.6x) =======
 
 window.selectDronesColor = function(color) {
     dronesSelectedColor = color;
@@ -2099,7 +2275,7 @@ window.selectDronesColor = function(color) {
 
 window.placeDronesBet = function() {
     if (dronesState.status !== 'betting') {
-        alert('Ставки закрыты!');
+        alert('Ставки на заезд уже закрыты!');
         return;
     }
     if (dronesBetPlaced) {
@@ -2129,7 +2305,7 @@ window.placeDronesBet = function() {
                 amount: amount,
                 color: dronesSelectedColor
             });
-            showToast("Гонка Дронов", "Ставка на дрон успешно зарегистрирована!");
+            showToast("Гонка Дронов", "Ставка принята!");
         }
     });
 }
@@ -2146,13 +2322,13 @@ function syncDronesState() {
         if (dronesState.timerEnd && dronesState.timerEnd > 0) {
             startDronesBettingTimer(dronesState.timerEnd);
         } else {
-            if (msg) msg.textContent = 'Ожидание гонщиков...';
+            if (msg) msg.textContent = 'Ожидание игроков...';
         }
         renderDronesTrack();
     } 
     else if (status === 'racing') {
         if (betBtn) betBtn.disabled = true;
-        if (msg) msg.textContent = 'Гонка дронов в самом разгаре!';
+        if (msg) msg.textContent = 'Гонка дронов началась!';
         if (dronesTimerInterval) { clearInterval(dronesTimerInterval); dronesTimerInterval = null; }
         
         startDronesAnimation(dronesState.launchTime, dronesState.seed);
@@ -2161,7 +2337,7 @@ function syncDronesState() {
         if (betBtn) betBtn.disabled = true;
         if (dronesLoopId) { cancelAnimationFrame(dronesLoopId); dronesLoopId = null; }
         
-        renderDronesTrack(true); // Финальный рендер с победителем
+        renderDronesTrack(true); 
 
         const colorRu = { red: 'Красный', blue: 'Синий', green: 'Зеленый', yellow: 'Желтый' };
         if (msg) {
@@ -2184,7 +2360,7 @@ function startDronesBettingTimer(timerEnd) {
         const timeLeft = Math.max(0, (timerEnd - now) / 1000);
         
         if (msg) {
-            msg.textContent = `Ставки принимаются! До гонки: ${Math.ceil(timeLeft)}с`;
+            msg.textContent = `До старта гонки: ${Math.ceil(timeLeft)}с`;
             msg.style.color = '#00FF88';
         }
 
@@ -2198,12 +2374,10 @@ function startDronesBettingTimer(timerEnd) {
     }, 200);
 }
 
-// Детерминированный расчет положения дронов по времени (без сетевой рассинхронизации)
 function getDronePosition(elapsed, seedValue, index) {
     let speed = 25; 
     let baseOffset = speed * elapsed;
     
-    // Псевдослучайные микроускорения на основе синусоид
     let microBoost = Math.sin(elapsed * 2.3 + index * 4.5 + seedValue) * 18;
     let microBoost2 = Math.cos(elapsed * 4.1 + index * 1.5 - seedValue) * 8;
 
@@ -2220,44 +2394,35 @@ function startDronesAnimation(launchTime, seed) {
         const now = getServerTime();
         const elapsed = (now - launchTime) / 1000;
 
-        ctx.clearRect(0, 0, 400, 250);
+        ctx.clearRect(0, 0, 400, 200);
 
-        // Сетка трассы
         ctx.strokeStyle = '#222';
         ctx.lineWidth = 1;
         for (let i = 0; i < 400; i += 40) {
-            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 250); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 200); ctx.stroke();
         }
 
-        // Финишная линия
         ctx.strokeStyle = '#FFEA00';
         ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.moveTo(370, 0); ctx.lineTo(370, 250); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(370, 0); ctx.lineTo(370, 200); ctx.stroke();
 
         const colors = ['red', 'blue', 'green', 'yellow'];
         
         colors.forEach((col, idx) => {
-            const y = 35 + idx * 55;
+            const y = 25 + idx * 50;
             const x = getDronePosition(elapsed, seed, idx);
 
-            // Траектория
             ctx.strokeStyle = DRONE_COLORS[col] + '44';
             ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(x, y); ctx.stroke();
 
-            // Дрон
             ctx.beginPath();
-            ctx.arc(x, y, 12, 0, Math.PI * 2);
+            ctx.arc(x, y, 10, 0, Math.PI * 2);
             ctx.fillStyle = DRONE_COLORS[col];
             ctx.fill();
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1.5;
             ctx.stroke();
-
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 9px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(col[0].toUpperCase(), x, y + 3);
         });
 
         if (dronesState.status === 'racing') {
@@ -2272,26 +2437,25 @@ function renderDronesTrack(finished = false) {
     const ctx = canvas ? canvas.getContext('2d') : null;
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, 400, 250);
+    ctx.clearRect(0, 0, 400, 200);
 
-    // Отрисовка статической трассы
     ctx.strokeStyle = '#222';
     ctx.lineWidth = 1;
     for (let i = 0; i < 400; i += 40) {
-        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 250); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 200); ctx.stroke();
     }
 
     ctx.strokeStyle = '#FFEA00';
     ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(370, 0); ctx.lineTo(370, 250); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(370, 0); ctx.lineTo(370, 200); ctx.stroke();
 
     const colors = ['red', 'blue', 'green', 'yellow'];
     colors.forEach((col, idx) => {
-        const y = 35 + idx * 55;
+        const y = 25 + idx * 50;
         const x = finished && dronesState.winnerColor === col ? 370 : 30;
 
         ctx.beginPath();
-        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.arc(x, y, 10, 0, Math.PI * 2);
         ctx.fillStyle = DRONE_COLORS[col];
         ctx.fill();
         ctx.strokeStyle = '#fff';
@@ -2306,7 +2470,7 @@ function renderDronesBetsList(bets) {
     bar.innerHTML = '';
     const list = Object.values(bets);
     if (list.length === 0) {
-        bar.innerHTML = '<div class="bet-placeholder">Ставок нет</div>';
+        bar.innerHTML = '<div class="bet-placeholder">Ставок еще нет</div>';
         return;
     }
     list.forEach(b => {
@@ -2345,7 +2509,6 @@ function checkHostDronesLogic() {
 
     const lastActiveTime = current.crashedTime || current.launchTime || current.timerEnd || 0;
     if (lastActiveTime > 0 && (now - lastActiveTime > 30000)) {
-        // Очищаем и перезапускаем
         db.ref('dronesBets').remove();
         stateRef.set({
             status: 'betting',
@@ -2361,12 +2524,10 @@ function checkHostDronesLogic() {
         if (!current.timerEnd || current.timerEnd === 0) {
             stateRef.update({ status: 'betting', timerEnd: now + 12000 });
         } else if (now >= current.timerEnd) {
-            // Рассчитываем победителя по семени гонки
             const seed = Math.random() * 1000;
             const times = [];
             const colors = ['red', 'blue', 'green', 'yellow'];
             
-            // Финиш на X = 340. Рассчитываем время финиша каждого дрона
             colors.forEach((col, idx) => {
                 let finished = false;
                 let t = 0;
@@ -2393,14 +2554,13 @@ function checkHostDronesLogic() {
     } 
     else if (current.status === 'racing') {
         const elapsed = (now - current.launchTime) / 1000;
-        // Длина трека финиширует примерно за 11-12 секунд максимум
         if (elapsed >= 11.5) {
             stateRef.update({
                 status: 'finished',
                 crashedTime: now
             });
 
-            // Начисление выплат за победивший дрон
+            // Начисление выигрыша за дрон
             db.ref('dronesBets').once('value').then((snap) => {
                 const bets = snap.val() || {};
                 for (let pId in bets) {
@@ -2413,7 +2573,6 @@ function checkHostDronesLogic() {
                 }
             });
 
-            // Пишем в историю
             db.ref('dronesHistory').once('value').then((snap) => {
                 let hList = snap.val() || [];
                 if (!Array.isArray(hList)) hList = [];
@@ -2621,4 +2780,4 @@ function renderBets() {
         `;
         betList.appendChild(item);
     });
-}
+  }
