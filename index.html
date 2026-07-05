@@ -2,45 +2,42 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Игровой Портал</title>
-    <link rel="stylesheet" href="style.css?v=41">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <!-- Подключаем Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 
-    <!-- Контейнер для кастомных уведомлений -->
+    <!-- Звуковое уведомление (опционально) -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <!-- Верхняя панель (Баланс и Имя) -->
+    <!-- Верхняя панель пользователя -->
     <div id="headerBar">
-        <div id="userWelcome">Загрузка...</div>
+        <span id="userWelcome">Игрок</span>
         <button id="balanceBtn" onclick="openDepositModal()">Баланс: <span id="myBalance">0</span> ₽</button>
     </div>
 
-    <!-- ================= ЭКРАН 1: ЛОББИ (МЕНЮ) ================= -->
+    <!-- ЭКРАН 1: ГЛАВНОЕ МЕНЮ (ЛОББИ) -->
     <div id="lobbyScreen" class="screen-container">
-        <h1 class="lobby-title">Выбор игры</h1>
+        <h1 class="lobby-title">ИГРОВОЙ ПОРТАЛ</h1>
         <div class="lobby-grid">
-            
             <div class="lobby-card card-squid" onclick="showScreen('multiplayerGameScreen')">
                 <div class="card-icon"><div class="mini-square-grid"></div></div>
                 <div class="card-info">
-                    <span class="card-name">Игра в Кальмара</span>
-                    <span class="card-desc">Мультиплеер онлайн</span>
+                    <span class="card-name">Игра Кальмара</span>
+                    <span class="card-desc">Онлайн рулетка</span>
                 </div>
             </div>
-
             <div class="lobby-card card-wheel" onclick="showScreen('singleplayerGameScreen')">
                 <div class="card-icon"><div class="mini-wheel"></div></div>
                 <div class="card-info">
-                    <span class="card-name">Невозможное колесо</span>
-                    <span class="card-desc">Выбери свой шанс</span>
+                    <span class="card-name">Колесо Фортуны</span>
+                    <span class="card-desc">Риск и множители</span>
                 </div>
             </div>
-
             <div class="lobby-card card-coin" onclick="showScreen('coinGameScreen')">
                 <div class="card-icon"><div class="mini-coin"></div></div>
                 <div class="card-info">
@@ -48,79 +45,79 @@
                     <span class="card-desc">Орел или Решка</span>
                 </div>
             </div>
-
             <div class="lobby-card card-mines" onclick="showScreen('minesGameScreen')">
                 <div class="card-icon"><div class="mini-mine"></div></div>
                 <div class="card-info">
                     <span class="card-name">Везде Мины</span>
-                    <span class="card-desc">Найди алмазы</span>
+                    <span class="card-desc">Сапер на удвоение</span>
                 </div>
             </div>
-
             <div class="lobby-card card-imp-mines" onclick="showScreen('impMinesGameScreen')">
                 <div class="card-icon"><div class="mini-imp-mine"></div></div>
                 <div class="card-info">
-                    <span class="card-name">Невозможная башня</span>
-                    <span class="card-desc">Башня из 6 рядов</span>
+                    <span class="card-name">Башня Страха</span>
+                    <span class="card-desc">Подъем по плитам</span>
                 </div>
             </div>
-
-            <!-- ИГРА ВЗЛЕТ РАКЕТЫ -->
             <div class="lobby-card card-rocket" onclick="showScreen('rocketGameScreen')">
-                <div class="card-icon"><div class="mini-rocket">🚀</div></div>
+                <div class="card-icon"><span class="mini-rocket">🚀</span></div>
                 <div class="card-info">
                     <span class="card-name">Взлет Ракеты</span>
-                    <span class="card-desc">Краш онлайн 333x</span>
+                    <span class="card-desc">Успей забрать!</span>
                 </div>
             </div>
-
-            <!-- ШУТОЧНЫЙ ВЫВОД СРЕДСТВ -->
-            <div class="lobby-card card-withdraw" onclick="showScreen('withdrawGameScreen')">
-                <div class="card-icon"><div class="mini-withdraw">💳</div></div>
+            <div class="lobby-card card-drones" onclick="showScreen('dronesGameScreen')">
+                <div class="card-icon"><span class="mini-rocket" style="filter: hue-rotate(90deg);">🛸</span></div>
                 <div class="card-info">
-                    <span class="card-name" style="color: #FFF59D;">Вывод средств</span>
-                    <span class="card-desc" style="color: #FFD700;">Быстрые выплаты</span>
+                    <span class="card-name">Гонка Дронов</span>
+                    <span class="card-desc">Заезд онлайн</span>
                 </div>
             </div>
-
+            <div class="lobby-card card-cycle" onclick="showScreen('cycleGameScreen')">
+                <div class="card-icon"><span class="mini-rocket" style="filter: hue-rotate(200deg);">🏍️</span></div>
+                <div class="card-info">
+                    <span class="card-name">Мото-Дуэль</span>
+                    <span class="card-desc">Трон арена</span>
+                </div>
+            </div>
+            <div class="lobby-card card-withdraw" onclick="showScreen('withdrawGameScreen')">
+                <div class="card-icon"><span class="mini-withdraw">💳</span></div>
+                <div class="card-info">
+                    <span class="card-name">Вывод средств</span>
+                    <span class="card-desc">Быстрая выплата</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 2: МУЛЬТИПЛЕЕР (КАЛЬМАР) ================= -->
-    <div id="multiplayerGameScreen" class="screen-container" style="display:none;">
+    <!-- ЭКРАН 2: ИГРА В КАЛЬМАРА -->
+    <div id="multiplayerGameScreen" class="screen-container" style="display: none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div id="ui">
-            <input type="text" id="playerNameInput" placeholder="Ваше имя" maxlength="15">
-            <input type="number" id="betAmountInput" placeholder="Ставка (₽)" min="10">
-            <button id="placeBetButton">Сделать ставку</button>
-            
-            <div id="statusInfo">Банк игры: <span id="totalBank">0</span> ₽</div>
-            <div id="gameMessage">Ждем ставки...</div>
-            
             <div id="gameAreaWrapper">
+                <canvas id="gameCanvas" width="400" height="400"></canvas>
                 <div id="bettingTimer">15</div>
                 <div id="ball"></div>
-                <canvas id="gameCanvas" width="400" height="400"></canvas>
             </div>
-
+            <div id="gameMessage">Ждем ставки...</div>
+            <div id="statusInfo">Общий банк: <span id="totalBank">0</span> ₽</div>
+            <input type="text" id="playerNameInput" placeholder="Ваше имя">
+            <input type="number" id="betAmountInput" placeholder="Сумма ставки (от 10 ₽)">
+            <button id="placeBetButton">Сделать ставку</button>
             <div class="multi-tabs">
                 <button id="tabBetsBtn" class="tab-btn active" onclick="switchMultiTab('bets')">Ставки</button>
                 <button id="tabHistoryBtn" class="tab-btn" onclick="switchMultiTab('history')">История</button>
             </div>
-            
-            <div id="betList">
-                <div class="bet-placeholder">Ставок еще нет</div>
-            </div>
-            <div id="historyList" style="display: none;">
-                <div class="bet-placeholder">История игр пуста</div>
-            </div>
+            <div id="betList"></div>
+            <div id="historyList" style="display:none;"></div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 3: НЕВОЗМОЖНОЕ КОЛЕСО ================= -->
-    <div id="singleplayerGameScreen" class="screen-container" style="display:none;">
+    <!-- ЭКРАН 3: КОЛЕСО ФОРТУНЫ -->
+    <div id="singleplayerGameScreen" class="screen-container" style="display: none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="sp-layout">
+            <h2 class="sp-title">НЕВОЗМОЖНОЕ КОЛЕСО</h2>
             <div class="sp-wheel-container">
                 <div class="sp-pointer"></div>
                 <div id="spWheel">
@@ -128,23 +125,22 @@
                 </div>
             </div>
             <div class="sp-controls">
-                <h3 class="sp-title">Настройки шанса</h3>
-                <div class="sp-percentage-label">Выберите вероятность выигрыша:</div>
-                <div class="sp-percent-grid">
-                    <button class="sp-pct-btn" onclick="selectSpPercent(75)">75% <span class="btn-mult">1.2x</span></button>
-                    <button class="sp-pct-btn active" onclick="selectSpPercent(50)">50% <span class="btn-mult">1.4x</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(33)">33% <span class="btn-mult">1.55x</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(25)">25% <span class="btn-mult">1.8x</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(10)">10% <span class="btn-mult">2.2x</span></button>
-                    <button class="sp-pct-btn" onclick="selectSpPercent(1)">1% <span class="btn-mult">33.0x</span></button>
-                </div>
                 <div class="sp-input-group">
-                    <label for="spBetInput">Сумма ставки (₽):</label>
+                    <label>Сумма ставки (₽)</label>
                     <input type="number" id="spBetInput" value="10" min="10">
+                </div>
+                <p class="sp-percentage-label">Выберите сектор победы:</p>
+                <div class="sp-percent-grid">
+                    <button class="sp-pct-btn" onclick="selectSpPercent(75)">75% <span class="btn-mult">x1.2</span></button>
+                    <button class="sp-pct-btn active" onclick="selectSpPercent(50)">50% <span class="btn-mult">x1.4</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(33)">33% <span class="btn-mult">x1.55</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(25)">25% <span class="btn-mult">x1.8</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(10)">10% <span class="btn-mult">x2.2</span></button>
+                    <button class="sp-pct-btn" onclick="selectSpPercent(1)">1% <span class="btn-mult">x33</span></button>
                 </div>
                 <div class="sp-summary">
                     <p>Шанс: <strong id="summaryChance">50%</strong></p>
-                    <p>Выплата: <strong id="summaryWin" class="win-color">14 ₽</strong></p>
+                    <p>Выигрыш: <strong id="summaryWin" class="win-color">14 ₽</strong></p>
                 </div>
                 <button id="spSpinBtn" onclick="spinSingleplayerWheel()">Крутить колесо</button>
                 <div id="spMessage"></div>
@@ -152,12 +148,12 @@
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 4: ВСЕГДА ГОЛУБЬ ================= -->
-    <div id="coinGameScreen" class="screen-container" style="display:none;">
+    <!-- ЭКРАН 4: ВСЕГДА ГОЛУБЬ -->
+    <div id="coinGameScreen" class="screen-container" style="display: none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="coin-layout">
-            <h2 class="game-headline">Всегда Голубь</h2>
-            <p class="game-subline">Коэффициент выигрыша: 1.5x</p>
+            <h2 class="game-headline">ВСЕГДА ГОЛУБЬ</h2>
+            <p class="game-subline">Удвой ставку за один бросок</p>
             <div class="coin-container">
                 <div id="coin3d" class="coin">
                     <div class="side heads">ОРЕЛ</div>
@@ -166,209 +162,262 @@
             </div>
             <div class="coin-controls">
                 <div class="coin-choice-grid">
-                    <button id="btnCoinHeads" class="coin-choice-btn active" onclick="selectCoinChoice('heads')">Орел</button>
+                    <button id="btnCoinHeads" class="coin-choice-btn active" onclick="selectCoinChoice('heads')">Орёл</button>
                     <button id="btnCoinTails" class="coin-choice-btn" onclick="selectCoinChoice('tails')">Решка</button>
                 </div>
                 <div class="sp-input-group">
-                    <label>Сумма ставки (₽):</label>
+                    <label>Сумма ставки (₽)</label>
                     <input type="number" id="coinBetInput" value="10" min="10">
                 </div>
                 <button id="coinStartBtn" onclick="playCoinFlip()">Бросить монетку</button>
-                <div id="coinMessage">Выберите сторону и ставку</div>
+                <div id="coinMessage"></div>
             </div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 5: ВЕЗДЕ МИНЫ ================= -->
-    <div id="minesGameScreen" class="screen-container" style="display:none;">
+    <!-- ЭКРАН 5: ВЕЗДЕ МИНЫ -->
+    <div id="minesGameScreen" class="screen-container" style="display: none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="mines-layout">
-            <h2 class="game-headline">Везде Мины</h2>
-            <p class="game-subline">Всего на поле 3 мины</p>
+            <h2 class="game-headline" style="color: #E65100;">ВЕЗДЕ МИНЫ</h2>
+            <p class="game-subline">Ищи кристаллы, обходи 3 скрытые бомбы</p>
+            <div id="minesGrid" class="mines-grid"></div>
             <div class="mines-stats">
-                <span>Мин: 3</span>
-                <span>Открыто клеток: <strong id="minesOpenedCount">0/22</strong></span>
+                <span>Открыто: <strong id="minesOpenedCount">0/22</strong></span>
                 <span>Множитель: <strong id="minesCurrentMultiplier" class="win-color">1.00x</strong></span>
             </div>
-            <div id="minesGrid" class="mines-grid"></div>
             <div class="mines-controls">
-                <div class="sp-input-group">
-                    <label>Сумма ставки (₽):</label>
+                <div class="sp-input-group" style="margin-bottom: 15px;">
+                    <label>Сумма ставки (₽)</label>
                     <input type="number" id="minesBetInput" value="10" min="10">
                 </div>
-                <div id="minesMessage">Выберите ставку и начните раунд</div>
                 <div class="mines-action-buttons">
-                    <button id="minesStartBtn" onclick="startMinesRound()">Начать раунд</button>
-                    <button id="minesCashoutBtn" onclick="cashoutMines()" disabled>Забрать 0 ₽</button>
+                    <button id="minesStartBtn" onclick="startMinesRound()">Начать игру</button>
+                    <button id="minesCashoutBtn" onclick="cashoutMines()" disabled>Забрать <span id="minesCashoutValue">0</span> ₽</button>
                 </div>
-                <span id="minesCashoutValue" style="display:none;">0</span>
+                <div id="minesMessage"></div>
             </div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 6: НЕВОЗМОЖНАЯ БАШНЯ ================= -->
-    <div id="impMinesGameScreen" class="screen-container" style="display:none;">
+    <!-- ЭКРАН 6: БАШНЯ СТРАХА -->
+    <div id="impMinesGameScreen" class="screen-container" style="display: none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="mines-layout">
-            <h2 class="game-headline" style="color:#FF1744">Невозможная башня</h2>
-            <p class="game-subline">Пройди 6 рядов до вершины (15x)</p>
-            
+            <h2 class="game-headline" style="color: #FF1744;">БАШНЯ СТРАХА</h2>
+            <p class="game-subline">Поднимись на вершину башни без взрывов</p>
             <div id="impMinesRowsContainer" class="imp-rows-container"></div>
-            
             <div class="mines-controls">
-                <div class="sp-input-group">
-                    <label>Сумма ставки (₽):</label>
+                <div class="sp-input-group" style="margin-bottom: 15px;">
+                    <label>Сумма ставки (₽)</label>
                     <input type="number" id="impBetInput" value="10" min="10">
                 </div>
-                <div id="impMessage">Сделайте ставку и нажмите играть</div>
                 <div class="mines-action-buttons">
-                    <button id="impStartBtn" onclick="startImpMines()">Играть</button>
+                    <button id="impStartBtn" onclick="startImpMines()">Начать восхождение</button>
                     <button id="impCashoutBtn" onclick="cashoutImpMines()" disabled>Забрать 0 ₽</button>
                 </div>
+                <div id="impMessage"></div>
             </div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 7: ВЗЛЕТ РАКЕТЫ ================= -->
-    <div id="rocketGameScreen" class="screen-container" style="display:none;">
+    <!-- ЭКРАН 7: ВЗЛЕТ РАКЕТЫ -->
+    <div id="rocketGameScreen" class="screen-container" style="display: none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="rocket-layout">
-            <h2 class="game-headline" style="color:#D500F9">Взлет Ракеты</h2>
-            <p class="game-subline">Заберите деньги до взрыва! Множитель до 333x</p>
+            <h2 class="game-headline" style="color:#D500F9;">ВЗЛЕТ РАКЕТЫ</h2>
+            <p class="game-subline">Мультиплеерная игра на реакцию</p>
             
-            <!-- Поле с закруглением ровно 7px -->
             <div class="rocket-arena-wrapper">
-                <div class="stars-container"></div>
                 <div class="rocket-grid-overlay"></div>
-                <div id="rocketTimerOverlay" class="rocket-timer-overlay">10</div>
-                
-                <!-- Анимированная ракета -->
+                <div class="stars-container"></div>
+                <div id="rocketTimerOverlay" class="rocket-timer-overlay">5</div>
                 <div id="rocketActor" class="rocket-actor">
                     <span class="rocket-emoji">🚀</span>
                     <div class="rocket-fire"></div>
                 </div>
-
                 <div id="rocketMultiplierDisplay" class="rocket-mult-display">1.00x</div>
                 <div id="rocketExplosion" class="rocket-explosion">💥</div>
             </div>
 
-            <!-- Последние 10 результатов полета -->
-            <div class="rocket-history-label">Последние 10 игр:</div>
-            <div id="rocketHistory" class="rocket-history-bar">
-                <span class="rocket-hist-empty">История пуста...</span>
-            </div>
+            <div id="rocketHistory" class="rocket-history-bar"></div>
+            <div id="rocketMessage" style="text-align:center; font-weight:bold; min-height:22px; margin:5px 0;">Ожидание...</div>
 
-            <!-- Панель управления ставками -->
-            <div class="rocket-controls">
-                
-                <!-- Панель ввода суммы и Автовывода в ряд (Компактно) -->
-                <div class="rocket-input-row">
-                    <div class="rocket-input-col">
-                        <label class="rocket-field-label">Ставка (₽):</label>
+            <!-- Две компактные панели ставок -->
+            <div class="rocket-double-controls">
+                <div class="rocket-panel">
+                    <div class="rocket-panel-title">Ставка 1</div>
+                    <div class="rocket-input-group">
                         <input type="number" id="rocketBetInput" value="10" min="5">
                     </div>
-                    
-                    <div class="rocket-input-col">
-                        <div class="rocket-auto-header-compact">
-                            <span class="rocket-auto-title-compact">Автовывод</span>
-                            <label class="rocket-switch">
-                                <input type="checkbox" id="rocketAutoToggle" onchange="toggleRocketAuto()">
-                                <span class="rocket-slider"></span>
-                            </label>
-                        </div>
-                        <div class="rocket-counter-compact" id="rocketAutoControls">
-                            <button class="rocket-counter-btn-compact" id="rocketAutoMinus" onclick="changeRocketAutoMult(-0.1)" disabled>-</button>
-                            <span class="rocket-counter-value-compact" id="rocketAutoValue">1.1x</span>
-                            <button class="rocket-counter-btn-compact" onclick="changeRocketAutoMult(0.1)">+</button>
-                        </div>
+                    <div class="rocket-auto-header">
+                        <span>Автовывод</span>
+                        <label class="rocket-switch">
+                            <input type="checkbox" id="rocketAutoToggle" onchange="toggleRocketAuto(1)">
+                            <span class="rocket-slider"></span>
+                        </label>
                     </div>
+                    <div id="rocketAutoControls" class="rocket-counter">
+                        <button type="button" id="rocketAutoMinus" onclick="changeRocketAutoMult(1, -0.1)">-</button>
+                        <span id="rocketAutoValue">1.1x</span>
+                        <button type="button" onclick="changeRocketAutoMult(1, 0.1)">+</button>
+                    </div>
+                    <button type="button" id="rocketBetBtn" class="rocket-pnl-btn btn-bet" onclick="actionRocketBet(1)">Поставить 1</button>
                 </div>
-
-                <!-- Блок растущего выигрыша в реальном времени -->
-                <div id="rocketPotentialPayout" class="rocket-potential-payout" style="display: none;">
-                    Вы заберете: <span id="rocketPotentialAmount" class="win-color">0.00</span> ₽
-                </div>
-
-                <div id="rocketMessage">Ожидание начала раунда...</div>
-                <div class="rocket-action-buttons">
-                    <button id="rocketBetBtn" onclick="placeRocketBet()">Сделать ставку</button>
-                    <button id="rocketCashoutBtn" onclick="cashoutRocket()" disabled>Забрать 0 ₽</button>
+                
+                <div class="rocket-panel">
+                    <div class="rocket-panel-title">Ставка 2</div>
+                    <div class="rocket-input-group">
+                        <input type="number" id="rocketBetInput2" value="10" min="5">
+                    </div>
+                    <div class="rocket-auto-header">
+                        <span>Автовывод</span>
+                        <label class="rocket-switch">
+                            <input type="checkbox" id="rocketAutoToggle2" onchange="toggleRocketAuto(2)">
+                            <span class="rocket-slider"></span>
+                        </label>
+                    </div>
+                    <div id="rocketAutoControls2" class="rocket-counter">
+                        <button type="button" id="rocketAutoMinus2" onclick="changeRocketAutoMult(2, -0.1)">-</button>
+                        <span id="rocketAutoValue2">1.1x</span>
+                        <button type="button" onclick="changeRocketAutoMult(2, 0.1)">+</button>
+                    </div>
+                    <button type="button" id="rocketBet2Btn" class="rocket-pnl-btn btn-bet" onclick="actionRocketBet(2)">Поставить 2</button>
                 </div>
             </div>
 
-            <!-- Живой список участников текущего раунда -->
-            <div class="rocket-bets-container">
-                <h4 class="rocket-bets-title">Участники и ставки в раунде:</h4>
-                <div id="rocketBetsList" class="rocket-bets-list">
-                    <div class="bet-placeholder">Ставок еще нет...</div>
-                </div>
-            </div>
+            <div id="rocketBetsList" class="rocket-history-bar" style="flex-direction:column; align-items:stretch; max-height:130px; overflow-y:auto; width:100%;"></div>
         </div>
     </div>
 
-    <!-- ================= ЭКРАН 8: ВЫВОД СРЕДСТВ (ШУТОЧНЫЙ) ================= -->
-    <div id="withdrawGameScreen" class="screen-container" style="display:none;">
+    <!-- ЭКРАН 8: ГОНКА ДРОНОВ -->
+    <div id="dronesGameScreen" class="screen-container" style="display: none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
+        <div class="rocket-layout">
+            <h2 class="game-headline" style="color:#00FF88;">🛸 ГОНКА ДРОНОВ 🛸</h2>
+            <p class="game-subline">Мультиплеерный заезд квадрокоптеров</p>
+            
+            <div class="rocket-arena-wrapper" style="height: 200px; background: #050b14; border-color: #00E676;">
+                <canvas id="dronesCanvas" width="400" height="200" style="width:100%; height:100%;"></canvas>
+            </div>
+
+            <div id="dronesHistory" class="rocket-history-bar" style="border-color: #00E676;"></div>
+            <div id="dronesMessage" style="text-align:center; font-weight:bold; min-height:22px;">Ожидание...</div>
+
+            <div class="sp-controls" style="border-color: #00E676; background:#1e1e1e; padding:12px; border-radius:12px; width:100%;">
+                <div class="sp-input-group">
+                    <label>Сумма ставки (₽)</label>
+                    <input type="number" id="dronesBetInput" value="10" min="10">
+                </div>
+                <p class="sp-percentage-label" style="margin-top:8px;">Выберите дрон (Выигрыш: x3.6):</p>
+                <div class="drones-choice-grid">
+                    <button id="btnDrone_red" class="drone-choice-btn active" style="color: #FF1744;" onclick="selectDronesColor('red')">КРАСНЫЙ</button>
+                    <button id="btnDrone_blue" class="drone-choice-btn" style="color: #2979FF;" onclick="selectDronesColor('blue')">СИНИЙ</button>
+                    <button id="btnDrone_green" class="drone-choice-btn" style="color: #00E676;" onclick="selectDronesColor('green')">ЗЕЛЕНЫЙ</button>
+                    <button id="btnDrone_yellow" class="drone-choice-btn" style="color: #FFEA00;" onclick="selectDronesColor('yellow')">ЖЕЛТЫЙ</button>
+                </div>
+                <button id="dronesBetBtn" class="rocket-pnl-btn btn-bet" style="background:#00E676; color:black; margin-top:10px;" onclick="placeDronesBet()">Поставить ставку</button>
+            </div>
+
+            <div id="dronesBetsList" class="rocket-history-bar" style="flex-direction:column; align-items:stretch; max-height:110px; overflow-y:auto; width:100%;"></div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 9: МОТО-ДУЭЛЬ -->
+    <div id="cycleGameScreen" class="screen-container" style="display: none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
+        <div class="rocket-layout">
+            <h2 class="game-headline" style="color:#00E5FF;">🏍️ МОТО-ДУЭЛЬ 🏍️</h2>
+            <p class="game-subline">Смертельная битва световых байков (Трон)</p>
+            
+            <div class="rocket-arena-wrapper" style="height: 200px; background: #030812; border-color: #00E5FF;">
+                <canvas id="cycleCanvas" width="400" height="200" style="width:100%; height:100%;"></canvas>
+            </div>
+
+            <div id="cycleHistory" class="rocket-history-bar" style="border-color: #00E5FF;"></div>
+            <div id="cycleMessage" style="text-align:center; font-weight:bold; min-height:22px;">Ожидание...</div>
+
+            <div class="sp-controls" style="border-color: #00E5FF; background:#1e1e1e; padding:12px; border-radius:12px; width:100%;">
+                <div class="sp-input-group">
+                    <label>Сумма ставки (₽)</label>
+                    <input type="number" id="cycleBetInput" value="10" min="10">
+                </div>
+                <p class="sp-percentage-label" style="margin-top:8px;">Выберите своего гонщика:</p>
+                <div class="drones-choice-grid">
+                    <button id="btnCycle_blue" class="drone-choice-btn active" style="color: #00E5FF; grid-column: span 2;" onclick="selectCycleColor('blue')">СИНИЙ (x1.95)</button>
+                    <button id="btnCycle_orange" class="drone-choice-btn" style="color: #FF9100; grid-column: span 2;" onclick="selectCycleColor('orange')">ОРАНЖЕВЫЙ (x1.95)</button>
+                </div>
+                <button id="cycleBetBtn" class="rocket-pnl-btn btn-bet" style="background:#00E5FF; color:black; margin-top:10px;" onclick="placeCycleBet()">Поставить ставку</button>
+            </div>
+
+            <div id="cycleBetsList" class="rocket-history-bar" style="flex-direction:column; align-items:stretch; max-height:110px; overflow-y:auto; width:100%;"></div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 10: ВЫВОД СРЕДСТВ -->
+    <div id="withdrawGameScreen" class="screen-container" style="display: none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="withdraw-layout">
-            <h2 class="game-headline" style="color:#FFB300">Вывод средств</h2>
-            <p class="game-subline">Мгновенный вывод на любые карты банков РФ</p>
-            
+            <h2 class="game-headline" style="color: #FFB300;">ВЫПЛАТА СРЕДСТВ</h2>
             <div class="withdraw-box">
                 <div class="sp-input-group">
-                    <label>Номер банковской карты или СБП:</label>
-                    <input type="text" id="withdrawCardInput" placeholder="2202 0000 0000 0000" maxlength="19">
+                    <label>Номер карты получателя</label>
+                    <input type="text" id="withdrawCardInput" placeholder="2202 .... .... ....">
                 </div>
                 <div class="sp-input-group">
-                    <label>Название вашего банка (Сбер, Т-Банк, Альфа...):</label>
-                    <input type="text" id="withdrawBankInput" placeholder="Например: Т-Банк">
+                    <label>Банк получателя</label>
+                    <input type="text" id="withdrawBankInput" placeholder="Сбербанк, Т-Банк и др.">
                 </div>
                 <div class="sp-input-group">
-                    <label>Сумма для вывода (₽):</label>
-                    <input type="number" id="withdrawAmountInput" placeholder="Сумма вывода" min="1">
+                    <label>Сумма выплаты (₽)</label>
+                    <input type="number" id="withdrawAmountInput" placeholder="Минимум 100 ₽">
                 </div>
-
                 <div class="withdraw-alert-info">
-                    Комиссия за перевод составляет 0%. Платеж обрабатывается в порядке очереди.
+                    ⚠️ Вывод средств производится в автоматическом режиме на любые банковские карты РФ без комиссии.
                 </div>
-
                 <button id="withdrawConfirmBtn" onclick="requestWithdraw()">Подтвердить выплату</button>
             </div>
         </div>
     </div>
 
-    <!-- ================= МОДАЛКИ И АДМИНКА ================= -->
+    <!-- Модальное окно пополнения -->
     <div id="depositModal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeDepositModal()">&times;</span>
+            
             <div id="depositStep1">
                 <h2>Пополнение баланса</h2>
-                <input type="number" id="depositAmountInput" placeholder="Сумма пополнения (₽)" min="10">
-                <button onclick="goToDepositStep2()">Далее</button>
-            </div>
-            <div id="depositStep2" style="display:none;">
-                <h2>Переведите <span id="reqAmount">0</span> ₽</h2>
-                <div class="requisites-box">
-                    <p>На карту / СБП:</p>
-                    <code>+7 (999) 123-45-67</code>
-                    <p class="warning-text">Переводите точную сумму одним платежом!</p>
+                <div class="sp-input-group">
+                    <label>Сумма пополнения (₽)</label>
+                    <input type="number" id="depositAmountInput" value="100" min="10">
                 </div>
-                <button onclick="sendDepositRequest()">Я оплатил</button>
+                <button onclick="goToDepositStep2()">Продолжить</button>
             </div>
-            <div id="depositStep3" style="display:none;">
-                <h2 class="success-text">Заявка отправлена!</h2>
-                <p>Ожидайте подтверждения администратором.</p>
+
+            <div id="depositStep2" style="display: none;">
+                <h2>Переведите средства</h2>
+                <p>Переведите ровно <strong id="reqAmount">100</strong> ₽ на карту создателя:</p>
+                <div class="requisites-box">
+                    <code>2202 2011 3912 3014</code>
+                </div>
+                <p style="font-size: 0.85em; color: #aaa;">После перевода нажмите на кнопку ниже. Средства зачислятся после проверки администратором.</p>
+                <button onclick="sendDepositRequest()">Я перевел средства</button>
+            </div>
+
+            <div id="depositStep3" style="display: none;">
+                <h2>Заявка отправлена!</h2>
+                <p>Ваша заявка ожидает ручного подтверждения администратором.</p>
                 <button onclick="closeDepositModal()">Закрыть</button>
             </div>
         </div>
     </div>
 
-    <div id="adminPanel" style="display: none;">
+    <!-- Админ-панель -->
+    <div id="adminPanel" style="display: none; margin: 20px auto;">
         <h2>Панель администратора</h2>
-        <div id="adminRequestsList">
-            <p class="no-reqs">Нет активных заявок</p>
-        </div>
+        <div id="adminRequestsList"></div>
     </div>
 
-    <script src="script.js?v=41"></script>
+    <script src="script.js"></script>
 </body>
-                    </html>
+            </html>
