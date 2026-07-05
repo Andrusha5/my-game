@@ -22,7 +22,7 @@ try {
         localStorage.setItem('roulette_player_id', myPlayerId);
     }
 } catch (e) {
-    console.warn("localStorage заблокирован. Используется сессионный ID:", myPlayerId);
+    console.warn("localStorage недоступен. Использован сессионный ID:", myPlayerId);
 }
 
 var players = {};         
@@ -135,50 +135,6 @@ var DRONE_COLORS = {
     yellow: '#FFEA00'
 };
 
-// МОТО-ДУЭЛЬ
-var cycleState = { status: 'betting', timerEnd: 0 };
-var cycleTimerInterval = null;
-var cycleLoopId = null;
-var cycleSelectedColor = 'blue';
-var cycleMyBet = 0;
-var cycleBetPlaced = false;
-
-var CYCLE_COLORS = {
-    blue: '#00E5FF',
-    orange: '#FF9100',
-    draw: '#888888'
-};
-
-// БИТВА РОБОТОВ
-var mechState = { status: 'betting', timerEnd: 0 };
-var mechTimerInterval = null;
-var mechLoopId = null;
-var mechSelectedColor = 'red';
-var mechMyBet = 0;
-var mechBetPlaced = false;
-
-var MECH_COLORS = {
-    red: '#FF1744',
-    blue: '#2979FF',
-    yellow: '#FFEA00',
-    draw: '#aaaaaa'
-};
-
-// БИТВА СТИХИЙ (Elemental Clash)
-var elementalState = { status: 'betting', timerEnd: 0 };
-var elementalTimerInterval = null;
-var elementalLoopId = null;
-var elementalSelectedColor = 'red';
-var elementalMyBet = 0;
-var elementalBetPlaced = false;
-
-var ELEM_COLORS = {
-    red: '#FF1744',   // Fire
-    blue: '#2979FF',  // Water
-    green: '#00E676', // Earth
-    draw: '#aaaaaa'   // Draw
-};
-
 // DOM элементы
 var bettingTimerDisplay, totalBankDisplay, gameCanvas, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, historyList, gameMessage;
 
@@ -211,7 +167,7 @@ window.showVictoryNotification = function(winnerName, prize, color) {
         padding: '20px 25px',
         color: 'white',
         zIndex: '999999',
-        minWidth: '320px',
+        width: '320px',
         maxWidth: '90%',
         textAlign: 'center',
         opacity: '0',
@@ -277,19 +233,18 @@ window.showToast = function(title, text, isSuccess) {
 
     var textStyle = isSuccess ? '#00FF88' : '#FF1744';
     toast.innerHTML = `
-        <div class="toast-header">
-            <span class="toast-title" style="color: ${textStyle}">💥 ${title}</span>
-            <button class="toast-close-btn" onclick="this.parentElement.parentElement.remove()">&times;</button>
+        <div class="toast-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="toast-title" style="color: ${textStyle}; font-weight:bold;">💥 ${title}</span>
+            <button class="toast-close-btn" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;" onclick="this.parentElement.parentElement.remove()">&times;</button>
         </div>
-        <div class="toast-body">${text}</div>
+        <div class="toast-body" style="margin-top:6px; font-size:0.9rem;">${text}</div>
     `;
 
     container.appendChild(toast);
 
     setTimeout(function() {
         if (toast) {
-            toast.classList.add('hide');
-            setTimeout(function() { toast.remove(); }, 300);
+            toast.remove();
         }
     }, 3000);
 };
@@ -298,7 +253,7 @@ window.showScreen = function(screenId) {
     var screens = [
         'lobbyScreen', 'multiplayerGameScreen', 'singleplayerGameScreen', 
         'coinGameScreen', 'minesGameScreen', 'impMinesGameScreen', 
-        'rocketGameScreen', 'dronesGameScreen', 'cycleGameScreen', 'mechGameScreen', 'elementalGameScreen', 'withdrawGameScreen'
+        'rocketGameScreen', 'dronesGameScreen', 'withdrawGameScreen'
     ];
     for (var i = 0; i < screens.length; i++) {
         var el = document.getElementById(screens[i]);
@@ -309,9 +264,6 @@ window.showScreen = function(screenId) {
     if (target) target.style.display = 'flex';
 
     if (screenId === 'dronesGameScreen') renderDronesTrack();
-    if (screenId === 'cycleGameScreen') renderCycleTrack();
-    if (screenId === 'mechGameScreen') renderMechTrack();
-    if (screenId === 'elementalGameScreen') renderElementalTrack();
 };
 
 // Инициализация
@@ -331,7 +283,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var savedName = "";
     try {
         savedName = localStorage.getItem('roulette_player_name') || "";
-    } catch(e) {}
+    } catch(e){}
 
     if (savedName && playerNameInput) {
         playerNameInput.value = savedName;
@@ -484,83 +436,11 @@ document.addEventListener('DOMContentLoaded', function() {
         renderDronesHistoryBar(snap.val() || []);
     });
 
-    // ======= СЛУШАТЕЛИ МОТО-ДУЭЛИ =======
-    db.ref('cycleState').on('value', function(snap) {
-        cycleState = snap.val() || { status: 'betting' };
-        syncCycleState();
-    });
-
-    db.ref('cycleBets').on('value', function(snap) {
-        var bets = snap.val() || {};
-        var myBetRecord = bets[myPlayerId];
-        if (myBetRecord) {
-            cycleBetPlaced = true;
-            cycleMyBet = myBetRecord.amount;
-            cycleSelectedColor = myBetRecord.color;
-        } else {
-            cycleBetPlaced = false;
-            cycleMyBet = 0;
-        }
-        renderCycleBetsList(bets);
-    });
-
-    db.ref('cycleHistory').on('value', function(snap) {
-        renderCycleHistoryBar(snap.val() || []);
-    });
-
-    // ======= СЛУШАТЕЛИ БИТВЫ РОБОТОВ =======
-    db.ref('mechState').on('value', function(snap) {
-        mechState = snap.val() || { status: 'betting' };
-        syncMechState();
-    });
-
-    db.ref('mechBets').on('value', function(snap) {
-        var bets = snap.val() || {};
-        var myBetRecord = bets[myPlayerId];
-        if (myBetRecord) {
-            mechBetPlaced = true;
-            mechMyBet = myBetRecord.amount;
-            mechSelectedColor = myBetRecord.color;
-        } else {
-            mechBetPlaced = false;
-            mechMyBet = 0;
-        }
-        renderMechBetsList(bets);
-    });
-
-    db.ref('mechHistory').on('value', function(snap) {
-        renderMechHistoryBar(snap.val() || []);
-    });
-
-    // ======= СЛУШАТЕЛИ БИТВЫ СТИХИЙ =======
-    db.ref('elementalState').on('value', function(snap) {
-        elementalState = snap.val() || { status: 'betting' };
-        syncElementalState();
-    });
-
-    db.ref('elementalBets').on('value', function(snap) {
-        var bets = snap.val() || {};
-        var myBetRecord = bets[myPlayerId];
-        if (myBetRecord) {
-            elementalBetPlaced = true;
-            elementalMyBet = myBetRecord.amount;
-            elementalSelectedColor = myBetRecord.color;
-        } else {
-            elementalBetPlaced = false;
-            elementalMyBet = 0;
-        }
-        renderElementalBetsList(bets);
-    });
-
-    db.ref('elementalHistory').on('value', function(snap) {
-        renderElementalHistoryBar(snap.val() || []);
-    });
-
     selectSpPercent(50);
     renderMinesGrid();
     initImpMinesUI();
 
-    // Запуск фонового таймера транзакций (каждые 500мс)
+    // Запуск фонового таймера (каждые 500мс)
     setInterval(updateOnlineGamesProgress, 500);
 });
 
@@ -634,72 +514,6 @@ function updateOnlineGamesProgress() {
             db.ref('dronesState').update({ crashedTime: now });
         } else if (now >= (dronesState.crashedTime + 5000)) {
             safeResetDrones();
-        }
-    }
-
-    // Мото-Дуэль
-    if (cycleState.status === 'betting') {
-        if (!cycleState.timerEnd || cycleState.timerEnd === 0) {
-            safeInitTimer('cycleState', 12);
-        } else if (now >= cycleState.timerEnd) {
-            safeLaunchCycle();
-        }
-    }
-    if (cycleState.status === 'racing') {
-        var elapsed = (now - cycleState.launchTime) / 1000;
-        if (elapsed >= 8.0) {
-            safeFinishCycle();
-        }
-    }
-    if (cycleState.status === 'finished') {
-        if (!cycleState.crashedTime || cycleState.crashedTime === 0) {
-            db.ref('cycleState').update({ crashedTime: now });
-        } else if (now >= (cycleState.crashedTime + 5000)) {
-            safeResetCycle();
-        }
-    }
-
-    // Роботы
-    if (mechState.status === 'betting') {
-        if (!mechState.timerEnd || mechState.timerEnd === 0) {
-            safeInitTimer('mechState', 12);
-        } else if (now >= mechState.timerEnd) {
-            safeLaunchMech();
-        }
-    }
-    if (mechState.status === 'fighting') {
-        var elapsed = (now - mechState.launchTime) / 1000;
-        if (elapsed >= 8.0) {
-            safeFinishMech();
-        }
-    }
-    if (mechState.status === 'finished') {
-        if (!mechState.crashedTime || mechState.crashedTime === 0) {
-            db.ref('mechState').update({ crashedTime: now });
-        } else if (now >= (mechState.crashedTime + 5000)) {
-            safeResetMech();
-        }
-    }
-
-    // Битва Стихий
-    if (elementalState.status === 'betting') {
-        if (!elementalState.timerEnd || elementalState.timerEnd === 0) {
-            safeInitTimer('elementalState', 12);
-        } else if (now >= elementalState.timerEnd) {
-            safeLaunchElemental();
-        }
-    }
-    if (elementalState.status === 'clashing') {
-        var elapsed = (now - elementalState.launchTime) / 1000;
-        if (elapsed >= 8.0) {
-            safeFinishElemental();
-        }
-    }
-    if (elementalState.status === 'finished') {
-        if (!elementalState.crashedTime || elementalState.crashedTime === 0) {
-            db.ref('elementalState').update({ crashedTime: now });
-        } else if (now >= (elementalState.crashedTime + 5000)) {
-            safeResetElemental();
         }
     }
 }
@@ -868,229 +682,8 @@ function safeResetDrones() {
     });
 }
 
-// Транзакции Мото-Дуэли
-function safeLaunchCycle() {
-    db.ref('cycleState').transaction(function(current) {
-        if (current && current.status === 'betting') {
-            current.status = 'racing';
-            current.launchTime = getServerTime();
-            current.seed = Math.random() * 1000;
-            current.timerEnd = 0;
-            
-            var rand = Math.random();
-            var winner = 'draw';
-            if (rand < 0.45) winner = 'blue';
-            else if (rand < 0.90) winner = 'orange';
-            current.winnerColor = winner;
-            return current;
-        }
-        return;
-    });
-}
 
-function safeFinishCycle() {
-    db.ref('cycleState').transaction(function(current) {
-        if (current && current.status === 'racing') {
-            current.status = 'finished';
-            current.crashedTime = getServerTime();
-            return current;
-        }
-        return;
-    }, function(err, committed, snap) {
-        if (committed) {
-            var winner = snap.val().winnerColor;
-            db.ref('cycleBets').once('value').then(function(betsSnap) {
-                var bets = betsSnap.val() || {};
-                for (var pId in bets) {
-                    if (bets[pId].color === winner) {
-                        var mult = winner === 'draw' ? 8.0 : 1.95;
-                        var prize = Math.floor(bets[pId].amount * mult);
-                        db.ref('players/' + pId + '/balance').transaction(function(bal) {
-                            return parseFloat(((bal || 0) + prize).toFixed(3));
-                        });
-                    }
-                }
-            });
-            db.ref('cycleHistory').once('value').then(function(histSnap) {
-                var hList = histSnap.val() || [];
-                if (!Array.isArray(hList)) hList = [];
-                hList.push(winner);
-                if (hList.length > 10) hList.shift();
-                db.ref('cycleHistory').set(hList);
-            });
-        }
-    });
-}
-
-function safeResetCycle() {
-    db.ref('cycleState').transaction(function(current) {
-        if (current && current.status === 'finished') {
-            current.status = 'betting';
-            current.timerEnd = getServerTime() + 12000;
-            current.launchTime = 0;
-            current.seed = 0;
-            current.winnerColor = '';
-            current.crashedTime = 0;
-            return current;
-        }
-        return;
-    }, function(err, committed) {
-        if (committed) {
-            db.ref('cycleBets').remove();
-        }
-    });
-}
-
-// Транзакции Роботов
-function safeLaunchMech() {
-    db.ref('mechState').transaction(function(current) {
-        if (current && current.status === 'betting') {
-            current.status = 'fighting';
-            current.launchTime = getServerTime();
-            current.seed = Math.random() * 1000;
-            current.timerEnd = 0;
-            
-            var rand = Math.random();
-            var winner = 'draw';
-            if (rand < 0.31) winner = 'red';
-            else if (rand < 0.62) winner = 'blue';
-            else if (rand < 0.93) winner = 'yellow';
-            current.winnerColor = winner;
-            return current;
-        }
-        return;
-    });
-}
-
-function safeFinishMech() {
-    db.ref('mechState').transaction(function(current) {
-        if (current && current.status === 'fighting') {
-            current.status = 'finished';
-            current.crashedTime = getServerTime();
-            return current;
-        }
-        return;
-    }, function(err, committed, snap) {
-        if (committed) {
-            var winner = snap.val().winnerColor;
-            db.ref('mechBets').once('value').then(function(betsSnap) {
-                var bets = betsSnap.val() || {};
-                for (var pId in bets) {
-                    if (bets[pId].color === winner) {
-                        var mult = winner === 'draw' ? 10.0 : 2.9;
-                        var prize = Math.floor(bets[pId].amount * mult);
-                        db.ref('players/' + pId + '/balance').transaction(function(bal) {
-                            return parseFloat(((bal || 0) + prize).toFixed(3));
-                        });
-                    }
-                }
-            });
-            db.ref('mechHistory').once('value').then(function(histSnap) {
-                var hList = histSnap.val() || [];
-                if (!Array.isArray(hList)) hList = [];
-                hList.push(winner);
-                if (hList.length > 10) hList.shift();
-                db.ref('mechHistory').set(hList);
-            });
-        }
-    });
-}
-
-function safeResetMech() {
-    db.ref('mechState').transaction(function(current) {
-        if (current && current.status === 'finished') {
-            current.status = 'betting';
-            current.timerEnd = getServerTime() + 12000;
-            current.launchTime = 0;
-            current.seed = 0;
-            current.winnerColor = '';
-            current.crashedTime = 0;
-            return current;
-        }
-        return;
-    }, function(err, committed) {
-        if (committed) {
-            db.ref('mechBets').remove();
-        }
-    });
-}
-
-// Транзакции Битвы Стихий
-function safeLaunchElemental() {
-    db.ref('elementalState').transaction(function(current) {
-        if (current && current.status === 'betting') {
-            current.status = 'clashing';
-            current.launchTime = getServerTime();
-            current.seed = Math.random() * 1000;
-            current.timerEnd = 0;
-            
-            var rand = Math.random();
-            var winner = 'draw';
-            if (rand < 0.31) winner = 'red';      // Огонь
-            else if (rand < 0.62) winner = 'blue';  // Вода
-            else if (rand < 0.93) winner = 'green'; // Земля
-            current.winnerColor = winner;
-            return current;
-        }
-        return;
-    });
-}
-
-function safeFinishElemental() {
-    db.ref('elementalState').transaction(function(current) {
-        if (current && current.status === 'clashing') {
-            current.status = 'finished';
-            current.crashedTime = getServerTime();
-            return current;
-        }
-        return;
-    }, function(err, committed, snap) {
-        if (committed) {
-            var winner = snap.val().winnerColor;
-            db.ref('elementalBets').once('value').then(function(betsSnap) {
-                var bets = betsSnap.val() || {};
-                for (var pId in bets) {
-                    if (bets[pId].color === winner) {
-                        var mult = winner === 'draw' ? 10.0 : 2.9;
-                        var prize = Math.floor(bets[pId].amount * mult);
-                        db.ref('players/' + pId + '/balance').transaction(function(bal) {
-                            return parseFloat(((bal || 0) + prize).toFixed(3));
-                        });
-                    }
-                }
-            });
-            db.ref('elementalHistory').once('value').then(function(histSnap) {
-                var hList = histSnap.val() || [];
-                if (!Array.isArray(hList)) hList = [];
-                hList.push(winner);
-                if (hList.length > 10) hList.shift();
-                db.ref('elementalHistory').set(hList);
-            });
-        }
-    });
-}
-
-function safeResetElemental() {
-    db.ref('elementalState').transaction(function(current) {
-        if (current && current.status === 'finished') {
-            current.status = 'betting';
-            current.timerEnd = getServerTime() + 12000;
-            current.launchTime = 0;
-            current.seed = 0;
-            current.winnerColor = '';
-            current.crashedTime = 0;
-            return current;
-        }
-        return;
-    }, function(err, committed) {
-        if (committed) {
-            db.ref('elementalBets').remove();
-        }
-    });
-}
-
-
-// ======= Вкладки =======
+// ======= Вкладки Кальмара =======
 var betsTab = document.getElementById('tabBetsBtn');
 var historyTab = document.getElementById('tabHistoryBtn');
 window.switchMultiTab = function(tabName) {
@@ -1158,7 +751,7 @@ window.playCoinFlip = function() {
         return;
     }
     if (bet > balance) {
-        alert('Недостаточно средств на балансе!');
+        alert('Недостаточно средств!');
         return;
     }
 
@@ -1193,7 +786,7 @@ window.playCoinFlip = function() {
                     db.ref('players/' + myPlayerId + '/balance').transaction(function(current) {
                         return parseFloat(((current || 0) + prize).toFixed(3));
                     });
-                    coinMsg.innerHTML = '🎉 Вы выиграли! Выпало: <strong>' + resLabel + '</strong>. <span class="win-color" style="color:#00ff88">+' + prize + ' ₽</span>';
+                    coinMsg.innerHTML = '🎉 Вы выиграли! Выпало: <strong>' + resLabel + '</strong>. <span style="color:#00ff88">+' + prize + ' ₽</span>';
                 } else {
                     coinMsg.innerHTML = '🔴 Не угадали! Выпало: <strong>' + resLabel + '</strong>. <span style="color:#ff1744">-' + bet + ' ₽</span>';
                 }
@@ -1203,12 +796,12 @@ window.playCoinFlip = function() {
         } else {
             coinIsSpinning = false;
             betInput.disabled = false;
-            coinMsg.textContent = 'Ошибка транзакции.';
+            coinMsg.textContent = 'Ошибка.';
         }
     });
 };
 
-// ======= ИГРА 2: САПЕР (MINES) =======
+// ======= ИГРА 2: САПЕР =======
 function renderMinesGrid() {
     var grid = document.getElementById('minesGrid');
     if (!grid) return;
@@ -1369,7 +962,7 @@ function endMinesGame(isWin) {
             return parseFloat(((current || 0) + winnings).toFixed(3));
         });
 
-        minesMsg.innerHTML = '🎉 Забрали <span class="win-color" style="color:#00ff88">' + winnings + ' ₽</span> (' + mult.toFixed(2) + 'x)';
+        minesMsg.innerHTML = '🎉 Забрали <span style="color:#00ff88">' + winnings + ' ₽</span> (' + mult.toFixed(2) + 'x)';
     } else {
         minesMsg.innerHTML = '💥 Бабах! Вы проиграли <span style="color:#ff1744">' + minesCurrentBet + ' ₽</span>';
     }
@@ -1555,7 +1148,7 @@ function endImpGame(isWin) {
         db.ref('players/' + myPlayerId + '/balance').transaction(function(current) {
             return parseFloat(((current || 0) + winnings).toFixed(3));
         });
-        impMsg.innerHTML = '🎉 ПОБЕДА! Вы забрали <span class="win-color" style="color:#00ff88">' + winnings + ' ₽</span>';
+        impMsg.innerHTML = '🎉 ПОБЕДА! Вы забрали <span style="color:#00ff88">' + winnings + ' ₽</span>';
     } else if (!isWin) {
         impMsg.innerHTML = '💥 ВЗРЫВ! Ваша ставка <span style="color:#ff1744">' + impBet + ' ₽</span> сгорела.';
     }
@@ -1577,7 +1170,7 @@ function endImpGame(isWin) {
     }
 }
 
-// ======= ИГРА 4: НЕВОЗМОЖНОЕ КОЛЕСО =======
+// ======= ИГРА 4: КОЛЕСО УДАЧИ (С ПОДДЕРЖКОЙ CANVAS ДЛЯ ТГ) =======
 window.selectSpPercent = function(pct) {
     if (spIsSpinning) return;
     
@@ -1590,20 +1183,54 @@ window.selectSpPercent = function(pct) {
         }
     });
 
-    var deg = (pct / 100) * 360;
-    var wheel = document.getElementById('spWheel');
-    if (wheel) {
-        wheel.style.background = 'conic-gradient(#00E676 0deg ' + deg + 'deg, #ff1744 ' + deg + 'deg 360deg)';
-    }
-
-    var label = document.getElementById('spWheelText');
-    if (label) {
-        var halfAngle = deg / 2;
-        label.style.transform = 'translate(-50%, -50%) rotate(' + halfAngle + 'deg) translateY(-50px) rotate(-' + halfAngle + 'deg)';
-    }
-
+    drawSpWheel(0);
     updateSpSummary();
 };
+
+function drawSpWheel(offsetAngle) {
+    var canvas = document.getElementById('spWheelCanvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 240, 240);
+
+    var winPct = spSelectedPercent;
+    var winAngle = (winPct / 100) * Math.PI * 2;
+
+    ctx.save();
+    ctx.translate(120, 120);
+    ctx.rotate(offsetAngle - Math.PI / 2); // Смещение начала вверх
+
+    // Сектор Победы (Зеленый)
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, 110, 0, winAngle);
+    ctx.fillStyle = '#00E676';
+    ctx.fill();
+
+    // Сектор Проигрыша (Красный)
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, 110, winAngle, Math.PI * 2);
+    ctx.fillStyle = '#FF1744';
+    ctx.fill();
+
+    ctx.restore();
+
+    // Центр колеса
+    ctx.beginPath();
+    ctx.arc(120, 120, 25, 0, Math.PI * 2);
+    ctx.fillStyle = '#110e1a';
+    ctx.fill();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('WIN', 120, 120);
+}
 
 function updateSpSummary() {
     var betInput = document.getElementById('spBetInput');
@@ -1652,15 +1279,26 @@ window.spinSingleplayerWheel = function() {
         return parseFloat(((current || 0) - bet).toFixed(3));
     }, function(error, committed) {
         if (committed) {
-            var randomAngle = Math.random() * 360;
-            spTotalRotation += 1800 + randomAngle; 
-            
-            var wheel = document.getElementById('spWheel');
-            wheel.style.transform = 'rotate(' + spTotalRotation + 'deg)';
+            var start = Date.now();
+            var duration = 4000;
+            var targetRotation = Math.PI * 10 + Math.random() * Math.PI * 2;
 
-            setTimeout(function() {
-                evaluateSpResult(randomAngle, bet);
-            }, 4000);
+            function animate() {
+                var now = Date.now();
+                var elapsed = now - start;
+                if (elapsed < duration) {
+                    var progress = elapsed / duration;
+                    // Ease out cubic
+                    var ease = 1 - Math.pow(1 - progress, 3);
+                    var currentAngle = targetRotation * ease;
+                    drawSpWheel(currentAngle);
+                    requestAnimationFrame(animate);
+                } else {
+                    drawSpWheel(targetRotation);
+                    evaluateSpResult(targetRotation, bet);
+                }
+            }
+            requestAnimationFrame(animate);
         } else {
             spIsSpinning = false;
             spinBtn.disabled = false;
@@ -1670,16 +1308,17 @@ window.spinSingleplayerWheel = function() {
     });
 };
 
-function evaluateSpResult(stoppedAngle, bet) {
+function evaluateSpResult(finalAngle, bet) {
     var spinBtn = document.getElementById('spSpinBtn');
     var betInput = document.getElementById('spBetInput');
     var spMsg = document.getElementById('spMessage');
 
-    var netRotation = spTotalRotation % 360;
-    var winningAngleOnWheel = (360 - netRotation) % 360;
+    // Направление на маркер (верхняя точка = -PI/2)
+    var netRotation = finalAngle % (Math.PI * 2);
+    var markerAngle = (Math.PI * 2.5 - netRotation) % (Math.PI * 2);
 
-    var playerBoundary = (spSelectedPercent / 100) * 360;
-    var isPlayerWinner = winningAngleOnWheel <= playerBoundary;
+    var playerBoundary = (spSelectedPercent / 100) * Math.PI * 2;
+    var isPlayerWinner = markerAngle <= playerBoundary;
 
     if (isPlayerWinner) {
         var rule = SP_RULES[spSelectedPercent];
@@ -1817,15 +1456,6 @@ function stopLocalTimer() {
         clearInterval(timerInterval);
         timerInterval = null;
     }
-}
-
-function triggerRoundStart() {
-    var launchAngle = Math.random() * Math.PI * 2;
-    db.ref('gameState').set({
-        status: 'running',
-        launchAngle: launchAngle,
-        timerEnd: 0
-    });
 }
 
 function generateDeterministicPath(angle, sx, sy) {
@@ -2134,15 +1764,19 @@ function renderWheelSections() {
             ctx.fillStyle = p.color;
             ctx.fillRect(p.startX, -L, p.width, L * 2);
 
-            // ЯРКАЯ ПУЛЬСИРУЮЩАЯ ПОДСВЕТКА СЕКТОРА ПОБЕДИТЕЛЯ
+            // КРАСИВАЯ ПОДСВЕТКА И ЖИРНАЯ ЗОЛОТАЯ ОБВОДКА ПОБЕДИТЕЛЯ
             if (gameState.status === 'finished' && gameState.winnerName === p.name) {
-                var glow = Math.sin(Date.now() * 0.015) * 0.2 + 0.4;
+                var glow = Math.sin(Date.now() * 0.015) * 0.25 + 0.5;
                 ctx.fillStyle = 'rgba(255, 255, 255, ' + glow + ')';
                 ctx.fillRect(p.startX, -L, p.width, L * 2);
 
-                // Золотая обводка сектора победителя
+                // Ограничительная обводка сектора
                 ctx.strokeStyle = '#FFD700';
-                ctx.lineWidth = 6;
+                ctx.lineWidth = 10;
+                ctx.strokeRect(p.startX, -L, p.width, L * 2);
+
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 3;
                 ctx.strokeRect(p.startX, -L, p.width, L * 2);
             }
         });
@@ -2410,7 +2044,7 @@ function cashoutRocketBet(panelIdx, forcedMult) {
 
     if (liveMult >= rocketState.crashMult) {
         if (forcedMult && rocketState.crashMult >= forcedMult) {
-            // Успешный автовывод при краше
+            // Успешный автовывод
         } else {
             return; 
         }
@@ -2429,19 +2063,19 @@ function cashoutRocketBet(panelIdx, forcedMult) {
                 status: 'cashed',
                 cashoutMult: currentMult
             });
-            showToast("Успешно!", "Забрали ставку " + panelIdx + " на коэффициенте x" + currentMult + " (+" + winnings + " ₽)");
+            showToast("Успешно!", "Забрали ставку " + panelIdx + " на x" + currentMult + " (+" + winnings + " ₽)");
         }
     });
 }
 
 function syncRocketState() {
-    var status = rocketState ? (rocketState.status || 'betting') : 'betting';
     var timerOverlay = document.getElementById('rocketTimerOverlay');
     var rocketActor = document.getElementById('rocketActor');
     var multDisp = document.getElementById('rocketMultiplierDisplay');
     var explosion = document.getElementById('rocketExplosion');
     var msg = document.getElementById('rocketMessage');
     var stars = document.querySelector('.stars-container');
+    var status = rocketState ? (rocketState.status || 'betting') : 'betting';
 
     if (status === 'betting') {
         if (rocketLoopId) { cancelAnimationFrame(rocketLoopId); rocketLoopId = null; }
@@ -2717,7 +2351,6 @@ function getDronePosition(elapsed, seedValue, index) {
     return Math.min(365, 30 + baseOffset + microBoost + microBoost2);
 }
 
-// Детализированная отрисовка дрона
 function drawDrone(ctx, x, y, color, elapsed) {
     ctx.save();
     
@@ -2732,35 +2365,13 @@ function drawDrone(ctx, x, y, color, elapsed) {
     ctx.lineTo(x, y);
     ctx.stroke();
 
-    // Диагональная рама
-    ctx.strokeStyle = '#555';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(x - 8, y - 8); ctx.lineTo(x + 8, y + 8);
-    ctx.moveTo(x + 8, y - 8); ctx.lineTo(x - 8, y + 8);
-    ctx.stroke();
-
-    // Пропеллеры
-    var angle = elapsed * 30; 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    var rotors = [[-8,-8], [8,-8], [-8,8], [8,8]];
-    rotors.forEach(function(pos) {
-        ctx.save();
-        ctx.translate(x + pos[0], y + pos[1]);
-        ctx.rotate(angle);
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 5, 1.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-    });
-
     // Корпус
     ctx.beginPath();
     ctx.arc(x, y, 6, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
     ctx.restore();
@@ -2887,790 +2498,6 @@ function renderDronesHistoryBar(hist) {
 }
 
 
-// ======= ИГРА 8: МОТО-ДУЭЛЬ (ТРОН) =======
-window.selectCycleColor = function(color) {
-    cycleSelectedColor = color;
-    document.querySelectorAll('#cycleGameScreen .drone-choice-btn').forEach(function(btn) {
-        btn.classList.remove('active');
-    });
-    var activeBtn = document.getElementById('btnCycle_' + color);
-    if (activeBtn) activeBtn.classList.add('active');
-};
-
-window.placeCycleBet = function() {
-    if (cycleState.status !== 'betting') {
-        alert('Ставки закрыты!');
-        return;
-    }
-    if (cycleBetPlaced) {
-        alert('Ставка уже сделана!');
-        return;
-    }
-
-    var input = document.getElementById('cycleBetInput');
-    var amount = parseInt(input.value) || 0;
-    var me = players[myPlayerId];
-    var balance = me ? (me.balance || 0) : 0;
-
-    if (amount < 10) {
-        alert('Минимальная ставка — 10 ₽!');
-        return;
-    }
-    if (amount > balance) {
-        alert('Недостаточно средств!');
-        return;
-    }
-
-    db.ref('players/' + myPlayerId + '/balance').transaction(function(current) {
-        return parseFloat(((current || 0) - amount).toFixed(3));
-    }, function(error, committed) {
-        if (committed) {
-            db.ref('cycleBets/' + myPlayerId).set({
-                name: players[myPlayerId].name || 'Игрок',
-                amount: amount,
-                color: cycleSelectedColor
-            });
-            showToast("Мото-Дуэль", "Ставка принята!");
-        }
-    });
-};
-
-function getCyclePath(elapsed, seed) {
-    var blueX = 30 + elapsed * 42;
-    var orangeX = 370 - elapsed * 42;
-
-    var blueY = 60 + Math.sin(elapsed * 2.5 + seed) * 35;
-    var orangeY = 140 + Math.cos(elapsed * 2.5 - seed) * 35;
-
-    return {
-        blue: { x: Math.min(370, blueX), y: blueY },
-        orange: { x: Math.max(30, orangeX), y: orangeY }
-    };
-}
-
-function startCycleAnimation(launchTime, seed) {
-    var canvas = document.getElementById('cycleCanvas');
-    var ctx = canvas ? canvas.getContext('2d') : null;
-    if (!ctx) return;
-
-    var trails = { blue: [], orange: [] };
-
-    function tick() {
-        var now = getServerTime();
-        var elapsed = (now - launchTime) / 1000;
-
-        ctx.clearRect(0, 0, 400, 200);
-
-        ctx.strokeStyle = '#0e1726';
-        ctx.lineWidth = 1;
-        for (var i = 0; i < 400; i += 20) {
-            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 200); ctx.stroke();
-        }
-        for (var j = 0; j < 200; j += 20) {
-            ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(400, j); ctx.stroke();
-        }
-
-        var pos = getCyclePath(elapsed, seed);
-        
-        trails.blue.push({ x: pos.blue.x, y: pos.blue.y });
-        trails.orange.push({ x: pos.orange.x, y: pos.orange.y });
-
-        ['blue', 'orange'].forEach(function(col) {
-            ctx.strokeStyle = CYCLE_COLORS[col];
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = CYCLE_COLORS[col];
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            var path = trails[col];
-            if (path.length > 0) {
-                ctx.moveTo(path[0].x, path[0].y);
-                for (var k = 1; k < path.length; k++) {
-                    ctx.lineTo(path[k].x, path[k].y);
-                }
-            }
-            ctx.stroke();
-            ctx.shadowBlur = 0; 
-        });
-
-        [['blue', pos.blue, 0], ['orange', pos.orange, Math.PI]].forEach(function(item) {
-            var col = item[0];
-            var coord = item[1];
-            var angle = item[2];
-
-            ctx.save();
-            ctx.translate(coord.x, coord.y);
-            ctx.rotate(angle);
-            ctx.fillStyle = CYCLE_COLORS[col];
-            ctx.beginPath();
-            ctx.moveTo(8, 0);
-            ctx.lineTo(-6, -5);
-            ctx.lineTo(-2, 0);
-            ctx.lineTo(-6, 5);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        });
-
-        if (cycleState.status === 'racing') {
-            cycleLoopId = requestAnimationFrame(tick);
-        }
-    }
-    cycleLoopId = requestAnimationFrame(tick);
-}
-
-function renderCycleTrack(finished) {
-    if (finished === undefined) finished = false;
-    var canvas = document.getElementById('cycleCanvas');
-    var ctx = canvas ? canvas.getContext('2d') : null;
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, 400, 200);
-
-    ctx.strokeStyle = '#0e1726';
-    ctx.lineWidth = 1;
-    for (var i = 0; i < 400; i += 20) {
-        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 200); ctx.stroke();
-    }
-    for (var j = 0; j < 200; j += 20) {
-        ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(400, j); ctx.stroke();
-    }
-
-    if (finished) {
-        var winColor = cycleState.winnerColor;
-        var loseColor = winColor === 'blue' ? 'orange' : 'blue';
-
-        if (winColor === 'draw') {
-            ctx.font = '28px sans-serif';
-            ctx.fillText('💥', 180, 60);
-            ctx.fillText('💥', 180, 140);
-        } else {
-            ctx.save();
-            ctx.translate(winColor === 'blue' ? 360 : 40, winColor === 'blue' ? 60 : 140);
-            ctx.fillStyle = CYCLE_COLORS[winColor];
-            ctx.beginPath();
-            ctx.arc(0, 0, 10, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-
-            ctx.font = '28px sans-serif';
-            ctx.fillText('💥', winColor === 'blue' ? 180 : 220, loseColor === 'blue' ? 60 : 140);
-        }
-    } else {
-        [['blue', { x: 30, y: 60 }, 0], ['orange', { x: 370, y: 140 }, Math.PI]].forEach(function(item) {
-            var col = item[0];
-            var coord = item[1];
-            var angle = item[2];
-
-            ctx.save();
-            ctx.translate(coord.x, coord.y);
-            ctx.rotate(angle);
-            ctx.fillStyle = CYCLE_COLORS[col];
-            ctx.beginPath();
-            ctx.moveTo(8, 0);
-            ctx.lineTo(-6, -5);
-            ctx.lineTo(-2, 0);
-            ctx.lineTo(-6, 5);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        });
-    }
-}
-
-function renderCycleBetsList(bets) {
-    var bar = document.getElementById('cycleBetsList');
-    if (!bar) return;
-    bar.innerHTML = '';
-    var list = Object.values(bets);
-    if (list.length === 0) {
-        bar.innerHTML = '<div class="bet-placeholder">Ставок еще нет</div>';
-        return;
-    }
-    list.forEach(function(b) {
-        var div = document.createElement('div');
-        div.className = 'bet-item';
-        div.style.borderLeft = '4px solid ' + CYCLE_COLORS[b.color];
-        div.innerHTML = `
-            <div class="avatar" style="background:${CYCLE_COLORS[b.color]}; color: black;">🏍️</div>
-            <div class="bet-info"><strong>${b.name}</strong><span>Ставка: ${b.amount} ₽</span></div>
-            <div class="bet-chance" style="color:${CYCLE_COLORS[b.color]}">${b.color.toUpperCase()}</div>
-        `;
-        bar.appendChild(div);
-    });
-}
-
-function renderCycleHistoryBar(hist) {
-    var bar = document.getElementById('cycleHistory');
-    if (!bar) return;
-    bar.innerHTML = '';
-    var reversed = hist.slice().reverse().slice(0, 10);
-    reversed.forEach(function(val) {
-        var span = document.createElement('span');
-        span.className = 'rocket-hist-item';
-        span.style.background = CYCLE_COLORS[val];
-        span.style.color = '#000';
-        span.textContent = val.toUpperCase();
-        bar.appendChild(span);
-    });
-}
-
-
-// ======= ИГРА 9: БИТВА РОБОТОВ (MECH SHOWDOWN) =======
-window.selectMechColor = function(color) {
-    mechSelectedColor = color;
-    document.querySelectorAll('#mechGameScreen .drone-choice-btn').forEach(function(btn) {
-        btn.classList.remove('active');
-    });
-    var activeBtn = document.getElementById('btnMech_' + color);
-    if (activeBtn) activeBtn.classList.add('active');
-};
-
-window.placeMechBet = function() {
-    if (mechState.status !== 'betting') {
-        alert('Ставки закрыты!');
-        return;
-    }
-    if (mechBetPlaced) {
-        alert('Вы уже сделали ставку!');
-        return;
-    }
-
-    var input = document.getElementById('mechBetInput');
-    var amount = parseInt(input.value) || 0;
-    var me = players[myPlayerId];
-    var balance = me ? (me.balance || 0) : 0;
-
-    if (amount < 10) {
-        alert('Минимальная ставка — 10 ₽!');
-        return;
-    }
-    if (amount > balance) {
-        alert('Недостаточно баланса!');
-        return;
-    }
-
-    db.ref('players/' + myPlayerId + '/balance').transaction(function(current) {
-        return parseFloat(((current || 0) - amount).toFixed(3));
-    }, function(error, committed) {
-        if (committed) {
-            db.ref('mechBets/' + myPlayerId).set({
-                name: players[myPlayerId].name || 'Игрок',
-                amount: amount,
-                color: mechSelectedColor
-            });
-            showToast("Битва Роботов", "Ставка зарегистрирована!");
-        }
-    });
-};
-
-function getMechFighters(elapsed, seed) {
-    var mechs = [
-        { name: 'red', color: '#FF1744', x: 80, y: 100, hp: 100, initialAngle: 0 },
-        { name: 'blue', color: '#2979FF', x: 200, y: 160, hp: 100, initialAngle: Math.PI * 1.3 },
-        { name: 'yellow', color: '#FFEA00', x: 320, y: 100, hp: 100, initialAngle: Math.PI * 0.7 }
-    ];
-
-    mechs.forEach(function(m, idx) {
-        var radius = 45;
-        var centerX = idx === 0 ? 110 : (idx === 1 ? 200 : 290);
-        var centerY = idx === 1 ? 130 : 90;
-        
-        m.x = centerX + Math.cos(elapsed * 2.1 + seed + idx * 3) * radius;
-        m.y = centerY + Math.sin(elapsed * 2.1 + seed + idx * 3) * radius;
-
-        // Расчет урона (HP уменьшается динамически к концу раунда)
-        var dmgRate = (Math.sin(elapsed * 1.5 + seed * idx) * 12) + 20;
-        m.hp = Math.max(0, 100 - (elapsed * dmgRate));
-    });
-
-    return mechs;
-}
-
-function drawMech(ctx, x, y, color, hp, elapsed) {
-    if (hp <= 0) {
-        ctx.font = '22px sans-serif';
-        ctx.fillText('💥', x - 11, y + 8);
-        return;
-    }
-    
-    ctx.save();
-    
-    // Тень/Свечение
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = color;
-
-    // Силовой щит вокруг робота
-    ctx.strokeStyle = color + '44';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(x, y, 14, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Броня
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, 9, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Оружейные порты (вращающиеся)
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    var gunAngle = elapsed * 4;
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(gunAngle) * 13, y + Math.sin(gunAngle) * 13);
-    ctx.stroke();
-
-    ctx.restore();
-
-    // Отрисовка Лазера (если активна атака)
-    if (elapsed > 0.5 && Math.sin(elapsed * 8) > 0.2) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + Math.cos(gunAngle) * 120, y + Math.sin(gunAngle) * 120);
-        ctx.stroke();
-    }
-
-    // Шкала HP робота
-    ctx.fillStyle = '#444';
-    ctx.fillRect(x - 15, y - 18, 30, 4);
-    ctx.fillStyle = color;
-    ctx.fillRect(x - 15, y - 18, 30 * (hp / 100), 4);
-}
-
-function startMechAnimation(launchTime, seed) {
-    var canvas = document.getElementById('mechCanvas');
-    var ctx = canvas ? canvas.getContext('2d') : null;
-    if (!ctx) return;
-
-    function tick() {
-        var now = getServerTime();
-        var elapsed = (now - launchTime) / 1000;
-
-        ctx.clearRect(0, 0, 400, 200);
-
-        // Световое оформление арены
-        ctx.strokeStyle = 'rgba(255, 0, 255, 0.25)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(200, 100, 85, 0, Math.PI * 2);
-        ctx.stroke();
-
-        var mechs = getMechFighters(elapsed, seed);
-        mechs.forEach(function(m) {
-            drawMech(ctx, m.x, m.y, MECH_COLORS[m.name], m.hp, elapsed);
-        });
-
-        if (mechState.status === 'fighting') {
-            mechLoopId = requestAnimationFrame(tick);
-        }
-    }
-    mechLoopId = requestAnimationFrame(tick);
-}
-
-function renderMechTrack(finished) {
-    if (finished === undefined) finished = false;
-    var canvas = document.getElementById('mechCanvas');
-    var ctx = canvas ? canvas.getContext('2d') : null;
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, 400, 200);
-
-    ctx.strokeStyle = 'rgba(255, 0, 255, 0.25)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(200, 100, 85, 0, Math.PI * 2);
-    ctx.stroke();
-
-    var mechs = [
-        { name: 'red', x: 120, y: 70, hp: 100 },
-        { name: 'blue', x: 200, y: 140, hp: 100 },
-        { name: 'yellow', x: 280, y: 70, hp: 100 }
-    ];
-
-    if (finished) {
-        var winColor = mechState.winnerColor;
-        mechs.forEach(function(m) {
-            m.hp = (winColor === 'draw' || m.name === winColor) ? 50 : 0;
-            drawMech(ctx, m.x, m.y, MECH_COLORS[m.name], m.hp, 0);
-        });
-    } else {
-        mechs.forEach(function(m) {
-            drawMech(ctx, m.x, m.y, MECH_COLORS[m.name], 100, 0);
-        });
-    }
-}
-
-function renderMechBetsList(bets) {
-    var bar = document.getElementById('mechBetsList');
-    if (!bar) return;
-    bar.innerHTML = '';
-    var list = Object.values(bets);
-    if (list.length === 0) {
-        bar.innerHTML = '<div class="bet-placeholder">Ставок еще нет</div>';
-        return;
-    }
-    list.forEach(function(b) {
-        var div = document.createElement('div');
-        div.className = 'bet-item';
-        div.style.borderLeft = '4px solid ' + MECH_COLORS[b.color];
-        div.innerHTML = `
-            <div class="avatar" style="background:${MECH_COLORS[b.color]}; color: black;">🤖</div>
-            <div class="bet-info"><strong>${b.name}</strong><span>Ставка: ${b.amount} ₽</span></div>
-            <div class="bet-chance" style="color:${MECH_COLORS[b.color]}">${b.color.toUpperCase()}</div>
-        `;
-        bar.appendChild(div);
-    });
-}
-
-function renderMechHistoryBar(hist) {
-    var bar = document.getElementById('mechHistory');
-    if (!bar) return;
-    bar.innerHTML = '';
-    var reversed = hist.slice().reverse().slice(0, 10);
-    reversed.forEach(function(val) {
-        var span = document.createElement('span');
-        span.className = 'rocket-hist-item';
-        span.style.background = MECH_COLORS[val];
-        span.style.color = '#000';
-        span.textContent = val.toUpperCase();
-        bar.appendChild(span);
-    });
-}
-
-function syncMechState() {
-    var status = mechState.status || 'betting';
-    var msg = document.getElementById('mechMessage');
-    var betBtn = document.getElementById('mechBetBtn');
-
-    if (status === 'betting') {
-        if (mechLoopId) { cancelAnimationFrame(mechLoopId); mechLoopId = null; }
-        if (betBtn) betBtn.disabled = mechBetPlaced;
-        
-        if (mechState.timerEnd && mechState.timerEnd > 0) {
-            startMechBettingTimer(mechState.timerEnd);
-        } else {
-            if (msg) msg.textContent = 'Ожидание пилотов...';
-        }
-        renderMechTrack();
-    } 
-    else if (status === 'fighting') {
-        if (betBtn) betBtn.disabled = true;
-        if (msg) msg.textContent = 'Сражение началось!';
-        if (mechTimerInterval) { clearInterval(mechTimerInterval); mechTimerInterval = null; }
-        startMechAnimation(mechState.launchTime, mechState.seed);
-    } 
-    else if (status === 'finished') {
-        if (betBtn) betBtn.disabled = true;
-        if (mechLoopId) { cancelAnimationFrame(mechLoopId); mechLoopId = null; }
-        
-        renderMechTrack(true); 
-
-        var colorRu = { red: 'Тигр (Красный)', blue: 'Кобальт (Синий)', yellow: 'Феникс (Желтый)', draw: 'НИЧЬЯ' };
-        if (msg) {
-            msg.innerHTML = '🏁 Результат: <span style="color:' + MECH_COLORS[mechState.winnerColor] + '">' + colorRu[mechState.winnerColor] + '</span>!';
-        }
-
-        if (mechBetPlaced && mechSelectedColor === mechState.winnerColor) {
-            var mult = mechState.winnerColor === 'draw' ? 10.0 : 2.9;
-            var winnings = Math.floor(mechMyBet * mult);
-            showVictoryNotification(colorRu[mechState.winnerColor], winnings, MECH_COLORS[mechState.winnerColor]);
-        }
-    }
-}
-
-function startMechBettingTimer(timerEnd) {
-    if (mechTimerInterval) clearInterval(mechTimerInterval);
-    var msg = document.getElementById('mechMessage');
-
-    mechTimerInterval = setInterval(function() {
-        var now = getServerTime();
-        var timeLeft = Math.max(0, (timerEnd - now) / 1000);
-        
-        if (msg) {
-            msg.textContent = 'Стычка роботов через: ' + Math.ceil(timeLeft) + 'с';
-            msg.style.color = '#FF00FF';
-        }
-    }, 200);
-}
-
-
-// ======= ИГРА 10: БИТВА СТИХИЙ (ELEMENTAL CLASH) =======
-window.selectElemColor = function(color) {
-    elementalSelectedColor = color;
-    document.querySelectorAll('#elementalGameScreen .drone-choice-btn').forEach(function(btn) {
-        btn.classList.remove('active');
-    });
-    var activeBtn = document.getElementById('btnElem_' + color);
-    if (activeBtn) activeBtn.classList.add('active');
-};
-
-window.placeElementalBet = function() {
-    if (elementalState.status !== 'betting') {
-        alert('Ставки закрыты!');
-        return;
-    }
-    if (elementalBetPlaced) {
-        alert('Вы уже сделали ставку!');
-        return;
-    }
-
-    var input = document.getElementById('elementalBetInput');
-    var amount = parseInt(input.value) || 0;
-    var me = players[myPlayerId];
-    var balance = me ? (me.balance || 0) : 0;
-
-    if (amount < 10) {
-        alert('Минимальная ставка — 10 ₽!');
-        return;
-    }
-    if (amount > balance) {
-        alert('Недостаточно баланса!');
-        return;
-    }
-
-    db.ref('players/' + myPlayerId + '/balance').transaction(function(current) {
-        return parseFloat(((current || 0) - amount).toFixed(3));
-    }, function(error, committed) {
-        if (committed) {
-            db.ref('elementalBets/' + myPlayerId).set({
-                name: players[myPlayerId].name || 'Игрок',
-                amount: amount,
-                color: elementalSelectedColor
-            });
-            showToast("Битва Стихий", "Ваш призыв принят!");
-        }
-    });
-};
-
-function getElements(elapsed, seed) {
-    var elList = [
-        { name: 'red', color: '#FF1744', x: 100, y: 100, size: 25, active: true },   // Огонь
-        { name: 'blue', color: '#2979FF', x: 200, y: 140, size: 25, active: true },  // Вода
-        { name: 'green', color: '#00E676', x: 300, y: 100, size: 25, active: true }  // Земля
-    ];
-
-    elList.forEach(function(e, idx) {
-        var radius = 50;
-        var centerX = idx === 0 ? 120 : (idx === 1 ? 200 : 280);
-        var centerY = idx === 1 ? 120 : 80;
-        
-        // Сферы притягиваются к центру
-        var force = Math.min(1, elapsed / 5.0); 
-        var targetX = 200;
-        var targetY = 100;
-
-        var startX = centerX + Math.cos(elapsed * 1.5 + seed + idx * 4) * radius;
-        var startY = centerY + Math.sin(elapsed * 1.5 + seed + idx * 4) * radius;
-
-        e.x = startX + (targetX - startX) * force;
-        e.y = startY + (targetY - startY) * force;
-
-        // Взаимное поглощение размеров
-        var pulse = Math.sin(elapsed * 8 + idx * 10) * 4;
-        e.size = Math.max(5, 25 + pulse - (elapsed * 2.2));
-    });
-
-    return elList;
-}
-
-function startElementalAnimation(launchTime, seed) {
-    var canvas = document.getElementById('elementalCanvas');
-    var ctx = canvas ? canvas.getContext('2d') : null;
-    if (!ctx) return;
-
-    function tick() {
-        var now = getServerTime();
-        var elapsed = (now - launchTime) / 1000;
-
-        ctx.clearRect(0, 0, 400, 200);
-
-        // Храм Стихий (Фон)
-        ctx.strokeStyle = 'rgba(0, 255, 216, 0.15)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(200, 100, 90, 0, Math.PI*2);
-        ctx.stroke();
-
-        var elList = getElements(elapsed, seed);
-        elList.forEach(function(e) {
-            ctx.save();
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = e.color;
-
-            // Рисуем стихийную сферу
-            var grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, e.size);
-            grad.addColorStop(0, '#ffffff');
-            grad.addColorStop(0.3, e.color);
-            grad.addColorStop(1, 'rgba(0,0,0,0)');
-
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Энергетический контур
-            ctx.strokeStyle = e.color + 'aa';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            ctx.restore();
-        });
-
-        if (elementalState.status === 'clashing') {
-            elementalLoopId = requestAnimationFrame(tick);
-        }
-    }
-    elementalLoopId = requestAnimationFrame(tick);
-}
-
-function renderElementalTrack(finished) {
-    if (finished === undefined) finished = false;
-    var canvas = document.getElementById('elementalCanvas');
-    var ctx = canvas ? canvas.getContext('2d') : null;
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, 400, 200);
-
-    ctx.strokeStyle = 'rgba(0, 255, 216, 0.15)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(200, 100, 90, 0, Math.PI*2);
-    ctx.stroke();
-
-    var elList = [
-        { name: 'red', color: '#FF1744', x: 120, y: 80, size: 25 },
-        { name: 'blue', color: '#2979FF', x: 200, y: 130, size: 25 },
-        { name: 'green', color: '#00E676', x: 280, y: 80, size: 25 }
-    ];
-
-    if (finished) {
-        var winColor = elementalState.winnerColor;
-        elList.forEach(function(e) {
-            if (winColor === 'draw' || e.name === winColor) {
-                e.size = 35;
-                e.x = 200; e.y = 100;
-            } else {
-                e.size = 0;
-            }
-        });
-    }
-
-    elList.forEach(function(e) {
-        if (e.size <= 0) return;
-        ctx.save();
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = e.color;
-
-        var grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, e.size);
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.3, e.color);
-        grad.addColorStop(1, 'rgba(0,0,0,0)');
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.size, 0, Math.PI*2);
-        ctx.fill();
-        ctx.restore();
-    });
-}
-
-function renderElementalBetsList(bets) {
-    var bar = document.getElementById('elementalBetsList');
-    if (!bar) return;
-    bar.innerHTML = '';
-    var list = Object.values(bets);
-    if (list.length === 0) {
-        bar.innerHTML = '<div class="bet-placeholder">Ставок еще нет</div>';
-        return;
-    }
-    list.forEach(function(b) {
-        var div = document.createElement('div');
-        div.className = 'bet-item';
-        div.style.borderLeft = '4px solid ' + ELEM_COLORS[b.color];
-        div.innerHTML = `
-            <div class="avatar" style="background:${ELEM_COLORS[b.color]}; color: black;">✨</div>
-            <div class="bet-info"><strong>${b.name}</strong><span>Ставка: ${b.amount} ₽</span></div>
-            <div class="bet-chance" style="color:${ELEM_COLORS[b.color]}">${b.color.toUpperCase()}</div>
-        `;
-        bar.appendChild(div);
-    });
-}
-
-function renderElementalHistoryBar(hist) {
-    var bar = document.getElementById('elementalHistory');
-    if (!bar) return;
-    bar.innerHTML = '';
-    var reversed = hist.slice().reverse().slice(0, 10);
-    reversed.forEach(function(val) {
-        var span = document.createElement('span');
-        span.className = 'rocket-hist-item';
-        span.style.background = ELEM_COLORS[val];
-        span.style.color = '#000';
-        span.textContent = val.toUpperCase();
-        bar.appendChild(span);
-    });
-}
-
-function syncElementalState() {
-    var status = elementalState.status || 'betting';
-    var msg = document.getElementById('elementalMessage');
-    var betBtn = document.getElementById('elementalBetBtn');
-
-    if (status === 'betting') {
-        if (elementalLoopId) { cancelAnimationFrame(elementalLoopId); elementalLoopId = null; }
-        if (betBtn) betBtn.disabled = elementalBetPlaced;
-        
-        if (elementalState.timerEnd && elementalState.timerEnd > 0) {
-            startElementalBettingTimer(elementalState.timerEnd);
-        } else {
-            if (msg) msg.textContent = 'Призыв духов...';
-        }
-        renderElementalTrack();
-    } 
-    else if (status === 'clashing') {
-        if (betBtn) betBtn.disabled = true;
-        if (msg) msg.textContent = 'Стихии сошлись в схватке!';
-        if (elementalTimerInterval) { clearInterval(elementalTimerInterval); elementalTimerInterval = null; }
-        startElementalAnimation(elementalState.launchTime, elementalState.seed);
-    } 
-    else if (status === 'finished') {
-        if (betBtn) betBtn.disabled = true;
-        if (elementalLoopId) { cancelAnimationFrame(elementalLoopId); elementalLoopId = null; }
-        
-        renderElementalTrack(true); 
-
-        var colorRu = { red: 'ОГОНЬ 🔥', blue: 'ВОДА 💧', green: 'ЗЕМЛЯ 🌿', draw: 'НИЧЬЯ 💥' };
-        if (msg) {
-            msg.innerHTML = '🏁 Сильнейшая стихия: <span style="color:' + ELEM_COLORS[elementalState.winnerColor] + '">' + colorRu[elementalState.winnerColor] + '</span>!';
-        }
-
-        if (elementalBetPlaced && elementalSelectedColor === elementalState.winnerColor) {
-            var mult = elementalState.winnerColor === 'draw' ? 10.0 : 2.9;
-            var winnings = Math.floor(elementalMyBet * mult);
-            showVictoryNotification(colorRu[elementalState.winnerColor], winnings, ELEM_COLORS[elementalState.winnerColor]);
-        }
-    }
-}
-
-function startElementalBettingTimer(timerEnd) {
-    if (elementalTimerInterval) clearInterval(elementalTimerInterval);
-    var msg = document.getElementById('elementalMessage');
-
-    elementalTimerInterval = setInterval(function() {
-        var now = getServerTime();
-        var timeLeft = Math.max(0, (timerEnd - now) / 1000);
-        
-        if (msg) {
-            msg.textContent = 'Битва начнется через: ' + Math.ceil(timeLeft) + 'с';
-            msg.style.color = '#00ffd8';
-        }
-    }, 200);
-}
-
-
 // ======= ШУТОЧНЫЙ ВЫВОД СРЕДСТВ =======
 window.requestWithdraw = function() {
     var card = document.getElementById('withdrawCardInput').value.trim();
@@ -3699,8 +2526,8 @@ window.requestWithdraw = function() {
     }, function(error, committed) {
         if (committed) {
             alert(
-                "Ваша выплата оформлена. Ждите поступление средств в течении 365 дней.\n\n" +
-                "Всего вам доброго!"
+                "Ваша выплата оформлена. Ожидайте зачисления по СБП на указанные реквизиты.\n\n" +
+                "Срок обработки транзакции: до 24 часов."
             );
             
             document.getElementById('withdrawCardInput').value = '';
@@ -3778,9 +2605,9 @@ function initAdminPanel() {
             item.className = 'admin-req-item';
             item.innerHTML = `
                 <p>👤 <strong>${req.playerName}</strong> просит пополнить <strong>${req.amount} ₽</strong></p>
-                <div class="admin-btns">
-                    <button class="admin-approve-btn" onclick="approveDeposit('${req.id}', '${req.playerId}', ${req.amount})">Принять</button>
-                    <button class="admin-decline-btn" onclick="declineDeposit('${req.id}')">Отклонить</button>
+                <div class="admin-btns" style="display:flex; gap: 8px; margin-top:8px;">
+                    <button class="admin-approve-btn" style="background:#059669; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;" onclick="approveDeposit('${req.id}', '${req.playerId}', ${req.amount})">Принять</button>
+                    <button class="admin-decline-btn" style="background:#dc2626; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;" onclick="declineDeposit('${req.id}')">Отклонить</button>
                 </div>
             `;
             adminList.appendChild(item);
