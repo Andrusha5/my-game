@@ -50,7 +50,7 @@ body {
     transform: scale(1.05);
 }
 
-/* Переходы экранов */
+/* Экранные контейнеры */
 .screen-container {
     width: 100%;
     max-width: 500px;
@@ -109,6 +109,7 @@ body {
 .card-rocket { border-top: 5px solid #D500F9; }
 .card-drones { border-top: 5px solid #00FF88; }
 .card-cycle { border-top: 5px solid #00E5FF; }
+.card-mech { border-top: 5px solid #FF00FF; }
 
 .card-withdraw {
     background: linear-gradient(135deg, #2b1f02 0%, #171101 100%) !important;
@@ -132,7 +133,7 @@ body {
     align-items: center;
 }
 
-/* Иконки лобби */
+/* Иконки */
 .mini-square-grid {
     width: 26px; height: 26px;
     border: 3px solid #FF3366;
@@ -185,22 +186,10 @@ body {
     50% { transform: scale(1.2) rotate(6deg); }
 }
 
-.card-info {
-    display: flex;
-    flex-direction: column;
-}
-.card-name {
-    font-size: 1rem;
-    font-weight: bold;
-    color: white;
-    margin-bottom: 3px;
-}
-.card-desc {
-    font-size: 0.7rem;
-    color: #888;
-}
+.card-info { display: flex; flex-direction: column; }
+.card-name { font-size: 1rem; font-weight: bold; color: white; margin-bottom: 3px; }
+.card-desc { font-size: 0.7rem; color: #888; }
 
-/* Назад */
 .back-to-menu-btn {
     align-self: flex-start;
     background: #333;
@@ -216,7 +205,6 @@ body {
 }
 .back-to-menu-btn:hover { background: #444; color: white; transform: scale(1.03); }
 
-/* Элементы ввода */
 #ui { text-align: center; width: 100%; }
 input, button { padding: 12px 15px; margin: 5px 0; border: none; border-radius: 8px; font-size: 1em; width: 100%; }
 input[type="text"], input[type="number"] { background: #252525; color: white; border: 1px solid #444; }
@@ -227,7 +215,7 @@ input:focus { outline: none; border-color: #61dafb; }
 #totalBank { color: #00E676; font-weight: bold; }
 #gameMessage { margin-top: 5px; padding: 8px; font-size: 1.1em; font-weight: bold; min-height: 30px; text-align: center; border-radius: 8px; transition: all 0.3s ease; }
 
-/* Кальмар */
+/* Арена Кальмара */
 #gameAreaWrapper {
     width: 90vw; max-width: 400px; aspect-ratio: 1 / 1;
     position: relative; border: 6px solid #2b2b2b; border-radius: 20px;
@@ -481,7 +469,7 @@ input:focus { outline: none; border-color: #61dafb; }
 .imp-cell.lose { background: #FF1744 !important; color: white; }
 
 
-/* РАКЕТА (КОМПАКТНАЯ ВЕРСИЯ С РАЗДЕЛЬНЫМ КЭШАУТОМ) */
+/* РАКЕТА (ДВОЙНЫЕ СТАВКИ И УПРАВЛЕНИЕ) */
 .rocket-layout {
     display: flex;
     flex-direction: column;
@@ -609,7 +597,7 @@ input:focus { outline: none; border-color: #61dafb; }
 .rocket-double-controls {
     width: 100%;
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Две ставки бок о бок */
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
 }
 
@@ -722,7 +710,7 @@ input:focus { outline: none; border-color: #61dafb; }
 .rocket-switch input:checked + .rocket-slider { background-color: #00FF88; }
 .rocket-switch input:checked + .rocket-slider:before { transform: translateX(16px); }
 
-/* Дроны и байки */
+/* Выбор Дронов, Мото и Роботов - ФИКС ЧЕРНЫХ КНОПОК */
 .drones-choice-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -732,21 +720,28 @@ input:focus { outline: none; border-color: #61dafb; }
 }
 .drone-choice-btn {
     padding: 10px 5px;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: bold;
     border: 2px solid #333;
     border-radius: 10px;
     background: #1e1e1e;
     cursor: pointer;
     color: white;
+    transition: all 0.2s ease;
 }
-.drone-choice-btn.active {
-    box-shadow: 0 0 12px currentColor;
-    background: currentColor;
-    color: black !important;
+.drone-choice-btn:hover {
+    border-color: #666;
 }
 
-/* Тосты */
+/* ФИКС: Убираем currentColor, заменяем на жесткие красивые цвета при выборе */
+.drone-choice-btn.active {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.45);
+}
+
+/* Уведомления */
 .toast-container {
     position: fixed;
     top: 20px;
