@@ -12,11 +12,17 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var db = firebase.database();
 
-// ======= Глобальные переменные состояния =======
-var myPlayerId = localStorage.getItem('roulette_player_id');
-if (!myPlayerId) {
-    myPlayerId = 'player_' + Math.random().toString(36).slice(2, 11);
-    localStorage.setItem('roulette_player_id', myPlayerId);
+// ======= Безопасное сохранение состояния для Telegram =======
+var myPlayerId = 'player_' + Math.random().toString(36).slice(2, 11);
+try {
+    var savedId = localStorage.getItem('roulette_player_id');
+    if (savedId) {
+        myPlayerId = savedId;
+    } else {
+        localStorage.setItem('roulette_player_id', myPlayerId);
+    }
+} catch (e) {
+    console.warn("localStorage заблокирован. Используется сессионный ID:", myPlayerId);
 }
 
 var players = {};         
@@ -24,7 +30,7 @@ var gameState = {};
 var onlinePlayers = [];   
 var serverOffset = 0;     
 
-// Переменные Кальмара
+// Параметры игры Кальмара
 var BETTING_TIME = 15;
 var BALL_MAX_SPEED = 120; 
 var BALL_DECELERATION = 0.985;
@@ -158,6 +164,21 @@ var MECH_COLORS = {
     draw: '#aaaaaa'
 };
 
+// БИТВА СТИХИЙ (Elemental Clash)
+var elementalState = { status: 'betting', timerEnd: 0 };
+var elementalTimerInterval = null;
+var elementalLoopId = null;
+var elementalSelectedColor = 'red';
+var elementalMyBet = 0;
+var elementalBetPlaced = false;
+
+var ELEM_COLORS = {
+    red: '#FF1744',   // Fire
+    blue: '#2979FF',  // Water
+    green: '#00E676', // Earth
+    draw: '#aaaaaa'   // Draw
+};
+
 // DOM элементы
 var bettingTimerDisplay, totalBankDisplay, gameCanvas, gameAreaWrapper, ball, playerNameInput, betAmountInput, placeBetButton, betList, historyList, gameMessage;
 
@@ -277,7 +298,7 @@ window.showScreen = function(screenId) {
     var screens = [
         'lobbyScreen', 'multiplayerGameScreen', 'singleplayerGameScreen', 
         'coinGameScreen', 'minesGameScreen', 'impMinesGameScreen', 
-        'rocketGameScreen', 'dronesGameScreen', 'cycleGameScreen', 'mechGameScreen', 'withdrawGameScreen'
+        'rocketGameScreen', 'dronesGameScreen', 'cycleGameScreen', 'mechGameScreen', 'elementalGameScreen', 'withdrawGameScreen'
     ];
     for (var i = 0; i < screens.length; i++) {
         var el = document.getElementById(screens[i]);
@@ -290,6 +311,7 @@ window.showScreen = function(screenId) {
     if (screenId === 'dronesGameScreen') renderDronesTrack();
     if (screenId === 'cycleGameScreen') renderCycleTrack();
     if (screenId === 'mechGameScreen') renderMechTrack();
+    if (screenId === 'elementalGameScreen') renderElementalTrack();
 };
 
 // Инициализация
@@ -306,7 +328,11 @@ document.addEventListener('DOMContentLoaded', function() {
     historyList = document.getElementById('historyList');
     gameMessage = document.getElementById('gameMessage');
 
-    var savedName = localStorage.getItem('roulette_player_name');
+    var savedName = "";
+    try {
+        savedName = localStorage.getItem('roulette_player_name') || "";
+    } catch(e) {}
+
     if (savedName && playerNameInput) {
         playerNameInput.value = savedName;
     }
@@ -506,6 +532,30 @@ document.addEventListener('DOMContentLoaded', function() {
         renderMechHistoryBar(snap.val() || []);
     });
 
+    // ======= СЛУШАТЕЛИ БИТВЫ СТИХИЙ =======
+    db.ref('elementalState').on('value', function(snap) {
+        elementalState = snap.val() || { status: 'betting' };
+        syncElementalState();
+    });
+
+    db.ref('elementalBets').on('value', function(snap) {
+        var bets = snap.val() || {};
+        var myBetRecord = bets[myPlayerId];
+        if (myBetRecord) {
+            elementalBetPlaced = true;
+            elementalMyBet = myBetRecord.amount;
+            elementalSelectedColor = myBetRecord.color;
+        } else {
+            elementalBetPlaced = false;
+            elementalMyBet = 0;
+        }
+        renderElementalBetsList(bets);
+    });
+
+    db.ref('elementalHistory').on('value', function(snap) {
+        renderElementalHistoryBar(snap.val() || []);
+    });
+
     selectSpPercent(50);
     renderMinesGrid();
     initImpMinesUI();
@@ -628,6 +678,28 @@ function updateOnlineGamesProgress() {
             db.ref('mechState').update({ crashedTime: now });
         } else if (now >= (mechState.crashedTime + 5000)) {
             safeResetMech();
+        }
+    }
+
+    // Битва Стихий
+    if (elementalState.status === 'betting') {
+        if (!elementalState.timerEnd || elementalState.timerEnd === 0) {
+            safeInitTimer('elementalState', 12);
+        } else if (now >= elementalState.timerEnd) {
+            safeLaunchElemental();
+        }
+    }
+    if (elementalState.status === 'clashing') {
+        var elapsed = (now - elementalState.launchTime) / 1000;
+        if (elapsed >= 8.0) {
+            safeFinishElemental();
+        }
+    }
+    if (elementalState.status === 'finished') {
+        if (!elementalState.crashedTime || elementalState.crashedTime === 0) {
+            db.ref('elementalState').update({ crashedTime: now });
+        } else if (now >= (elementalState.crashedTime + 5000)) {
+            safeResetElemental();
         }
     }
 }
@@ -943,6 +1015,80 @@ function safeResetMech() {
     });
 }
 
+// Транзакции Битвы Стихий
+function safeLaunchElemental() {
+    db.ref('elementalState').transaction(function(current) {
+        if (current && current.status === 'betting') {
+            current.status = 'clashing';
+            current.launchTime = getServerTime();
+            current.seed = Math.random() * 1000;
+            current.timerEnd = 0;
+            
+            var rand = Math.random();
+            var winner = 'draw';
+            if (rand < 0.31) winner = 'red';      // Огонь
+            else if (rand < 0.62) winner = 'blue';  // Вода
+            else if (rand < 0.93) winner = 'green'; // Земля
+            current.winnerColor = winner;
+            return current;
+        }
+        return;
+    });
+}
+
+function safeFinishElemental() {
+    db.ref('elementalState').transaction(function(current) {
+        if (current && current.status === 'clashing') {
+            current.status = 'finished';
+            current.crashedTime = getServerTime();
+            return current;
+        }
+        return;
+    }, function(err, committed, snap) {
+        if (committed) {
+            var winner = snap.val().winnerColor;
+            db.ref('elementalBets').once('value').then(function(betsSnap) {
+                var bets = betsSnap.val() || {};
+                for (var pId in bets) {
+                    if (bets[pId].color === winner) {
+                        var mult = winner === 'draw' ? 10.0 : 2.9;
+                        var prize = Math.floor(bets[pId].amount * mult);
+                        db.ref('players/' + pId + '/balance').transaction(function(bal) {
+                            return parseFloat(((bal || 0) + prize).toFixed(3));
+                        });
+                    }
+                }
+            });
+            db.ref('elementalHistory').once('value').then(function(histSnap) {
+                var hList = histSnap.val() || [];
+                if (!Array.isArray(hList)) hList = [];
+                hList.push(winner);
+                if (hList.length > 10) hList.shift();
+                db.ref('elementalHistory').set(hList);
+            });
+        }
+    });
+}
+
+function safeResetElemental() {
+    db.ref('elementalState').transaction(function(current) {
+        if (current && current.status === 'finished') {
+            current.status = 'betting';
+            current.timerEnd = getServerTime() + 12000;
+            current.launchTime = 0;
+            current.seed = 0;
+            current.winnerColor = '';
+            current.crashedTime = 0;
+            return current;
+        }
+        return;
+    }, function(err, committed) {
+        if (committed) {
+            db.ref('elementalBets').remove();
+        }
+    });
+}
+
 
 // ======= Вкладки =======
 var betsTab = document.getElementById('tabBetsBtn');
@@ -986,7 +1132,7 @@ function renderHistory(historyData) {
     }
 }
 
-// ======= ИГРА 1: ВСЕГДА ГОЛУБЬ (COIN FLIP) =======
+// ======= ИГРА 1: МОНЕТКА (COIN FLIP) =======
 window.selectCoinChoice = function(choice) {
     if (coinIsSpinning) return;
     coinChoice = choice;
@@ -1047,7 +1193,7 @@ window.playCoinFlip = function() {
                     db.ref('players/' + myPlayerId + '/balance').transaction(function(current) {
                         return parseFloat(((current || 0) + prize).toFixed(3));
                     });
-                    coinMsg.innerHTML = '🎉 Вы выиграли! Выпало: <strong>' + resLabel + '</strong>. <span class="win-color">+' + prize + ' ₽</span>';
+                    coinMsg.innerHTML = '🎉 Вы выиграли! Выпало: <strong>' + resLabel + '</strong>. <span class="win-color" style="color:#00ff88">+' + prize + ' ₽</span>';
                 } else {
                     coinMsg.innerHTML = '🔴 Не угадали! Выпало: <strong>' + resLabel + '</strong>. <span style="color:#ff1744">-' + bet + ' ₽</span>';
                 }
@@ -1062,7 +1208,7 @@ window.playCoinFlip = function() {
     });
 };
 
-// ======= ИГРА 2: ВЕЗДЕ МИНЫ =======
+// ======= ИГРА 2: САПЕР (MINES) =======
 function renderMinesGrid() {
     var grid = document.getElementById('minesGrid');
     if (!grid) return;
@@ -1223,7 +1369,7 @@ function endMinesGame(isWin) {
             return parseFloat(((current || 0) + winnings).toFixed(3));
         });
 
-        minesMsg.innerHTML = '🎉 Забрали <span class="win-color">' + winnings + ' ₽</span> (' + mult.toFixed(2) + 'x)';
+        minesMsg.innerHTML = '🎉 Забрали <span class="win-color" style="color:#00ff88">' + winnings + ' ₽</span> (' + mult.toFixed(2) + 'x)';
     } else {
         minesMsg.innerHTML = '💥 Бабах! Вы проиграли <span style="color:#ff1744">' + minesCurrentBet + ' ₽</span>';
     }
@@ -1409,7 +1555,7 @@ function endImpGame(isWin) {
         db.ref('players/' + myPlayerId + '/balance').transaction(function(current) {
             return parseFloat(((current || 0) + winnings).toFixed(3));
         });
-        impMsg.innerHTML = '🎉 ПОБЕДА! Вы забрали <span class="win-color">' + winnings + ' ₽</span>';
+        impMsg.innerHTML = '🎉 ПОБЕДА! Вы забрали <span class="win-color" style="color:#00ff88">' + winnings + ' ₽</span>';
     } else if (!isWin) {
         impMsg.innerHTML = '💥 ВЗРЫВ! Ваша ставка <span style="color:#ff1744">' + impBet + ' ₽</span> сгорела.';
     }
@@ -1581,7 +1727,9 @@ function placeBet() {
         return;
     }
 
-    localStorage.setItem('roulette_player_name', name);
+    try {
+        localStorage.setItem('roulette_player_name', name);
+    } catch(e){}
 
     var newBalance = parseFloat((myCurrentBalance - amount).toFixed(3));
     var currentBet = myData.totalBet || 0;
@@ -1746,7 +1894,7 @@ function startLocalRound(launchAngle) {
 function updateBallDOMPosition() {
     if (ball && gameAreaWrapper) {
         var rect = gameAreaWrapper.getBoundingClientRect();
-        var borderSize = 6;
+        var borderSize = 3;
         var actualSize = rect.width - (borderSize * 2);
         var scale = actualSize / VIRTUAL_WIDTH;
 
@@ -1986,10 +2134,16 @@ function renderWheelSections() {
             ctx.fillStyle = p.color;
             ctx.fillRect(p.startX, -L, p.width, L * 2);
 
+            // ЯРКАЯ ПУЛЬСИРУЮЩАЯ ПОДСВЕТКА СЕКТОРА ПОБЕДИТЕЛЯ
             if (gameState.status === 'finished' && gameState.winnerName === p.name) {
                 var glow = Math.sin(Date.now() * 0.015) * 0.2 + 0.4;
                 ctx.fillStyle = 'rgba(255, 255, 255, ' + glow + ')';
                 ctx.fillRect(p.startX, -L, p.width, L * 2);
+
+                // Золотая обводка сектора победителя
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 6;
+                ctx.strokeRect(p.startX, -L, p.width, L * 2);
             }
         });
         ctx.restore();
@@ -2961,7 +3115,7 @@ function renderCycleHistoryBar(hist) {
 }
 
 
-// ======= ИГРА 9: СУПЕР-НОВИНКА "БИТВА РОБОТОВ" (MECH SHOWDOWN) =======
+// ======= ИГРА 9: БИТВА РОБОТОВ (MECH SHOWDOWN) =======
 window.selectMechColor = function(color) {
     mechSelectedColor = color;
     document.querySelectorAll('#mechGameScreen .drone-choice-btn').forEach(function(btn) {
@@ -3243,6 +3397,280 @@ function startMechBettingTimer(timerEnd) {
 }
 
 
+// ======= ИГРА 10: БИТВА СТИХИЙ (ELEMENTAL CLASH) =======
+window.selectElemColor = function(color) {
+    elementalSelectedColor = color;
+    document.querySelectorAll('#elementalGameScreen .drone-choice-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    var activeBtn = document.getElementById('btnElem_' + color);
+    if (activeBtn) activeBtn.classList.add('active');
+};
+
+window.placeElementalBet = function() {
+    if (elementalState.status !== 'betting') {
+        alert('Ставки закрыты!');
+        return;
+    }
+    if (elementalBetPlaced) {
+        alert('Вы уже сделали ставку!');
+        return;
+    }
+
+    var input = document.getElementById('elementalBetInput');
+    var amount = parseInt(input.value) || 0;
+    var me = players[myPlayerId];
+    var balance = me ? (me.balance || 0) : 0;
+
+    if (amount < 10) {
+        alert('Минимальная ставка — 10 ₽!');
+        return;
+    }
+    if (amount > balance) {
+        alert('Недостаточно баланса!');
+        return;
+    }
+
+    db.ref('players/' + myPlayerId + '/balance').transaction(function(current) {
+        return parseFloat(((current || 0) - amount).toFixed(3));
+    }, function(error, committed) {
+        if (committed) {
+            db.ref('elementalBets/' + myPlayerId).set({
+                name: players[myPlayerId].name || 'Игрок',
+                amount: amount,
+                color: elementalSelectedColor
+            });
+            showToast("Битва Стихий", "Ваш призыв принят!");
+        }
+    });
+};
+
+function getElements(elapsed, seed) {
+    var elList = [
+        { name: 'red', color: '#FF1744', x: 100, y: 100, size: 25, active: true },   // Огонь
+        { name: 'blue', color: '#2979FF', x: 200, y: 140, size: 25, active: true },  // Вода
+        { name: 'green', color: '#00E676', x: 300, y: 100, size: 25, active: true }  // Земля
+    ];
+
+    elList.forEach(function(e, idx) {
+        var radius = 50;
+        var centerX = idx === 0 ? 120 : (idx === 1 ? 200 : 280);
+        var centerY = idx === 1 ? 120 : 80;
+        
+        // Сферы притягиваются к центру
+        var force = Math.min(1, elapsed / 5.0); 
+        var targetX = 200;
+        var targetY = 100;
+
+        var startX = centerX + Math.cos(elapsed * 1.5 + seed + idx * 4) * radius;
+        var startY = centerY + Math.sin(elapsed * 1.5 + seed + idx * 4) * radius;
+
+        e.x = startX + (targetX - startX) * force;
+        e.y = startY + (targetY - startY) * force;
+
+        // Взаимное поглощение размеров
+        var pulse = Math.sin(elapsed * 8 + idx * 10) * 4;
+        e.size = Math.max(5, 25 + pulse - (elapsed * 2.2));
+    });
+
+    return elList;
+}
+
+function startElementalAnimation(launchTime, seed) {
+    var canvas = document.getElementById('elementalCanvas');
+    var ctx = canvas ? canvas.getContext('2d') : null;
+    if (!ctx) return;
+
+    function tick() {
+        var now = getServerTime();
+        var elapsed = (now - launchTime) / 1000;
+
+        ctx.clearRect(0, 0, 400, 200);
+
+        // Храм Стихий (Фон)
+        ctx.strokeStyle = 'rgba(0, 255, 216, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(200, 100, 90, 0, Math.PI*2);
+        ctx.stroke();
+
+        var elList = getElements(elapsed, seed);
+        elList.forEach(function(e) {
+            ctx.save();
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = e.color;
+
+            // Рисуем стихийную сферу
+            var grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, e.size);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.3, e.color);
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Энергетический контур
+            ctx.strokeStyle = e.color + 'aa';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.restore();
+        });
+
+        if (elementalState.status === 'clashing') {
+            elementalLoopId = requestAnimationFrame(tick);
+        }
+    }
+    elementalLoopId = requestAnimationFrame(tick);
+}
+
+function renderElementalTrack(finished) {
+    if (finished === undefined) finished = false;
+    var canvas = document.getElementById('elementalCanvas');
+    var ctx = canvas ? canvas.getContext('2d') : null;
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, 400, 200);
+
+    ctx.strokeStyle = 'rgba(0, 255, 216, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(200, 100, 90, 0, Math.PI*2);
+    ctx.stroke();
+
+    var elList = [
+        { name: 'red', color: '#FF1744', x: 120, y: 80, size: 25 },
+        { name: 'blue', color: '#2979FF', x: 200, y: 130, size: 25 },
+        { name: 'green', color: '#00E676', x: 280, y: 80, size: 25 }
+    ];
+
+    if (finished) {
+        var winColor = elementalState.winnerColor;
+        elList.forEach(function(e) {
+            if (winColor === 'draw' || e.name === winColor) {
+                e.size = 35;
+                e.x = 200; e.y = 100;
+            } else {
+                e.size = 0;
+            }
+        });
+    }
+
+    elList.forEach(function(e) {
+        if (e.size <= 0) return;
+        ctx.save();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = e.color;
+
+        var grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, e.size);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.3, e.color);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.size, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+    });
+}
+
+function renderElementalBetsList(bets) {
+    var bar = document.getElementById('elementalBetsList');
+    if (!bar) return;
+    bar.innerHTML = '';
+    var list = Object.values(bets);
+    if (list.length === 0) {
+        bar.innerHTML = '<div class="bet-placeholder">Ставок еще нет</div>';
+        return;
+    }
+    list.forEach(function(b) {
+        var div = document.createElement('div');
+        div.className = 'bet-item';
+        div.style.borderLeft = '4px solid ' + ELEM_COLORS[b.color];
+        div.innerHTML = `
+            <div class="avatar" style="background:${ELEM_COLORS[b.color]}; color: black;">✨</div>
+            <div class="bet-info"><strong>${b.name}</strong><span>Ставка: ${b.amount} ₽</span></div>
+            <div class="bet-chance" style="color:${ELEM_COLORS[b.color]}">${b.color.toUpperCase()}</div>
+        `;
+        bar.appendChild(div);
+    });
+}
+
+function renderElementalHistoryBar(hist) {
+    var bar = document.getElementById('elementalHistory');
+    if (!bar) return;
+    bar.innerHTML = '';
+    var reversed = hist.slice().reverse().slice(0, 10);
+    reversed.forEach(function(val) {
+        var span = document.createElement('span');
+        span.className = 'rocket-hist-item';
+        span.style.background = ELEM_COLORS[val];
+        span.style.color = '#000';
+        span.textContent = val.toUpperCase();
+        bar.appendChild(span);
+    });
+}
+
+function syncElementalState() {
+    var status = elementalState.status || 'betting';
+    var msg = document.getElementById('elementalMessage');
+    var betBtn = document.getElementById('elementalBetBtn');
+
+    if (status === 'betting') {
+        if (elementalLoopId) { cancelAnimationFrame(elementalLoopId); elementalLoopId = null; }
+        if (betBtn) betBtn.disabled = elementalBetPlaced;
+        
+        if (elementalState.timerEnd && elementalState.timerEnd > 0) {
+            startElementalBettingTimer(elementalState.timerEnd);
+        } else {
+            if (msg) msg.textContent = 'Призыв духов...';
+        }
+        renderElementalTrack();
+    } 
+    else if (status === 'clashing') {
+        if (betBtn) betBtn.disabled = true;
+        if (msg) msg.textContent = 'Стихии сошлись в схватке!';
+        if (elementalTimerInterval) { clearInterval(elementalTimerInterval); elementalTimerInterval = null; }
+        startElementalAnimation(elementalState.launchTime, elementalState.seed);
+    } 
+    else if (status === 'finished') {
+        if (betBtn) betBtn.disabled = true;
+        if (elementalLoopId) { cancelAnimationFrame(elementalLoopId); elementalLoopId = null; }
+        
+        renderElementalTrack(true); 
+
+        var colorRu = { red: 'ОГОНЬ 🔥', blue: 'ВОДА 💧', green: 'ЗЕМЛЯ 🌿', draw: 'НИЧЬЯ 💥' };
+        if (msg) {
+            msg.innerHTML = '🏁 Сильнейшая стихия: <span style="color:' + ELEM_COLORS[elementalState.winnerColor] + '">' + colorRu[elementalState.winnerColor] + '</span>!';
+        }
+
+        if (elementalBetPlaced && elementalSelectedColor === elementalState.winnerColor) {
+            var mult = elementalState.winnerColor === 'draw' ? 10.0 : 2.9;
+            var winnings = Math.floor(elementalMyBet * mult);
+            showVictoryNotification(colorRu[elementalState.winnerColor], winnings, ELEM_COLORS[elementalState.winnerColor]);
+        }
+    }
+}
+
+function startElementalBettingTimer(timerEnd) {
+    if (elementalTimerInterval) clearInterval(elementalTimerInterval);
+    var msg = document.getElementById('elementalMessage');
+
+    elementalTimerInterval = setInterval(function() {
+        var now = getServerTime();
+        var timeLeft = Math.max(0, (timerEnd - now) / 1000);
+        
+        if (msg) {
+            msg.textContent = 'Битва начнется через: ' + Math.ceil(timeLeft) + 'с';
+            msg.style.color = '#00ffd8';
+        }
+    }, 200);
+}
+
+
 // ======= ШУТОЧНЫЙ ВЫВОД СРЕДСТВ =======
 window.requestWithdraw = function() {
     var card = document.getElementById('withdrawCardInput').value.trim();
@@ -3402,4 +3830,4 @@ function renderBets() {
         `;
         betList.appendChild(item);
     });
-}
+      }
