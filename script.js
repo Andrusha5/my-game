@@ -1464,7 +1464,7 @@ function updateSpSummary() {
     var summaryChance = document.getElementById('summaryChance');
     var summaryWin = document.getElementById('summaryWin');
 
-    if (!textInput && !betInput || !summaryChance || !summaryWin) return;
+    if (!betInput || !summaryChance || !summaryWin) return;
 
     var bet = parseInt(betInput.value) || 0;
     var rule = SP_RULES[spSelectedPercent];
@@ -3402,4 +3402,4 @@ function renderBets() {
         `;
         betList.appendChild(item);
     });
-      }
+}
