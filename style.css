@@ -223,7 +223,23 @@ body {
     margin-top: 8px;
 }
 
-/* Кнопки Направлений и Ввода */
+/* Формы ввода */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    margin-bottom: 8px;
+    align-items: stretch;
+}
+
+.form-group label {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-weight: bold;
+    text-align: left;
+}
+
 .bet-input {
     width: 100%;
     background: #0f172a;
@@ -234,7 +250,6 @@ body {
     font-size: 1.1rem;
     font-weight: bold;
     text-align: center;
-    margin-bottom: 4px;
 }
 
 .bet-input:focus {
@@ -266,17 +281,20 @@ body {
     box-shadow: none;
 }
 
-/* САПЕР (Mines) - СЕТКА КВАДРАТОВ */
+/* САПЕР (Mines) - СЕТКА С ФИКСИРОВАННЫМИ РАЗМЕРАМИ */
 .mines-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr);
     gap: 8px;
     width: 100%;
-    aspect-ratio: 1/1;
+    max-width: 320px;
+    height: 320px; /* Фиксированная высота решает проблему сжимания в Telegram */
+    margin: 0 auto;
     background: #110e1a;
     border: 2px solid #3b0764;
     border-radius: 16px;
-    padding: 12px;
+    padding: 10px;
     box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
 }
 
@@ -285,22 +303,19 @@ body {
     border: 1px solid #d500f933;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 1.6rem;
+    font-size: 1.4rem;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: transform 0.1s, background 0.2s;
     user-select: none;
-    height: 100%;
+    color: white;
     width: 100%;
+    height: 100%;
 }
 
 .mine-cell:active:not(:disabled) {
     transform: scale(0.9);
-}
-
-.mine-cell:disabled {
-    cursor: default;
 }
 
 .mine-cell.safe {
@@ -311,7 +326,6 @@ body {
 .mine-cell.exploded {
     background: radial-gradient(circle, #ff1744, #3a000c);
     border-color: #ff1744;
-    animation: shake 0.2s;
 }
 
 .mine-cell.revealed-mine {
@@ -319,26 +333,31 @@ body {
     border-color: #ff1744;
 }
 
-/* БАШНЯ СТРАХА - СЕТКА СВЕРХУ ВНИЗ */
+/* БАШНЯ СТРАХА */
 .tower-rows-container {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
+    max-width: 340px;
+    margin: 0 auto;
     background: #110e1a;
     border: 2px solid #00ffd833;
     border-radius: 16px;
-    padding: 14px;
+    padding: 12px;
     box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
 }
 
 .imp-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+    height: 42px; /* Фиксированная высота рядов */
     background: rgba(255, 255, 255, 0.02);
-    padding: 6px;
-    border-radius: 10px;
+    padding: 4px;
+    border-radius: 8px;
     border: 1px solid transparent;
 }
 
@@ -357,8 +376,8 @@ body {
 }
 
 .row-multiplier {
-    width: 100px;
-    font-size: 0.85rem;
+    width: 80px;
+    font-size: 0.75rem;
     font-weight: bold;
     display: flex;
     flex-direction: column;
@@ -367,12 +386,12 @@ body {
 
 .imp-cell {
     flex-grow: 1;
-    aspect-ratio: 1.1 / 1;
+    height: 100%;
     background: #1e1b4b;
     border: 1.5px solid #4338ca;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -389,7 +408,7 @@ body {
     border-color: #ef4444;
 }
 
-/* Кнопки управления одиночными играми */
+/* Одиночные игры */
 .action-btn-green {
     flex: 1;
     background: #059669;
@@ -418,46 +437,101 @@ body {
     cursor: not-allowed;
 }
 
-/* Селекторы Дронов / Мотиков / Стихий */
-.drone-selector-row {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+.mines-action-row {
+    display: flex;
     gap: 8px;
     width: 100%;
-    margin-bottom: 8px;
+}
+
+.mines-stats {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-weight: bold;
+    padding: 0 8px;
+}
+
+/* Колесо Удачи */
+.wheel-box {
+    position: relative;
+    width: 240px;
+    height: 240px;
+    margin: 10px auto;
+}
+
+#spWheelCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    transition: transform 4s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.sp-wheel-marker {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.5rem;
+    color: #00ffd8;
+    z-index: 10;
+}
+
+.pct-selector {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    width: 100%;
+}
+
+.sp-pct-btn {
+    background: #1e1b4b;
+    color: white;
+    border: 1px solid #312e81;
+    padding: 8px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.sp-pct-btn.active {
+    background: #00ffd8;
+    color: black;
+    border-color: #00ffd8;
+}
+
+/* Дроны заезд */
+.drone-selector-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    width: 100%;
 }
 
 .drone-choice-btn {
     border: 2px solid transparent;
-    padding: 12px 6px;
-    border-radius: 10px;
-    font-weight: 900;
+    padding: 10px 2px;
+    border-radius: 8px;
+    font-weight: bold;
     cursor: pointer;
+    font-size: 0.75rem;
     background: #1e1b4b;
-    color: #ffffff; /* Исправлен цвет по умолчанию для контраста */
-    transition: all 0.2s;
-    font-size: 0.85rem;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    color: white;
 }
 
 .drone-choice-btn.active {
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
-    border-color: #ffffff !important;
+    color: #000 !important;
 }
 
 .drone-choice-btn.btn-red { border-color: #ef4444; color: #ef4444; }
 .drone-choice-btn.btn-blue { border-color: #3b82f6; color: #3b82f6; }
 .drone-choice-btn.btn-green { border-color: #10b981; color: #10b981; }
 .drone-choice-btn.btn-yellow { border-color: #eab308; color: #eab308; }
-.drone-choice-btn.btn-orange { border-color: #f97316; color: #f97316; }
-.drone-choice-btn.btn-grey { border-color: #6b7280; color: #9ca3af; }
 
-.drone-choice-btn.btn-red.active { background: #ef4444 !important; color: white !important; }
-.drone-choice-btn.btn-blue.active { background: #3b82f6 !important; color: white !important; }
-.drone-choice-btn.btn-green.active { background: #10b981 !important; color: white !important; }
-.drone-choice-btn.btn-yellow.active { background: #eab308 !important; color: white !important; }
-.drone-choice-btn.btn-orange.active { background: #f97316 !important; color: white !important; }
-.drone-choice-btn.btn-grey.active { background: #6b7280 !important; color: white !important; }
+.drone-choice-btn.btn-red.active { background: #ef4444 !important; }
+.drone-choice-btn.btn-blue.active { background: #3b82f6 !important; }
+.drone-choice-btn.btn-green.active { background: #10b981 !important; }
+.drone-choice-btn.btn-yellow.active { background: #eab308 !important; }
 
 /* Кальмар Сцена */
 #gameAreaWrapper {
@@ -564,7 +638,7 @@ body {
     border: 1.5px solid #1e1b4b;
     border-radius: 14px;
     padding: 8px;
-    max-height: 200px;
+    max-height: 180px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -605,7 +679,235 @@ body {
     color: #00ffd8;
 }
 
-/* Модалка пополнения */
+/* Ракета */
+.rocket-canvas-container {
+    position: relative;
+    width: 100%;
+    height: 180px;
+    background: radial-gradient(circle at center, #0c021a, #030008);
+    border: 2px solid #3b0764;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.rocket-actor {
+    position: absolute;
+    left: 45%;
+    bottom: 20px;
+    font-size: 2.2rem;
+    transition: bottom 0.1s linear;
+}
+
+.rocket-explosion {
+    position: absolute;
+    left: 45%;
+    bottom: 80px;
+    font-size: 3rem;
+    display: none;
+}
+
+.rocket-mult-display {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2.4rem;
+    font-weight: 900;
+    color: #00e5ff;
+    text-shadow: 0 0 15px rgba(0, 229, 255, 0.7);
+}
+
+.rocket-timer-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3.5rem;
+    font-weight: bold;
+    color: #00ffd8;
+}
+
+.rocket-double-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.rocket-control-box {
+    background: #110e1a;
+    border: 1.5px solid #2e0854;
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.box-title {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #a78bfa;
+    text-align: center;
+}
+
+.auto-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,0.03);
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+}
+
+.auto-row input[type="checkbox"] {
+    transform: scale(1.2);
+}
+
+.auto-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.auto-controls button {
+    background: #1e293b;
+    border: none;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.auto-val {
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.rocket-pnl-btn {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.rocket-pnl-btn.btn-bet { background: #d500f9; color: white; }
+.rocket-pnl-btn.btn-cash { background: #00e676; color: black; }
+
+/* Трассы */
+.canvas-track-wrapper {
+    background: #000;
+    border: 2px solid #1e1b4b;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+
+.canvas-track-wrapper canvas {
+    width: 100%;
+    display: block;
+}
+
+.history-bar {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    width: 100%;
+}
+
+.rocket-hist-item {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.bet-panel-neon {
+    background: #110e1a;
+    border: 1.5px solid #1e1b4b;
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Монетка */
+.coin-wrapper {
+    perspective: 1000px;
+    width: 120px;
+    height: 120px;
+    margin: 10px auto;
+}
+
+.coin {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.coin-side {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.5rem;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), inset 0 0 10px rgba(0,0,0,0.5);
+    border: 4px solid #ffd700;
+}
+
+.coin-side.heads {
+    background: linear-gradient(135deg, #ffe066, #f5b041);
+}
+
+.coin-side.tails {
+    background: linear-gradient(135deg, #f5b041, #ca6f1e);
+    transform: rotateY(180deg);
+}
+
+.choice-buttons {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.choice-btn {
+    flex: 1;
+    background: #1e1b4b;
+    color: #94a3b8;
+    border: 1px solid #312e81;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.choice-btn.active {
+    background: #00ffd8;
+    color: black;
+    border-color: #00ffd8;
+}
+
+/* Модалки и Админ */
 .modal {
     display: none;
     position: fixed;
@@ -641,10 +943,11 @@ body {
 }
 
 .modal-btn {
+    width: 100%;
     background: #00ffd8;
     color: black;
     border: none;
-    padding: 10px 20px;
+    padding: 12px;
     border-radius: 10px;
     font-weight: bold;
     cursor: pointer;
@@ -660,7 +963,6 @@ body {
     color: #00ff88;
 }
 
-/* Тосты */
 .custom-toast {
     background: #18122b;
     border: 2px solid #00ffd8;
@@ -669,49 +971,35 @@ body {
     margin-bottom: 10px;
     box-shadow: 0 4px 15px rgba(0, 255, 216, 0.25);
     animation: slideIn 0.3s forwards;
+    width: 320px;
+}
+
+.withdraw-card {
+    background: #110e1a;
+    border: 1.5px solid #1e1b4b;
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.withdraw-desc {
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.admin-panel-section {
+    width: 100%;
+    background: #1f1105;
+    border: 2px solid #ff9100;
+    border-radius: 14px;
+    padding: 14px;
+    color: white;
+    margin-top: 20px;
 }
 
 @keyframes slideIn {
     from { transform: translateY(100%); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
-
-/* Дополнительные вспомогательные классы */
-.canvas-track-wrapper {
-    background: #000;
-    border: 2px solid #1e1b4b;
-    border-radius: 12px;
-    overflow: hidden;
-    position: relative;
-    width: 100%;
-}
-.canvas-track-wrapper canvas {
-    width: 100%;
-    display: block;
-}
-.history-bar {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-}
-.rocket-hist-item {
-    padding: 3px 8px;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: bold;
-}
-.bet-panel-neon {
-    background: #110e1a;
-    border: 1px solid #1e1b4b;
-    padding: 12px;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-}
-.input-label {
-    font-size: 0.8rem;
-    color: #94a3b8;
-    margin-bottom: 4px;
-    font-weight: bold;
-    }
