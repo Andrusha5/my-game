@@ -274,10 +274,11 @@
             font-weight: bold; display: none;
         }
         #ball {
-            width: 20px; height: 20px; background: white; border-radius: 50%;
+            width: 16px; height: 16px; background: white; border-radius: 50%;
             position: absolute; z-index: 10;
             box-shadow: 0 0 10px rgba(255,255,255,0.8);
             display: none;
+            pointer-events: none;
         }
 
         #betList, #historyList {
@@ -1381,12 +1382,14 @@
 
         // Переменные мультиплеера
         const BETTING_TIME = 15;
-        const BALL_MAX_SPEED = 150;
+        const BALL_MAX_SPEED = 12; // Снизили скорость для плавной круговой симуляции
         const BALL_DECELERATION = 0.985;
         const MIN_BET = 10;
         const VIRTUAL_WIDTH = 400;
         const VIRTUAL_HEIGHT = 400;
-        const VIRTUAL_RADIUS = 12;
+        const WHEEL_RADIUS = 192; // Граница круга-рулетки
+        const HUB_RADIUS = 30;    // Внутренний круг со стрелкой
+        const BALL_RADIUS = 8;    // Радиус шарика
 
         let timerInterval = null;
         let animationFrameId = null;
@@ -2271,7 +2274,7 @@
         }
 
 
-        // ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР С СОВЕРШЕННЫМ СВЕЧЕНИЕМ И СТРЕЛКОЙ) =======
+        // ======= ИГРА 5: МУЛЬТИПЛЕЕР (КАЛЬМАР С НАСТОЯЩЕЙ КРУГОВОЙ ФИЗИКОЙ И ПАУЗОЙ) =======
 
         function getPlayersWithSegments() {
             const active = Object.keys(players)
@@ -2475,35 +2478,61 @@
             });
         }
 
+        // ГЕНЕРАЦИЯ ПУТИ С СОВЕРШЕННОЙ КРУГОВОЙ ФИЗИКОЙ (ОТРАЖЕНИЕ ОТ БОРТОВ И ЦЕНТРА)
         function generateDeterministicPath(angle) {
-            let x = VIRTUAL_WIDTH / 2;
-            let y = VIRTUAL_HEIGHT / 2;
+            let x = 200;
+            let y = 200;
             let vx = Math.cos(angle) * BALL_MAX_SPEED;
             let vy = Math.sin(angle) * BALL_MAX_SPEED;
             
             const path = [];
             let iterations = 0;
 
-            while ((Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) && iterations < 2000) {
+            // Выдвинем шарик за пределы центрального диска, чтобы не залипал
+            x += Math.cos(angle) * (HUB_RADIUS + BALL_RADIUS + 2);
+            y += Math.sin(angle) * (HUB_RADIUS + BALL_RADIUS + 2);
+
+            while ((Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) && iterations < 3000) {
                 x += vx;
                 y += vy;
 
-                if (x - VIRTUAL_RADIUS < 0) {
-                    vx = Math.abs(vx);
-                    x = VIRTUAL_RADIUS;
-                } else if (x + VIRTUAL_RADIUS > VIRTUAL_WIDTH) {
-                    vx = -Math.abs(vx);
-                    x = VIRTUAL_WIDTH - VIRTUAL_RADIUS;
+                // Считаем дистанцию от центра поля (200, 200)
+                const dx = x - 200;
+                const dy = y - 200;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // 1. Отражение от внешнего металлического борта (R = 192)
+                const maxAllowedDist = WHEEL_RADIUS - BALL_RADIUS;
+                if (dist > maxAllowedDist) {
+                    const nx = dx / dist; // Нормаль к центру
+                    const ny = dy / dist;
+
+                    const dot = vx * nx + vy * ny;
+                    if (dot > 0) {
+                        vx = vx - 2 * dot * nx;
+                        vy = vy - 2 * dot * ny;
+                    }
+                    // Коррекция позиции шарика, чтобы не застревал в бортике
+                    x = 200 + nx * maxAllowedDist;
+                    y = 200 + ny * maxAllowedDist;
                 }
 
-                if (y - VIRTUAL_RADIUS < 0) {
-                    vy = Math.abs(vy);
-                    y = VIRTUAL_RADIUS;
-                } else if (y + VIRTUAL_RADIUS > VIRTUAL_HEIGHT) {
-                    vy = -Math.abs(vy);
-                    y = VIRTUAL_HEIGHT - VIRTUAL_RADIUS;
+                // 2. Отражение от центрального металлического диска (R = 30)
+                const minAllowedDist = HUB_RADIUS + BALL_RADIUS;
+                if (dist < minAllowedDist && dist > 0) {
+                    const nx = dx / dist; // Внешняя нормаль от диска
+                    const ny = dy / dist;
+
+                    const dot = vx * nx + vy * ny;
+                    if (dot < 0) {
+                        vx = vx - 2 * dot * nx;
+                        vy = vy - 2 * dot * ny;
+                    }
+                    x = 200 + nx * minAllowedDist;
+                    y = 200 + ny * minAllowedDist;
                 }
 
+                // Трение (плавное замедление)
                 vx *= BALL_DECELERATION;
                 vy *= BALL_DECELERATION;
 
@@ -2521,16 +2550,16 @@
             animationFrameId = requestAnimationFrame(animateDeterministicBall);
         }
 
-        // УПРАВЛЕНИЕ АНИМАЦИЕЙ ШАРИКА И КИНЕМАТОГРАФИЧЕСКОЙ СТРЕЛКИ
+        // АНИМАЦИЯ ШАРИКА: ФИРМЕННАЯ ПАУЗА И ДВИЖЕНИЕ
         function animateDeterministicBall() {
             const elapsed = Date.now() - animStartTime;
             
-            // 1. Спиннер стрелки (первые 2 секунды)
+            // 1. Бешеное вращение стрелки (первые 2 секунды)
             if (elapsed < 2000) {
                 ballX = 200;
                 ballY = 200;
                 
-                const arrowAngle = (elapsed / 2000) * Math.PI * 4; 
+                const arrowAngle = (elapsed / 2000) * Math.PI * 8; 
                 renderWheelSections(true, arrowAngle);
                 
                 if (ball && gameAreaWrapper) {
@@ -2539,21 +2568,22 @@
                     const actualSize = rect.width - (borderSize * 2);
                     const scale = actualSize / VIRTUAL_WIDTH;
 
-                    ball.style.width = `${VIRTUAL_RADIUS * 2 * scale}px`;
-                    ball.style.height = `${VIRTUAL_RADIUS * 2 * scale}px`;
-                    ball.style.left = `${(200 - VIRTUAL_RADIUS) * scale}px`;
-                    ball.style.top = `${(200 - VIRTUAL_RADIUS) * scale}px`;
+                    ball.style.width = `${BALL_RADIUS * 2 * scale}px`;
+                    ball.style.height = `${BALL_RADIUS * 2 * scale}px`;
+                    ball.style.left = `${(200 - BALL_RADIUS) * scale}px`;
+                    ball.style.top = `${(200 - BALL_RADIUS) * scale}px`;
                 }
                 
                 animationFrameId = requestAnimationFrame(animateDeterministicBall);
                 return;
             }
 
-            // 2. ЗАМОРОЗКА СТРЕЛКИ НА 1 СЕКУНДУ (с 2000мс до 3000мс)
+            // 2. КИНЕМАТОГРАФИЧЕСКАЯ ЗАМОРОЗКА СТРЕЛКИ НА 1 СЕКУНДУ (с 2000мс до 3000мс)
             if (elapsed < 3000) {
                 ballX = 200;
                 ballY = 200;
                 
+                // Указываем точное направление будущего вылета шарика!
                 renderWheelSections(true, gameState.launchAngle);
                 
                 if (ball && gameAreaWrapper) {
@@ -2562,17 +2592,17 @@
                     const actualSize = rect.width - (borderSize * 2);
                     const scale = actualSize / VIRTUAL_WIDTH;
 
-                    ball.style.width = `${VIRTUAL_RADIUS * 2 * scale}px`;
-                    ball.style.height = `${VIRTUAL_RADIUS * 2 * scale}px`;
-                    ball.style.left = `${(200 - VIRTUAL_RADIUS) * scale}px`;
-                    ball.style.top = `${(200 - VIRTUAL_RADIUS) * scale}px`;
+                    ball.style.width = `${BALL_RADIUS * 2 * scale}px`;
+                    ball.style.height = `${BALL_RADIUS * 2 * scale}px`;
+                    ball.style.left = `${(200 - BALL_RADIUS) * scale}px`;
+                    ball.style.top = `${(200 - BALL_RADIUS) * scale}px`;
                 }
                 
                 animationFrameId = requestAnimationFrame(animateDeterministicBall);
                 return;
             }
 
-            // 3. Свободный полет (с 3000мс)
+            // 3. Вылет шарика и круговой полет (с 3000мс)
             const flightElapsed = elapsed - 3000;
             const targetFps = 60;
             const frameIndex = Math.floor((flightElapsed / 1000) * targetFps);
@@ -2592,7 +2622,7 @@
 
                     const screenX = ballX * scale;
                     const screenY = ballY * scale;
-                    const screenRadius = VIRTUAL_RADIUS * scale;
+                    const screenRadius = BALL_RADIUS * scale;
 
                     ball.style.width = `${screenRadius * 2}px`;
                     ball.style.height = `${screenRadius * 2}px`;
@@ -2602,6 +2632,7 @@
 
                 animationFrameId = requestAnimationFrame(animateDeterministicBall);
             } else {
+                // ПОЛНАЯ ОСТАНОВКА: Фиксируем победный сектор и запускаем его свечение
                 const finalCoord = currentPath[currentPath.length - 1];
                 ballX = finalCoord.x;
                 ballY = finalCoord.y;
@@ -2703,7 +2734,7 @@
             });
         }
 
-        // ОТРИСОВКА ПОЛЯ: УБРАНЫ АВАТАРКИ, ОСТАВЛЕНЫ ТОЛЬКО КРУПНЫЕ НИКИ И ДОБАВЛЕНА ОБВОДКА ПОБЕДИТЕЛЮ
+        // ОТРИСОВКА ПОЛЯ: СОВЕРШЕННАЯ ОБВОДКА ПОБЕДИТЕЛЯ И ЧИСТОТА (НИКАКИХ АВАТАРОК И ЦИФР НА ПОЛЕ)
         function renderWheelSections(drawArrow = false, arrowAngle = 0, highlightWinner = false) {
             const canvas = document.getElementById('gameCanvas');
             if (!canvas) return;
@@ -2714,8 +2745,15 @@
             const segments = getPlayersWithSegments();
 
             if (segments.length === 0) {
+                // Если ставок нет — рисуем пустое стильное колесо
                 ctx.fillStyle = '#1e1e1e';
-                ctx.fillRect(0, 0, 400, 400);
+                ctx.beginPath();
+                ctx.arc(200, 200, 192, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#333';
+                ctx.stroke();
                 return;
             }
 
@@ -2731,82 +2769,106 @@
                 });
             }
 
-            // 1. Отрисовываем сектора участников
+            // 1. Отрисовываем цветные сектора участников
             segments.forEach((p, index) => {
                 ctx.beginPath();
                 ctx.moveTo(200, 200);
-                ctx.arc(200, 200, 190, p.startAngle, p.endAngle);
-                ctx.lineTo(200, 200);
+                ctx.arc(200, 200, 192, p.startAngle, p.endAngle);
                 ctx.closePath();
 
                 ctx.fillStyle = p.color;
                 ctx.fill();
 
-                // Обводка победителя (Импульсное мигание)
+                // ПОТРЯСАЮЩИЙ НЕОНОВЫЙ ЭФФЕКТ ДЛЯ ПОБЕДИТЕЛЯ
                 if (highlightWinner && index === winningSegIndex) {
-                    const isFlashOn = Math.floor(Date.now() / 200) % 2 === 0;
+                    // Создаем плавное синусоидальное мерцание
+                    const glowIntensity = 0.5 + 0.5 * Math.sin(Date.now() / 150);
                     
-                    ctx.fillStyle = isFlashOn ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.15)';
+                    ctx.save();
+                    ctx.fillStyle = `rgba(255, 255, 255, ${0.1 + glowIntensity * 0.35})`;
                     ctx.fill();
 
-                    ctx.save();
-                    ctx.lineWidth = 10;
+                    // Отрисовываем жирную сверкающую обводку сектора
+                    ctx.lineWidth = 8;
                     ctx.strokeStyle = '#FFFFFF';
                     ctx.shadowColor = p.color || '#00FF88';
-                    ctx.shadowBlur = 20;
+                    ctx.shadowBlur = 15 + glowIntensity * 15;
+                    
+                    // Рисуем рамку только вокруг выигравшего сегмента
+                    ctx.beginPath();
+                    ctx.arc(200, 200, 192, p.startAngle, p.endAngle);
+                    ctx.lineTo(200 + Math.cos(p.endAngle) * 30, 200 + Math.sin(p.endAngle) * 30);
+                    ctx.arc(200, 200, 30, p.endAngle, p.startAngle, true);
+                    ctx.closePath();
                     ctx.stroke();
                     ctx.restore();
                 } else {
                     ctx.lineWidth = 1.5;
-                    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
                     ctx.stroke();
                 }
 
-                // 2. Только никнеймы
+                // 2. Отрисовываем ТОЛЬКО крупные, чистые имена (без аватарок и ставок)
                 const midAngle = (p.startAngle + p.endAngle) / 2;
                 const dist = 110; 
                 const cx = 200 + Math.cos(midAngle) * dist;
                 const cy = 200 + Math.sin(midAngle) * dist;
 
                 ctx.save();
-                ctx.font = 'bold 14px Segoe UI, sans-serif';
+                ctx.font = 'bold 15px Segoe UI, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
 
+                // Жирная черная подложка текста
                 ctx.strokeStyle = '#000000';
-                ctx.lineWidth = 4;
+                ctx.lineWidth = 4.5;
                 const displayName = p.name ? (p.name.length > 10 ? p.name.slice(0, 9) + '..' : p.name) : "Игрок";
                 ctx.strokeText(displayName, cx, cy);
 
+                // Белый текст самого ника
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillText(displayName, cx, cy);
                 ctx.restore();
             });
 
-            // Рисуем крутящуюся стрелку
+            // 3. Рисуем красивый металлический хаб (центральный черный диск)
+            ctx.save();
+            ctx.fillStyle = '#17171c';
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(200, 200, 30, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#33333e';
+            ctx.stroke();
+            ctx.restore();
+
+            // 4. Отрисовываем футуристичную стрелку
             if (drawArrow) {
                 ctx.save();
                 ctx.translate(200, 200);
                 ctx.rotate(arrowAngle);
                 
                 ctx.beginPath();
-                ctx.moveTo(45, 0);
-                ctx.lineTo(20, -12);
-                ctx.lineTo(20, -5);
-                ctx.lineTo(0, -5);
-                ctx.lineTo(0, 5);
-                ctx.lineTo(20, 5);
-                ctx.lineTo(20, 12);
+                ctx.moveTo(28, 0);
+                ctx.lineTo(12, -8);
+                ctx.lineTo(12, -3);
+                ctx.lineTo(0, -3);
+                ctx.lineTo(0, 3);
+                ctx.lineTo(12, 3);
+                ctx.lineTo(12, 8);
                 ctx.closePath();
 
                 ctx.fillStyle = '#FFFFFF';
                 ctx.shadowColor = '#00FF88';
-                ctx.shadowBlur = 12;
+                ctx.shadowBlur = 10;
                 ctx.fill();
                 ctx.restore();
             }
 
-            // НИК НАД ЛЕТЯЩИМ ШАРИКОМ
+            // НИК НАД ДВИЖУЩИМСЯ ШАРИКОМ
             const state = gameState.status || 'betting';
             if (state === 'running' && (ballX !== 200 || ballY !== 200)) {
                 const activePlayer = getPlayerUnderCoordinates(ballX, ballY);
@@ -2841,7 +2903,7 @@
         }
 
 
-        // ======= ИГРА 6: ВЗЛЕТ РАКЕТЫ V3 (ОПТИМИЗИРОВАНО) =======
+        // ======= ИГРА 6: ВЗЛЕТ РАКЕТЫ V3 =======
 
         function generateCrashMultiplier() {
             const rand = Math.random();
