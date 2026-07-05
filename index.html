@@ -11,7 +11,7 @@
 </head>
 <body>
 
-    <!-- Звуковое уведомление (опционально) -->
+    <!-- Контейнер уведомлений -->
     <div id="toastContainer" class="toast-container"></div>
 
     <!-- Верхняя панель пользователя -->
@@ -78,6 +78,13 @@
                 <div class="card-info">
                     <span class="card-name">Мото-Дуэль</span>
                     <span class="card-desc">Трон арена</span>
+                </div>
+            </div>
+            <div class="lobby-card card-mech" onclick="showScreen('mechGameScreen')">
+                <div class="card-icon"><span class="mini-rocket" style="filter: hue-rotate(280deg);">🤖</span></div>
+                <div class="card-info">
+                    <span class="card-name">Битва Роботов</span>
+                    <span class="card-desc">Экшен-дуэль 10x</span>
                 </div>
             </div>
             <div class="lobby-card card-withdraw" onclick="showScreen('withdrawGameScreen')">
@@ -243,7 +250,7 @@
             <div id="rocketHistory" class="rocket-history-bar"></div>
             <div id="rocketMessage" style="text-align:center; font-weight:bold; min-height:22px; margin:5px 0;">Ожидание...</div>
 
-            <!-- Две компактные панели ставок -->
+            <!-- Компактные панели ставок с раздельным кэшаутом -->
             <div class="rocket-double-controls">
                 <div class="rocket-panel">
                     <div class="rocket-panel-title">Ставка 1</div>
@@ -343,9 +350,10 @@
                     <input type="number" id="cycleBetInput" value="10" min="10">
                 </div>
                 <p class="sp-percentage-label" style="margin-top:8px;">Выберите своего гонщика:</p>
-                <div class="drones-choice-grid">
-                    <button id="btnCycle_blue" class="drone-choice-btn active" style="color: #00E5FF; grid-column: span 2;" onclick="selectCycleColor('blue')">СИНИЙ (x1.95)</button>
-                    <button id="btnCycle_orange" class="drone-choice-btn" style="color: #FF9100; grid-column: span 2;" onclick="selectCycleColor('orange')">ОРАНЖЕВЫЙ (x1.95)</button>
+                <div class="drones-choice-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <button id="btnCycle_blue" class="drone-choice-btn active" style="color: #00E5FF;" onclick="selectCycleColor('blue')">СИНИЙ (x1.95)</button>
+                    <button id="btnCycle_orange" class="drone-choice-btn" style="color: #FF9100;" onclick="selectCycleColor('orange')">ОРАНЖЕВЫЙ (x1.95)</button>
+                    <button id="btnCycle_draw" class="drone-choice-btn" style="color: #aaaaaa;" onclick="selectCycleColor('draw')">НИЧЬЯ (x8.0)</button>
                 </div>
                 <button id="cycleBetBtn" class="rocket-pnl-btn btn-bet" style="background:#00E5FF; color:black; margin-top:10px;" onclick="placeCycleBet()">Поставить ставку</button>
             </div>
@@ -354,7 +362,40 @@
         </div>
     </div>
 
-    <!-- ЭКРАН 10: ВЫВОД СРЕДСТВ -->
+    <!-- ЭКРАН 10: БИТВА РОБОТОВ -->
+    <div id="mechGameScreen" class="screen-container" style="display: none;">
+        <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
+        <div class="rocket-layout">
+            <h2 class="game-headline" style="color:#FF00FF;">🤖 БИТВА РОБОТОВ 🤖</h2>
+            <p class="game-subline">Сделайте ставку на сильнейшего кибер-меха!</p>
+            
+            <div class="rocket-arena-wrapper" style="height: 200px; background: #060214; border-color: #FF00FF;">
+                <canvas id="mechCanvas" width="400" height="200" style="width:100%; height:100%;"></canvas>
+            </div>
+
+            <div id="mechHistory" class="rocket-history-bar" style="border-color: #FF00FF;"></div>
+            <div id="mechMessage" style="text-align:center; font-weight:bold; min-height:22px;">Ожидание...</div>
+
+            <div class="sp-controls" style="border-color: #FF00FF; background:#1e1e1e; padding:12px; border-radius:12px; width:100%;">
+                <div class="sp-input-group">
+                    <label>Сумма ставки (₽)</label>
+                    <input type="number" id="mechBetInput" value="10" min="10">
+                </div>
+                <p class="sp-percentage-label" style="margin-top:8px;">Выберите своего бойца:</p>
+                <div class="drones-choice-grid">
+                    <button id="btnMech_red" class="drone-choice-btn active" style="color: #FF1744;" onclick="selectMechColor('red')">ТИГР</button>
+                    <button id="btnMech_blue" class="drone-choice-btn" style="color: #2979FF;" onclick="selectMechColor('blue')">КОБАЛЬТ</button>
+                    <button id="btnMech_yellow" class="drone-choice-btn" style="color: #FFEA00;" onclick="selectMechColor('yellow')">ФЕНИКС</button>
+                    <button id="btnMech_draw" class="drone-choice-btn" style="color: #aaaaaa;" onclick="selectMechColor('draw')">НИЧЬЯ</button>
+                </div>
+                <button id="mechBetBtn" class="rocket-pnl-btn btn-bet" style="background:#FF00FF; color:white; margin-top:10px;" onclick="placeMechBet()">Поставить ставку</button>
+            </div>
+
+            <div id="mechBetsList" class="rocket-history-bar" style="flex-direction:column; align-items:stretch; max-height:110px; overflow-y:auto; width:100%;"></div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 11: ВЫВОД СРЕДСТВ -->
     <div id="withdrawGameScreen" class="screen-container" style="display: none;">
         <button class="back-to-menu-btn" onclick="showScreen('lobbyScreen')">← В лобби</button>
         <div class="withdraw-layout">
@@ -420,4 +461,4 @@
 
     <script src="script.js"></script>
 </body>
-            </html>
+                </html>
