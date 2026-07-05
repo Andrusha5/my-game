@@ -1,814 +1,717 @@
+/* Общие Сбросы */
 * {
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    outline: none;
     -webkit-tap-highlight-color: transparent;
 }
 
 body {
+    background-color: #0c0914;
+    color: #f3f4f6;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    background: #121212;
-    color: white;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    margin: 0;
-    padding: 10px;
     min-height: 100vh;
+    align-items: center;
+    overflow-x: hidden;
 }
 
-/* Верхняя панель */
-#headerBar {
+/* Шапка профиля */
+.game-header {
     width: 100%;
-    max-width: 600px;
+    max-width: 480px;
+    background: linear-gradient(135deg, #18122b, #0c0914);
+    border-bottom: 2px dashed #00ffd855;
+    padding: 12px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #1e1e1e;
-    padding: 12px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.header-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    color: #e2e8f0;
+}
+
+.user-icon {
+    font-size: 1.2rem;
+}
+
+.header-wallet {
+    background: #1e1b4b;
+    border: 1px solid #00ffd888;
+    box-shadow: 0 0 10px #00ffd833;
+    padding: 6px 12px;
     border-radius: 12px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-}
-
-#userWelcome {
-    font-weight: bold;
-    color: #bbb;
-}
-
-#balanceBtn {
-    background: #00E676;
-    color: black;
-    font-weight: bold;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
+    display: flex;
+    align-items: center;
     cursor: pointer;
-    font-size: 0.95em;
+    gap: 6px;
     transition: transform 0.2s;
-    width: auto;
-}
-#balanceBtn:hover {
-    transform: scale(1.05);
 }
 
-/* Экранные контейнеры */
-.screen-container {
+.header-wallet:active {
+    transform: scale(0.95);
+}
+
+.wallet-label {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.balance-val {
+    font-weight: 900;
+    color: #00ff88;
+    font-size: 1.05rem;
+}
+
+.currency {
+    color: #00ff88;
+    font-weight: bold;
+}
+
+.deposit-add-btn {
+    background: #00ff88;
+    color: #000;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+}
+
+/* Контейнеры экранов */
+.main-container {
     width: 100%;
-    max-width: 500px;
+    max-width: 480px;
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    animation: fadeInScreen 0.4s cubic-bezier(0.1, 0.8, 0.1, 1) forwards;
+    padding: 16px;
+    gap: 16px;
 }
-@keyframes fadeInScreen {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+
+.screen {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.screen-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    border-bottom: 1px solid #1e1b4b;
+    padding-bottom: 8px;
+}
+
+.back-btn {
+    background: #1e1b4b;
+    color: #f3f4f6;
+    border: 1px solid #3b0764;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.screen-title {
+    font-size: 1.2rem;
+    text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+    color: #00e5ff;
 }
 
 /* Сетка Лобби */
 .lobby-title {
-    font-size: 1.8rem;
-    margin-bottom: 20px;
     text-align: center;
-    color: #61dafb;
-    text-shadow: 0 2px 10px rgba(97, 218, 251, 0.3);
+    font-size: 1.4rem;
+    color: #f3f4f6;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
 }
 
-.lobby-grid {
+.games-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     width: 100%;
 }
 
-.lobby-card {
-    aspect-ratio: 1 / 1;
+.game-card {
+    border-radius: 16px;
+    padding: 20px 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: #1e1e1e;
-    border: 2px solid #333;
-    border-radius: 20px;
-    padding: 15px 10px;
+    gap: 8px;
+    border: 2px solid transparent;
     cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
     text-align: center;
-    transition: all 0.3s ease;
 }
 
-.lobby-card:hover {
-    transform: translateY(-4px);
-    border-color: #61dafb;
-    box-shadow: 0 8px 20px rgba(97, 218, 251, 0.25);
+.game-card:active {
+    transform: scale(0.95);
 }
 
-.card-squid { border-top: 5px solid #FF3366; }
-.card-wheel { border-top: 5px solid #00E5FF; }
-.card-coin { border-top: 5px solid #FFC400; }
-.card-mines { border-top: 5px solid #E65100; }
-.card-imp-mines { border-top: 5px solid #FF1744; }
-.card-rocket { border-top: 5px solid #D500F9; }
-.card-drones { border-top: 5px solid #00FF88; }
-.card-cycle { border-top: 5px solid #00E5FF; }
-.card-mech { border-top: 5px solid #FF00FF; }
-
-.card-withdraw {
-    background: linear-gradient(135deg, #2b1f02 0%, #171101 100%) !important;
-    border: 2px solid #FFB300 !important;
-    border-top: 5px solid #FFD700 !important;
-    animation: withdrawGoldenGlow 2.5s infinite alternate ease-in-out;
-}
-@keyframes withdrawGoldenGlow {
-    0% { box-shadow: 0 0 8px rgba(255, 179, 0, 0.2); border-color: #FFB300 !important; }
-    100% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); border-color: #FFF59D !important; }
+.mp-card {
+    background: linear-gradient(135deg, #1e112a, #2e0854);
+    box-shadow: 0 4px 15px rgba(186, 104, 200, 0.15);
 }
 
-.card-icon {
-    width: 48px;
-    height: 48px;
-    background: #252525;
-    border-radius: 12px;
-    margin-bottom: 10px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.mp-card:hover {
+    border-color: #d500f9;
+    box-shadow: 0 0 15px rgba(213, 0, 249, 0.4);
 }
 
-/* Иконки */
-.mini-square-grid {
-    width: 26px; height: 26px;
-    border: 3px solid #FF3366;
-    border-radius: 4px;
-}
-.mini-wheel {
-    width: 26px; height: 26px;
-    border: 3px dashed #00E5FF;
-    border-radius: 50%;
-    animation: rotateMiniWheel 10s linear infinite;
-}
-@keyframes rotateMiniWheel { 100% { transform: rotate(360deg); } }
-
-.mini-coin {
-    width: 26px; height: 26px;
-    background: #FFC400;
-    border-radius: 50%;
-    border: 2px solid #FFA000;
-}
-.mini-mine {
-    width: 26px; height: 26px;
-    background: #e65100;
-    border-radius: 6px;
-    position: relative;
-}
-.mini-mine::after {
-    content: ''; position: absolute; width: 8px; height: 8px;
-    background: black; border-radius: 50%; top: 9px; left: 9px;
-}
-.mini-imp-mine {
-    width: 26px; height: 26px; background: #FF1744; border-radius: 4px; position: relative;
-}
-.mini-imp-mine::before { content: '▲'; position: absolute; top: 3px; left: 6px; font-size: 14px; color: black; }
-
-.mini-rocket {
-    font-size: 24px;
-    animation: bounceRocket 1.5s infinite ease-in-out alternate;
-}
-@keyframes bounceRocket {
-    0% { transform: translateY(3px) rotate(-10deg); }
-    100% { transform: translateY(-3px) rotate(10deg); }
+.sp-card {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    box-shadow: 0 4px 15px rgba(0, 229, 255, 0.1);
 }
 
-.mini-withdraw {
-    font-size: 24px;
-    animation: bounceWithdraw 2s infinite ease-in-out;
-}
-@keyframes bounceWithdraw {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.2) rotate(6deg); }
+.sp-card:hover {
+    border-color: #00e5ff;
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
 }
 
-.card-info { display: flex; flex-direction: column; }
-.card-name { font-size: 1rem; font-weight: bold; color: white; margin-bottom: 3px; }
-.card-desc { font-size: 0.7rem; color: #888; }
+.game-card-icon {
+    font-size: 2.2rem;
+}
 
-.back-to-menu-btn {
-    align-self: flex-start;
-    background: #333;
-    color: #ccc;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    margin-bottom: 15px;
+.game-card-title {
     font-weight: bold;
-    width: auto;
-    transition: all 0.2s;
-}
-.back-to-menu-btn:hover { background: #444; color: white; transform: scale(1.03); }
-
-#ui { text-align: center; width: 100%; }
-input, button { padding: 12px 15px; margin: 5px 0; border: none; border-radius: 8px; font-size: 1em; width: 100%; }
-input[type="text"], input[type="number"] { background: #252525; color: white; border: 1px solid #444; }
-input:focus { outline: none; border-color: #61dafb; }
-#placeBetButton { background: #61dafb; color: black; cursor: pointer; font-weight: bold; }
-#placeBetButton:disabled { background: #444; color: #888; cursor: not-allowed; }
-#statusInfo { margin-top: 5px; font-size: 1.1em; }
-#totalBank { color: #00E676; font-weight: bold; }
-#gameMessage { margin-top: 5px; padding: 8px; font-size: 1.1em; font-weight: bold; min-height: 30px; text-align: center; border-radius: 8px; transition: all 0.3s ease; }
-
-/* Арена Кальмара */
-#gameAreaWrapper {
-    width: 90vw; max-width: 400px; aspect-ratio: 1 / 1;
-    position: relative; border: 6px solid #2b2b2b; border-radius: 20px;
-    overflow: hidden; background: #181818; margin: 10px auto;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-}
-#gameCanvas { width: 100%; height: 100%; display: block; }
-#bettingTimer {
-    font-size: 70px; top: 50%; left: 50%; position: absolute;
-    transform: translate(-50%, -50%); pointer-events: none; z-index: 5;
-    color: rgba(255, 255, 255, 0.45); text-shadow: 0 4px 15px rgba(0,0,0,0.6);
-    font-weight: bold; display: none;
-}
-#ball {
-    width: 20px; height: 20px; background: white; border-radius: 50%;
-    position: absolute; z-index: 10;
-    box-shadow: 0 0 10px rgba(255,255,255,0.8);
-    display: none;
+    font-size: 0.95rem;
+    color: #fff;
 }
 
-#betList, #historyList {
-    width: 100%; background: #1e1e1e; padding: 10px; border-radius: 12px;
-    max-height: 180px; overflow-y: auto; border: 1px solid #333; margin-top: 10px;
-}
-.bet-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #2a2a2a; }
-.bet-item:last-child { border-bottom: none; }
-.avatar {
-    width: 30px; height: 30px; border-radius: 50%;
-    display: flex; justify-content: center; align-items: center;
-    font-weight: bold; margin-right: 10px; color: black;
-}
-.bet-info { flex-grow: 1; display: flex; flex-direction: column; text-align: left; }
-.bet-chance { font-weight: bold; color: #61dafb; }
-.bet-placeholder { color: #666; text-align: center; padding: 15px; }
-
-/* Вкладки */
-.multi-tabs {
-    display: flex;
-    width: 100%;
-    background: #1e1e1e;
+.game-card-tag {
+    font-size: 0.7rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 8px;
     border-radius: 8px;
-    padding: 3px;
-    margin-top: 15px;
+    color: #cbd5e1;
 }
-.tab-btn {
-    flex: 1;
-    background: transparent;
-    color: #888;
-    border: none;
-    padding: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    border-radius: 6px;
-    font-size: 0.9rem;
-}
-.tab-btn.active {
-    background: #333;
+
+.withdraw-nav-btn {
+    background: linear-gradient(135deg, #b45309, #78350f);
+    border: 1px solid #f59e0b;
     color: white;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.15);
+    margin-top: 8px;
 }
 
-/* Колесо */
-.sp-layout, .coin-layout, .mines-layout {
-    display: flex; flex-direction: column; align-items: center; width: 100%; gap: 15px;
-}
-.sp-wheel-container { position: relative; width: 280px; height: 280px; margin-top: 10px; }
-.sp-pointer {
-    position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
-    width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent;
-    border-top: 25px solid #ff1744; z-index: 15; filter: drop-shadow(0px 2px 5px rgba(255,23,68,0.5));
-}
-#spWheel {
-    width: 100%; height: 100%; border-radius: 50%; border: 6px solid #333;
-    background: conic-gradient(#00E676 0deg 180deg, #ff1744 180deg 360deg);
-    position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.6);
-    transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1); overflow: hidden;
-}
-.sp-wheel-label {
-    position: absolute; color: black; font-weight: bold; font-size: 1.4rem;
-    text-shadow: 0 0 3px white; pointer-events: none; z-index: 5;
-    top: 25%; left: 50%; transform: translate(-50%, -50%);
-}
-.sp-controls, .coin-controls, .mines-controls { width: 100%; background: #1e1e1e; border: 1px solid #333; border-radius: 16px; padding: 20px; }
-.sp-title { margin-top: 0; color: #00E5FF; text-align: center; }
-.sp-input-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
-.sp-input-group label { color: #aaa; font-size: 0.9em; text-align: left; }
-.sp-percentage-label { color: #aaa; font-size: 0.95rem; margin-bottom: 8px; text-align: left; width: 100%; }
-.sp-percent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
-.sp-pct-btn {
-    background: #2b2b2b; border: 1px solid #444; color: white; padding: 10px 5px;
-    border-radius: 8px; cursor: pointer; font-weight: bold; display: flex;
-    flex-direction: column; align-items: center; font-size: 1.05rem; transition: all 0.2s ease;
-}
-.sp-pct-btn:hover { background: #3a3a3a; border-color: #00E5FF; }
-.sp-pct-btn.active { background: #00E5FF !important; color: black !important; border-color: #00E5FF !important; }
-.btn-mult { font-size: 0.75rem; color: #00E676; margin-top: 2px; }
-.sp-pct-btn.active .btn-mult { color: #121212; }
-.sp-summary { background: #252525; border-radius: 8px; padding: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; }
-.sp-summary p { margin: 0; font-size: 0.95rem; }
-.win-color { color: #00E676; }
-#spSpinBtn, #coinStartBtn, #minesStartBtn, #impStartBtn {
-    background: #00E676; color: black; font-weight: bold; font-size: 1.15rem;
-    padding: 15px; border-radius: 10px; cursor: pointer; transition: transform 0.2s;
-}
-#spSpinBtn:hover, #coinStartBtn:hover, #minesStartBtn:hover, #impStartBtn:hover { transform: scale(1.02); }
-#spSpinBtn:disabled, #coinStartBtn:disabled, #minesStartBtn:disabled, #impStartBtn:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
-#spMessage, #coinMessage, #minesMessage, #impMessage { text-align: center; margin-top: 10px; font-weight: bold; min-height: 24px; }
-
-/* Монетка */
-.game-headline { margin: 0; font-size: 1.6rem; color: #FFC400; text-align: center; }
-.game-subline { margin: 2px 0 10px; font-size: 0.9rem; color: #aaa; text-align: center; }
-
-.coin-container {
-    perspective: 1000px;
-    width: 140px; height: 140px;
-    margin: 15px auto;
-}
-.coin {
-    width: 100%; height: 100%;
-    position: relative;
-    transform-style: preserve-3d;
-    transition: transform 3s cubic-bezier(0.1, 0.8, 0.1, 1);
-}
-.coin .side {
-    position: absolute; width: 100%; height: 100%;
-    border-radius: 50%; 
-    backface-visibility: hidden;
-    display: flex; justify-content: center; align-items: center;
-    font-weight: bold; font-size: 1.4rem; color: black;
-    border: 6px solid #B58A00;
-}
-.coin .heads {
-    background: radial-gradient(circle, #FFE082 0%, #FFC400 100%);
-    transform: rotateY(0deg);
-}
-.coin .tails {
-    background: radial-gradient(circle, #FFE082 0%, #FF9100 100%);
-    transform: rotateY(180deg);
+/* Кнопки Направлений и Ввода */
+.bet-input {
+    width: 100%;
+    background: #0f172a;
+    border: 1.5px solid #334155;
+    color: white;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 4px;
 }
 
-.coin-choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-.coin-choice-btn {
-    background: #252525; color: white; border: 2px solid #444; padding: 12px;
-    font-size: 1.1rem; font-weight: bold; border-radius: 10px; cursor: pointer; transition: all 0.2s;
-}
-.coin-choice-btn:hover { border-color: #FFC400; }
-.coin-choice-btn.active {
-    background: #FFC400; color: black; border-color: #FFC400;
-    box-shadow: 0 0 15px rgba(255, 196, 0, 0.4);
+.bet-input:focus {
+    border-color: #00e5ff;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
 }
 
-/* Мины */
+.main-action-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3);
+}
+
+.main-action-btn:active {
+    transform: scale(0.98);
+}
+
+.main-action-btn:disabled {
+    background: #334155;
+    color: #94a3b8;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* САПЕР (Mines) - СЕТКА КВАДРАТОВ */
 .mines-grid {
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
-    width: 100%; max-width: 340px; aspect-ratio: 1 / 1;
-    background: #1a1a1a; padding: 10px; border-radius: 16px;
-    border: 3px solid #333;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    width: 100%;
+    aspect-ratio: 1/1;
+    background: #110e1a;
+    border: 2px solid #3b0764;
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
 }
+
 .mine-cell {
-    background: #2e2e2e; border: none; border-radius: 8px; cursor: pointer;
-    transition: all 0.15s ease; width: 100%; height: 100%;
-    display: flex; justify-content: center; align-items: center;
-    font-weight: bold; font-size: 1.25rem; color: white; padding: 0; margin: 0;
+    background: linear-gradient(135deg, #3b0764, #120024);
+    border: 1px solid #d500f933;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s, background 0.2s;
+    user-select: none;
+    height: 100%;
+    width: 100%;
 }
-.mine-cell:hover:not(:disabled) { background: #424242; transform: scale(1.04); }
+
+.mine-cell:active:not(:disabled) {
+    transform: scale(0.9);
+}
+
+.mine-cell:disabled {
+    cursor: default;
+}
+
 .mine-cell.safe {
-    background: #00E676 !important; color: black;
-    box-shadow: 0 0 8px rgba(0, 230, 118, 0.6);
+    background: radial-gradient(circle, #00e5ff, #001224);
+    border-color: #00e5ff;
 }
+
 .mine-cell.exploded {
-    background: #ff1744 !important; color: white;
-    animation: shake 0.3s linear;
-}
-.mine-cell.revealed-mine { background: #5c1414; color: #ff1744; }
-
-.mines-stats {
-    display: flex; justify-content: space-between; background: #252525;
-    padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.95rem;
-    width: 100%; max-width: 340px;
-}
-.mines-action-buttons { display: flex; flex-direction: column; gap: 10px; width: 100%; }
-#minesCashoutBtn, #impCashoutBtn {
-    background: #FF9100; color: black; font-weight: bold; font-size: 1.15rem;
-    padding: 15px; border-radius: 10px; cursor: pointer;
-}
-#minesCashoutBtn:disabled, #impCashoutBtn:disabled { background: #333; color: #666; cursor: not-allowed; }
-
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-4px); }
-    40%, 80% { transform: translateX(4px); }
+    background: radial-gradient(circle, #ff1744, #3a000c);
+    border-color: #ff1744;
+    animation: shake 0.2s;
 }
 
-/* Башня */
-.imp-rows-container {
+.mine-cell.revealed-mine {
+    background: radial-gradient(circle, #7f1d1d, #1e0000);
+    border-color: #ff1744;
+}
+
+/* БАШНЯ СТРАХА - СЕТКА СВЕРХУ ВНИЗ */
+.tower-rows-container {
     display: flex;
     flex-direction: column;
     gap: 10px;
     width: 100%;
-    max-width: 360px;
-    background: #1a1a1a;
-    padding: 15px;
+    background: #110e1a;
+    border: 2px solid #00ffd833;
     border-radius: 16px;
-    border: 3px solid #333;
-    margin-bottom: 15px;
+    padding: 14px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
 }
+
 .imp-row {
     display: flex;
-    justify-content: center;
     align-items: center;
     gap: 8px;
+    background: rgba(255, 255, 255, 0.02);
     padding: 6px;
-    border-radius: 8px;
-    transition: all 0.3s;
-    position: relative;
-    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+    border: 1px solid transparent;
 }
 
-.imp-row.locked { opacity: 0.25; pointer-events: none; }
-.imp-row.active { background: rgba(0, 229, 255, 0.08); border: 1px dashed #00E5FF; opacity: 1; }
-.imp-row.passed { opacity: 0.7; pointer-events: none; border: 1px solid rgba(0, 230, 118, 0.3); }
-
-.imp-cell {
-    flex: 1;
-    height: 44px;
-    background: #2e2e2e;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 1.2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.1s;
-    padding: 0;
+.imp-row.locked {
+    opacity: 0.35;
+    pointer-events: none;
 }
-.imp-cell:hover:not(:disabled) { background: #444; transform: scale(1.05); }
+
+.imp-row.active {
+    border-color: #00ffd888;
+    background: rgba(0, 255, 216, 0.05);
+}
+
+.imp-row.passed {
+    opacity: 0.8;
+}
 
 .row-multiplier {
-    width: 90px;
-    text-align: left;
-    font-size: 0.8rem;
-    color: #00E676;
+    width: 100px;
+    font-size: 0.85rem;
     font-weight: bold;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    line-height: 1.3;
+    gap: 2px;
 }
 
-.imp-cell.win { background: #00E676 !important; color: black; }
-.imp-cell.lose { background: #FF1744 !important; color: white; }
-
-
-/* РАКЕТА (ДВОЙНЫЕ СТАВКИ И УПРАВЛЕНИЕ) */
-.rocket-layout {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    gap: 12px;
-}
-
-.rocket-arena-wrapper {
-    width: 100%;
-    height: 250px;
-    background: #080314;
-    border: 3px solid #7B1FA2;
-    border-radius: 7px;
-    position: relative;
-    overflow: hidden;
+.imp-cell {
+    flex-grow: 1;
+    aspect-ratio: 1.1 / 1;
+    background: #1e1b4b;
+    border: 1.5px solid #4338ca;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.3rem;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: white;
 }
 
-.rocket-grid-overlay {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background-image: 
-        linear-gradient(rgba(123, 31, 162, 0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(123, 31, 162, 0.08) 1px, transparent 1px);
-    background-size: 40px 40px;
-    z-index: 1;
+.imp-cell.win {
+    background: radial-gradient(circle, #059669, #064e3b);
+    border-color: #10b981;
 }
 
-.stars-container {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background-image: radial-gradient(white, rgba(255,255,255,.2) 1px, transparent 20px);
-    background-size: 80px 80px;
-    opacity: 0.6;
-    z-index: 0;
+.imp-cell.lose {
+    background: radial-gradient(circle, #dc2626, #7f1d1d);
+    border-color: #ef4444;
 }
 
-.rocket-timer-overlay {
-    position: absolute;
-    font-size: 4.8rem;
-    font-weight: 900;
-    color: #D500F9;
-    font-family: 'Courier New', Courier, monospace;
-    z-index: 5;
-    background: rgba(10, 5, 20, 0.85);
-    padding: 8px 30px;
+/* Кнопки управления одиночными играми */
+.action-btn-green {
+    flex: 1;
+    background: #059669;
+    color: white;
+    border: none;
+    padding: 12px;
     border-radius: 12px;
-    border: 1.5px solid rgba(213,0,249,0.5);
+    font-weight: bold;
+    cursor: pointer;
 }
 
-.rocket-actor {
-    position: absolute;
-    bottom: 20px;
-    z-index: 4;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.rocket-emoji {
-    font-size: 55px;
-    transform: rotate(-45deg);
-    display: inline-block;
+.action-btn-yellow {
+    flex: 1;
+    background: #d97706;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
-.rocket-fire {
-    width: 12px;
-    height: 25px;
-    background: #FF3D00;
-    border-radius: 50% 50% 0 0;
-    margin-top: -10px;
-    animation: flameFlicker 0.15s infinite alternate;
-}
-@keyframes flameFlicker {
-    0% { transform: scaleX(0.9) scaleY(0.9); }
-    100% { transform: scaleX(1.1) scaleY(1.1); }
+.action-btn-yellow:disabled {
+    background: #4b5563;
+    color: #9ca3af;
+    cursor: not-allowed;
 }
 
-.rocket-mult-display {
-    position: absolute;
-    font-size: 3.8rem;
-    font-weight: 900;
-    color: #00FF88;
-    text-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
-    z-index: 6;
-    display: none;
-}
-
-.rocket-explosion {
-    position: absolute;
-    font-size: 80px;
-    z-index: 7;
-    display: none;
-}
-
-.rocket-history-bar {
-    display: flex;
+/* Селекторы Дронов / Мотиков / Стихий */
+.drone-selector-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     width: 100%;
-    overflow-x: auto;
-    background: #181528;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #333;
-    min-height: 42px;
-    align-items: center;
+    margin-bottom: 8px;
 }
-.rocket-hist-item {
-    padding: 4px 10px;
-    border-radius: 6px;
+
+.drone-choice-btn {
+    border: 2px solid transparent;
+    padding: 12px 6px;
+    border-radius: 10px;
+    font-weight: 900;
+    cursor: pointer;
+    background: #1e1b4b;
+    color: #ffffff; /* Исправлен цвет по умолчанию для контраста */
+    transition: all 0.2s;
     font-size: 0.85rem;
-    font-weight: bold;
-    white-space: nowrap;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-.mult-grey { background: #37474F; color: #ECEFF1; }
-.mult-green { background: #2E7D32; color: #A5D6A7; }
-.mult-gold { background: #F9A825; color: #FFF59D; }
-.mult-cyan { background: #00838F; color: #80DEEA; }
+.drone-choice-btn.active {
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+    border-color: #ffffff !important;
+}
 
-/* Двухпанельный пульт управления ракетой */
-.rocket-double-controls {
+.drone-choice-btn.btn-red { border-color: #ef4444; color: #ef4444; }
+.drone-choice-btn.btn-blue { border-color: #3b82f6; color: #3b82f6; }
+.drone-choice-btn.btn-green { border-color: #10b981; color: #10b981; }
+.drone-choice-btn.btn-yellow { border-color: #eab308; color: #eab308; }
+.drone-choice-btn.btn-orange { border-color: #f97316; color: #f97316; }
+.drone-choice-btn.btn-grey { border-color: #6b7280; color: #9ca3af; }
+
+.drone-choice-btn.btn-red.active { background: #ef4444 !important; color: white !important; }
+.drone-choice-btn.btn-blue.active { background: #3b82f6 !important; color: white !important; }
+.drone-choice-btn.btn-green.active { background: #10b981 !important; color: white !important; }
+.drone-choice-btn.btn-yellow.active { background: #eab308 !important; color: white !important; }
+.drone-choice-btn.btn-orange.active { background: #f97316 !important; color: white !important; }
+.drone-choice-btn.btn-grey.active { background: #6b7280 !important; color: white !important; }
+
+/* Кальмар Сцена */
+#gameAreaWrapper {
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    aspect-ratio: 1/1;
+    position: relative;
+    background-color: #110e1a;
+    border-radius: 16px;
+    border: 3px solid #3b0764;
+    overflow: hidden;
+    box-shadow: 0 0 25px rgba(186, 104, 200, 0.15);
 }
 
-.rocket-panel {
-    background: #1a1625;
-    border: 1.5px solid #443366;
+#gameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#ball {
+    position: absolute;
+    background: radial-gradient(circle, #ffffff, #94a3b8);
+    border-radius: 50%;
+    box-shadow: 0 0 10px white;
+    display: none;
+    z-index: 10;
+}
+
+.game-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #110e1a;
+    border: 1.5px solid #3b0764;
+    padding: 10px 14px;
     border-radius: 12px;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
 }
 
-.rocket-panel-title {
-    font-size: 0.8rem;
-    font-weight: bold;
-    color: #D500F9;
-    text-transform: uppercase;
-    border-bottom: 1px solid #332244;
-    padding-bottom: 2px;
-    text-align: center;
-}
-
-.rocket-input-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.rocket-input-group input {
-    padding: 6px;
-    background: #120e1a;
-    border: 1px solid #553388;
-    border-radius: 6px;
+.timer-badge {
+    background: #ef4444;
     color: white;
-    text-align: center;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 8px;
     font-size: 0.95rem;
 }
 
-/* Компактный автовывод */
-.rocket-auto-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.75rem;
-    color: #00E5FF;
-    font-weight: bold;
-}
-
-.rocket-counter {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 6px;
-    padding: 1px;
-    border: 1px solid rgba(0, 229, 255, 0.15);
-}
-
-.rocket-counter button {
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    background: #252525;
-    border: 1px solid #3a3a3a;
-    color: white;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.85rem;
-    padding: 0;
-    margin: 0;
-}
-
-.rocket-counter span {
-    font-size: 0.85rem;
-    font-weight: bold;
-    font-family: monospace;
-}
-
-.rocket-pnl-btn {
-    margin-top: 5px;
-    padding: 8px;
-    font-weight: bold;
-    font-size: 0.85rem;
-    border-radius: 6px;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
-}
-
-.btn-bet { background: #D500F9; color: white; }
-.btn-cash { background: #00E676; color: black; }
-.btn-bet:disabled, .btn-cash:disabled { background: #2a2535 !important; color: #555 !important; cursor: not-allowed; }
-
-/* Тогглы */
-.rocket-switch {
-    position: relative;
-    display: inline-block;
-    width: 30px;
-    height: 14px;
-}
-.rocket-switch input { opacity: 0; width: 0; height: 0; }
-.rocket-slider {
-    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #333; transition: .3s; border-radius: 16px;
-}
-.rocket-slider:before {
-    position: absolute; content: ""; height: 8px; width: 8px; left: 3px; bottom: 3px;
-    background-color: white; transition: .3s; border-radius: 50%;
-}
-.rocket-switch input:checked + .rocket-slider { background-color: #00FF88; }
-.rocket-switch input:checked + .rocket-slider:before { transform: translateX(16px); }
-
-/* Выбор Дронов, Мото и Роботов - ФИКС ЧЕРНЫХ КНОПОК */
-.drones-choice-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-top: 10px;
-    width: 100%;
-}
-.drone-choice-btn {
-    padding: 10px 5px;
-    font-size: 0.82rem;
-    font-weight: bold;
-    border: 2px solid #333;
-    border-radius: 10px;
-    background: #1e1e1e;
-    cursor: pointer;
-    color: white;
-    transition: all 0.2s ease;
-}
-.drone-choice-btn:hover {
-    border-color: #666;
-}
-
-/* ФИКС: Убираем currentColor, заменяем на жесткие красивые цвета при выборе */
-.drone-choice-btn.active {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #ffffff !important;
-    box-shadow: 0 0 12px rgba(255, 255, 255, 0.45);
-}
-
-/* Уведомления */
-.toast-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
+/* Ставки */
+.bet-panel {
+    background: #110e1a;
+    border: 1px solid #1e1b4b;
+    padding: 12px;
+    border-radius: 14px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    z-index: 10000;
-    pointer-events: none;
-    max-width: 320px;
-    width: 90%;
+    gap: 10px;
 }
-.custom-toast {
-    background: rgba(18, 10, 36, 0.95);
-    border: 2px solid #00FF88;
-    box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
-    border-radius: 14px;
-    padding: 16px;
+
+.bank-info {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    font-weight: bold;
+}
+
+.input-group {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 8px;
+}
+
+.input-group input {
+    background: #1e1b4b;
+    border: 1px solid #4338ca;
     color: white;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+}
+
+.tabs-container {
+    display: flex;
+    gap: 8px;
+}
+
+.tab-btn {
+    flex: 1;
+    background: #110e1a;
+    border: 1px solid #1e1b4b;
+    color: #94a3b8;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.tab-btn.active {
+    background: #1e1b4b;
+    color: white;
+    border-color: #00ffd8;
+}
+
+.bets-list {
+    background: #110e1a;
+    border: 1.5px solid #1e1b4b;
+    border-radius: 14px;
+    padding: 8px;
+    max-height: 200px;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    position: relative;
-    pointer-events: auto;
-    animation: toastSlideIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s;
 }
-@keyframes toastSlideIn {
-    0% { transform: translateX(120%) scale(0.9); opacity: 0; }
-    100% { transform: translateX(0) scale(1); opacity: 1; }
-}
-.custom-toast.hide {
-    animation: toastSlideOut 0.3s ease-in forwards;
-}
-@keyframes toastSlideOut {
-    0% { transform: translateX(0) scale(1); opacity: 1; }
-    100% { transform: translateX(120%) scale(0.9); opacity: 0; }
-}
-.toast-header {
+
+.bet-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    padding: 8px;
+}
+
+.avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: black;
+    margin-right: 10px;
+    font-size: 0.9rem;
+}
+
+.bet-info {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+}
+
+.bet-chance {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #00ffd8;
+}
+
+/* Модалка пополнения */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.85);
+}
+
+.modal-content {
+    background: #110e1a;
+    border: 2px solid #00ffd888;
+    box-shadow: 0 0 25px rgba(0, 255, 216, 0.3);
+    margin: 15% auto;
+    padding: 24px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 400px;
+    color: white;
+    text-align: center;
+    position: relative;
+}
+
+.close-btn {
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #ff1744;
+}
+
+.modal-btn {
+    background: #00ffd8;
+    color: black;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 14px;
+}
+
+.card-num {
+    background: #1e1b4b;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+    font-size: 1.1rem;
+    color: #00ff88;
+}
+
+/* Тосты */
+.custom-toast {
+    background: #18122b;
+    border: 2px solid #00ffd8;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 15px rgba(0, 255, 216, 0.25);
+    animation: slideIn 0.3s forwards;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Дополнительные вспомогательные классы */
+.canvas-track-wrapper {
+    background: #000;
+    border: 2px solid #1e1b4b;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+.canvas-track-wrapper canvas {
+    width: 100%;
+    display: block;
+}
+.history-bar {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
     padding-bottom: 4px;
 }
-.toast-title { font-weight: bold; color: #00FF88; font-size: 0.95rem; }
-.toast-close-btn { background: none; border: none; color: #888; font-size: 1.15rem; cursor: pointer; }
-.toast-body { font-size: 0.85rem; line-height: 1.4; color: #ECEFF1; }
-
-/* Вывод */
-.withdraw-layout { width: 100%; display: flex; flex-direction: column; align-items: center; }
-.withdraw-box { width: 100%; background: #1e1e1e; border: 1px solid #333; border-radius: 16px; padding: 20px; }
-.withdraw-alert-info { background: rgba(255, 179, 0, 0.08); border: 1px solid #FFB300; border-radius: 8px; color: #FFB300; padding: 12px; font-size: 0.85rem; margin: 15px 0; }
-#withdrawConfirmBtn { background: #FFB300; color: black; font-weight: bold; font-size: 1.1rem; padding: 14px; border-radius: 8px; cursor: pointer; }
-
-/* Модалки */
-.modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); }
-.modal-content { background-color: #1e1e1e; margin: 15% auto; padding: 25px; border: 1px solid #333; width: 90%; max-width: 360px; border-radius: 16px; position: relative; text-align: center; }
-.close-btn { position: absolute; right: 15px; top: 10px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
-.requisites-box { background: #121212; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px dashed #61dafb; }
-.requisites-box code { font-size: 1.25em; color: #61dafb; font-weight: bold; }
-
-/* Админка */
-#adminPanel { width: 100%; max-width: 500px; background: #2e1f1f; border: 2px solid #ff1744; border-radius: 12px; padding: 15px; }
-#adminPanel h2 { margin-top: 0; color: #ff1744; text-align: center; }
-.admin-req-item { background: #121212; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #ff9100; }
-.admin-btns { display: flex; gap: 10px; margin-top: 8px; }
-.admin-approve-btn { background: #00E676; color: black; font-weight: bold; }
-.admin-decline-btn { background: #ff1744; color: white; font-weight: bold; }
+.rocket-hist-item {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+.bet-panel-neon {
+    background: #110e1a;
+    border: 1px solid #1e1b4b;
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+}
+.input-label {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+    font-weight: bold;
+    }
