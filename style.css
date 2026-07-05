@@ -1,5 +1,6 @@
 * {
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -43,12 +44,13 @@ body {
     cursor: pointer;
     font-size: 0.95em;
     transition: transform 0.2s;
+    width: auto;
 }
 #balanceBtn:hover {
     transform: scale(1.05);
 }
 
-/* Нативные плавные переходы экранов */
+/* Переходы экранов */
 .screen-container {
     width: 100%;
     max-width: 500px;
@@ -62,7 +64,7 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Стили ЛОББИ - КВАДРАТНЫЕ КНОПКИ В ДВА СТОЛБИКА */
+/* Сетка Лобби */
 .lobby-title {
     font-size: 1.8rem;
     margin-bottom: 20px;
@@ -73,20 +75,20 @@ body {
 
 .lobby-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Ровно два столбика */
+    grid-template-columns: 1fr 1fr;
     gap: 12px;
     width: 100%;
 }
 
 .lobby-card {
-    aspect-ratio: 1 / 1; /* Делает карточки строго квадратными */
+    aspect-ratio: 1 / 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     background: #1e1e1e;
     border: 2px solid #333;
-    border-radius: 20px; /* Красивые скругленные углы */
+    border-radius: 20px;
     padding: 15px 10px;
     cursor: pointer;
     text-align: center;
@@ -105,31 +107,18 @@ body {
 .card-mines { border-top: 5px solid #E65100; }
 .card-imp-mines { border-top: 5px solid #FF1744; }
 .card-rocket { border-top: 5px solid #D500F9; }
-.card-drones { border-top: 5px solid #00FF88; } /* Новая игра */
+.card-drones { border-top: 5px solid #00FF88; }
+.card-cycle { border-top: 5px solid #00E5FF; }
 
-/* КНОПКА ВЫВОДА СРЕДСТВ */
 .card-withdraw {
     background: linear-gradient(135deg, #2b1f02 0%, #171101 100%) !important;
     border: 2px solid #FFB300 !important;
     border-top: 5px solid #FFD700 !important;
-    box-shadow: 0 0 15px rgba(255, 179, 0, 0.2);
     animation: withdrawGoldenGlow 2.5s infinite alternate ease-in-out;
 }
-.card-withdraw:hover {
-    border-color: #FFF59D !important;
-    box-shadow: 0 0 25px rgba(255, 215, 0, 0.6) !important;
-    transform: scale(1.04) translateY(-4px);
-}
-
 @keyframes withdrawGoldenGlow {
-    0% {
-        box-shadow: 0 0 8px rgba(255, 179, 0, 0.2);
-        border-color: #FFB300 !important;
-    }
-    100% {
-        box-shadow: 0 0 25px rgba(255, 215, 0, 0.5);
-        border-color: #FFF59D !important;
-    }
+    0% { box-shadow: 0 0 8px rgba(255, 179, 0, 0.2); border-color: #FFB300 !important; }
+    100% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); border-color: #FFF59D !important; }
 }
 
 .card-icon {
@@ -155,6 +144,8 @@ body {
     border-radius: 50%;
     animation: rotateMiniWheel 10s linear infinite;
 }
+@keyframes rotateMiniWheel { 100% { transform: rotate(360deg); } }
+
 .mini-coin {
     width: 26px; height: 26px;
     background: #FFC400;
@@ -194,8 +185,6 @@ body {
     50% { transform: scale(1.2) rotate(6deg); }
 }
 
-@keyframes rotateMiniWheel { 100% { transform: rotate(360deg); } }
-
 .card-info {
     display: flex;
     flex-direction: column;
@@ -211,7 +200,7 @@ body {
     color: #888;
 }
 
-/* Кнопка НАЗАД */
+/* Назад */
 .back-to-menu-btn {
     align-self: flex-start;
     background: #333;
@@ -227,7 +216,7 @@ body {
 }
 .back-to-menu-btn:hover { background: #444; color: white; transform: scale(1.03); }
 
-/* Мультиплеер */
+/* Элементы ввода */
 #ui { text-align: center; width: 100%; }
 input, button { padding: 12px 15px; margin: 5px 0; border: none; border-radius: 8px; font-size: 1em; width: 100%; }
 input[type="text"], input[type="number"] { background: #252525; color: white; border: 1px solid #444; }
@@ -238,7 +227,7 @@ input:focus { outline: none; border-color: #61dafb; }
 #totalBank { color: #00E676; font-weight: bold; }
 #gameMessage { margin-top: 5px; padding: 8px; font-size: 1.1em; font-weight: bold; min-height: 30px; text-align: center; border-radius: 8px; transition: all 0.3s ease; }
 
-/* Контейнер игрового поля */
+/* Кальмар */
 #gameAreaWrapper {
     width: 90vw; max-width: 400px; aspect-ratio: 1 / 1;
     position: relative; border: 6px solid #2b2b2b; border-radius: 20px;
@@ -274,7 +263,7 @@ input:focus { outline: none; border-color: #61dafb; }
 .bet-chance { font-weight: bold; color: #61dafb; }
 .bet-placeholder { color: #666; text-align: center; padding: 15px; }
 
-/* Вкладки мультиплеера */
+/* Вкладки */
 .multi-tabs {
     display: flex;
     width: 100%;
@@ -299,7 +288,7 @@ input:focus { outline: none; border-color: #61dafb; }
     color: white;
 }
 
-/* ================= СТИЛИ ДЛЯ НЕВОЗМОЖНОГО КОЛЕСА ================= */
+/* Колесо */
 .sp-layout, .coin-layout, .mines-layout {
     display: flex; flex-direction: column; align-items: center; width: 100%; gap: 15px;
 }
@@ -346,7 +335,7 @@ input:focus { outline: none; border-color: #61dafb; }
 #spSpinBtn:disabled, #coinStartBtn:disabled, #minesStartBtn:disabled, #impStartBtn:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
 #spMessage, #coinMessage, #minesMessage, #impMessage { text-align: center; margin-top: 10px; font-weight: bold; min-height: 24px; }
 
-/* ================= СТИЛИ ДЛЯ МОНЕТКИ ================= */
+/* Монетка */
 .game-headline { margin: 0; font-size: 1.6rem; color: #FFC400; text-align: center; }
 .game-subline { margin: 2px 0 10px; font-size: 0.9rem; color: #aaa; text-align: center; }
 
@@ -389,7 +378,7 @@ input:focus { outline: none; border-color: #61dafb; }
     box-shadow: 0 0 15px rgba(255, 196, 0, 0.4);
 }
 
-/* ================= СТИЛИ ДЛЯ ВЕЗДЕ МИНЫ ================= */
+/* Мины */
 .mines-grid {
     display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
     width: 100%; max-width: 340px; aspect-ratio: 1 / 1;
@@ -431,7 +420,7 @@ input:focus { outline: none; border-color: #61dafb; }
     40%, 80% { transform: translateX(4px); }
 }
 
-/* ================= СТИЛИ ДЛЯ НЕВОЗМОЖНОЙ БАШНИ ================= */
+/* Башня */
 .imp-rows-container {
     display: flex;
     flex-direction: column;
@@ -492,7 +481,7 @@ input:focus { outline: none; border-color: #61dafb; }
 .imp-cell.lose { background: #FF1744 !important; color: white; }
 
 
-/* ================= СТИЛИ ДЛЯ ИГРЫ ВЗЛЕТ РАКЕТЫ (ДВОЙНЫЕ СТАВКИ) ================= */
+/* РАКЕТА (КОМПАКТНАЯ ВЕРСИЯ С РАЗДЕЛЬНЫМ КЭШАУТОМ) */
 .rocket-layout {
     display: flex;
     flex-direction: column;
@@ -621,52 +610,42 @@ input:focus { outline: none; border-color: #61dafb; }
     width: 100%;
     display: grid;
     grid-template-columns: 1fr 1fr; /* Две ставки бок о бок */
-    gap: 12px;
-}
-
-@media (max-width: 480px) {
-    .rocket-double-controls {
-        grid-template-columns: 1fr; /* На мелких экранах друг под другом */
-    }
+    gap: 10px;
 }
 
 .rocket-panel {
-    background: #1e1e1e;
-    border: 1.5px solid #333;
+    background: #1a1625;
+    border: 1.5px solid #443366;
     border-radius: 12px;
-    padding: 12px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
+    gap: 4px;
 }
 
 .rocket-panel-title {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: bold;
     color: #D500F9;
-    margin-bottom: 8px;
     text-transform: uppercase;
-    border-bottom: 1px solid #333;
-    padding-bottom: 4px;
+    border-bottom: 1px solid #332244;
+    padding-bottom: 2px;
+    text-align: center;
 }
 
 .rocket-input-group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin-bottom: 8px;
-}
-
-.rocket-input-group label {
-    font-size: 0.75rem;
-    color: #888;
 }
 
 .rocket-input-group input {
-    padding: 8px;
-    background: #252525;
-    border: 1px solid #444;
+    padding: 6px;
+    background: #120e1a;
+    border: 1px solid #553388;
     border-radius: 6px;
     color: white;
+    text-align: center;
+    font-size: 0.95rem;
 }
 
 /* Компактный автовывод */
@@ -674,11 +653,6 @@ input:focus { outline: none; border-color: #61dafb; }
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 5px;
-    margin-bottom: 4px;
-}
-
-.rocket-auto-header span {
     font-size: 0.75rem;
     color: #00E5FF;
     font-weight: bold;
@@ -689,51 +663,52 @@ input:focus { outline: none; border-color: #61dafb; }
     align-items: center;
     justify-content: space-between;
     background: rgba(255, 255, 255, 0.02);
-    border-radius: 8px;
-    padding: 2px;
+    border-radius: 6px;
+    padding: 1px;
     border: 1px solid rgba(0, 229, 255, 0.15);
 }
 
 .rocket-counter button {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
     background: #252525;
     border: 1px solid #3a3a3a;
     color: white;
     cursor: pointer;
     font-weight: bold;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     padding: 0;
+    margin: 0;
 }
 
 .rocket-counter span {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: bold;
     font-family: monospace;
 }
 
 .rocket-pnl-btn {
-    margin-top: 10px;
-    padding: 10px;
+    margin-top: 5px;
+    padding: 8px;
     font-weight: bold;
-    font-size: 0.95rem;
-    border-radius: 8px;
+    font-size: 0.85rem;
+    border-radius: 6px;
     cursor: pointer;
     border: none;
     transition: all 0.2s;
 }
 
 .btn-bet { background: #D500F9; color: white; }
-.btn-cash { background: #FF9100; color: black; }
-.btn-bet:disabled, .btn-cash:disabled { background: #333 !important; color: #666 !important; cursor: not-allowed; }
+.btn-cash { background: #00E676; color: black; }
+.btn-bet:disabled, .btn-cash:disabled { background: #2a2535 !important; color: #555 !important; cursor: not-allowed; }
 
-/* Кастомные переключатели (Toggle) */
+/* Тогглы */
 .rocket-switch {
     position: relative;
     display: inline-block;
-    width: 34px;
-    height: 16px;
+    width: 30px;
+    height: 14px;
 }
 .rocket-switch input { opacity: 0; width: 0; height: 0; }
 .rocket-slider {
@@ -741,13 +716,37 @@ input:focus { outline: none; border-color: #61dafb; }
     background-color: #333; transition: .3s; border-radius: 16px;
 }
 .rocket-slider:before {
-    position: absolute; content: ""; height: 10px; width: 10px; left: 3px; bottom: 3px;
+    position: absolute; content: ""; height: 8px; width: 8px; left: 3px; bottom: 3px;
     background-color: white; transition: .3s; border-radius: 50%;
 }
 .rocket-switch input:checked + .rocket-slider { background-color: #00FF88; }
-.rocket-switch input:checked + .rocket-slider:before { transform: translateX(18px); }
+.rocket-switch input:checked + .rocket-slider:before { transform: translateX(16px); }
 
-/* ================= СИСТЕМА УВЕДОМЛЕНИЙ НА САЙТЕ ================= */
+/* Дроны и байки */
+.drones-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+    width: 100%;
+}
+.drone-choice-btn {
+    padding: 10px 5px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    border: 2px solid #333;
+    border-radius: 10px;
+    background: #1e1e1e;
+    cursor: pointer;
+    color: white;
+}
+.drone-choice-btn.active {
+    box-shadow: 0 0 12px currentColor;
+    background: currentColor;
+    color: black !important;
+}
+
+/* Тосты */
 .toast-container {
     position: fixed;
     top: 20px;
@@ -794,95 +793,27 @@ input:focus { outline: none; border-color: #61dafb; }
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding-bottom: 4px;
 }
-.toast-title {
-    font-weight: bold;
-    color: #00FF88;
-    font-size: 0.95rem;
-}
-.toast-close-btn {
-    background: none;
-    border: none;
-    color: #888;
-    font-size: 1.15rem;
-    cursor: pointer;
-}
-.toast-body {
-    font-size: 0.85rem;
-    line-height: 1.4;
-    color: #ECEFF1;
-}
+.toast-title { font-weight: bold; color: #00FF88; font-size: 0.95rem; }
+.toast-close-btn { background: none; border: none; color: #888; font-size: 1.15rem; cursor: pointer; }
+.toast-body { font-size: 0.85rem; line-height: 1.4; color: #ECEFF1; }
 
-/* ================= СТИЛИ ДЛЯ ВЫВОДА СРЕДСТВ ================= */
-.withdraw-layout {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.withdraw-box {
-    width: 100%;
-    background: #1e1e1e;
-    border: 1px solid #333;
-    border-radius: 16px;
-    padding: 20px;
-}
-.withdraw-alert-info {
-    background: rgba(255, 179, 0, 0.08);
-    border: 1px solid #FFB300;
-    border-radius: 8px;
-    color: #FFB300;
-    padding: 12px;
-    font-size: 0.85rem;
-    margin: 15px 0;
-}
-#withdrawConfirmBtn {
-    background: #FFB300;
-    color: black;
-    font-weight: bold;
-    font-size: 1.1rem;
-    padding: 14px;
-    border-radius: 8px;
-    cursor: pointer;
-}
+/* Вывод */
+.withdraw-layout { width: 100%; display: flex; flex-direction: column; align-items: center; }
+.withdraw-box { width: 100%; background: #1e1e1e; border: 1px solid #333; border-radius: 16px; padding: 20px; }
+.withdraw-alert-info { background: rgba(255, 179, 0, 0.08); border: 1px solid #FFB300; border-radius: 8px; color: #FFB300; padding: 12px; font-size: 0.85rem; margin: 15px 0; }
+#withdrawConfirmBtn { background: #FFB300; color: black; font-weight: bold; font-size: 1.1rem; padding: 14px; border-radius: 8px; cursor: pointer; }
 
-/* Модальные окна */
+/* Модалки */
 .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); }
-.modal-content {
-    background-color: #1e1e1e; margin: 15% auto; padding: 25px; border: 1px solid #333;
-    width: 90%; max-width: 360px; border-radius: 16px; position: relative; text-align: center;
-}
+.modal-content { background-color: #1e1e1e; margin: 15% auto; padding: 25px; border: 1px solid #333; width: 90%; max-width: 360px; border-radius: 16px; position: relative; text-align: center; }
 .close-btn { position: absolute; right: 15px; top: 10px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
 .requisites-box { background: #121212; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px dashed #61dafb; }
 .requisites-box code { font-size: 1.25em; color: #61dafb; font-weight: bold; }
 
 /* Админка */
-#adminPanel { width: 100%; max-width: 500px; background: #2e1f1f; border: 2px solid #ff1744; border-radius: 12px; padding: 15px; margin-top: 20px; }
+#adminPanel { width: 100%; max-width: 500px; background: #2e1f1f; border: 2px solid #ff1744; border-radius: 12px; padding: 15px; }
 #adminPanel h2 { margin-top: 0; color: #ff1744; text-align: center; }
 .admin-req-item { background: #121212; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #ff9100; }
 .admin-btns { display: flex; gap: 10px; margin-top: 8px; }
-.admin-approve-btn { background: #00E676; color: black; font-weight: bold;}
-.admin-decline-btn { background: #ff1744; color: white; font-weight: bold;}
-
-/* СТИЛИ ДЛЯ ИГРЫ "ГОНКА ДРОНОВ" */
-.drones-choice-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-top: 10px;
-    width: 100%;
-}
-.drone-choice-btn {
-    padding: 10px 5px;
-    font-size: 0.85rem;
-    font-weight: bold;
-    border: 2px solid #333;
-    border-radius: 10px;
-    background: #1e1e1e;
-    cursor: pointer;
-    color: white;
-}
-.drone-choice-btn.active {
-    box-shadow: 0 0 12px currentColor;
-    background: currentColor;
-    color: black !important;
-                          }
+.admin-approve-btn { background: #00E676; color: black; font-weight: bold; }
+.admin-decline-btn { background: #ff1744; color: white; font-weight: bold; }
